@@ -1,0 +1,1039 @@
+# Parlera curriculum: Swedish (from zero to B2)
+#
+# Structure: levels (CEFR) -> units. Every unit is used to build the tutor's lesson plan.
+# Unit fields:
+#   id, title          required; ids must be unique and stay stable (progress is stored per id)
+#   topic              one-line description
+#   can_do             what the learner can do after the unit (used to measure mastery)
+#   grammar            grammar points
+#   vocabulary         "word = meaning" (nouns with en/ett)
+#   phrases            "phrase = meaning"
+#   pronunciation      focus sounds
+#   culture            short culture note
+#   scenarios          role-play ideas
+#   min_sessions       sessions before the app suggests moving on (default 2 at A1/A2, else 1)
+#
+# Edit freely in the app (Curriculum -> Edit YAML) or in any text editor.
+
+language: sv
+name: Swedish
+native_name: Svenska
+description: >
+  A speaking-first course from absolute beginner to B2, aligned with the CEFR and preparing for
+  Swedex (A2/B1/B2) and, long-term, TISUS (university entry). Each unit is practised in several
+  short spoken sessions; vocabulary goes to Anki after each session.
+
+exams:
+  - id: swedex
+    name: Swedex
+    levels: [A2, B1, B2]
+    description: >
+      International CEFR-based Swedish exam (reading, listening, writing, speaking).
+      Check the current format and dates on the official Swedex website before you book.
+  - id: tisus
+    name: TISUS
+    levels: [C1]
+    description: >
+      Test i svenska för universitets- och högskolestudier, the university-entry exam (roughly C1).
+      Includes reading, writing and an oral part with a presentation and discussion.
+  - id: sfi
+    name: SFI national tests
+    levels: [A1, A2, B1]
+    description: Swedish for immigrants, courses B–D. Useful benchmarks if you live in Sweden.
+
+levels:
+  - code: A1
+    title: Nybörjare – Breakthrough
+    description: Understand and use everyday expressions and very basic phrases. Introduce yourself and ask simple questions.
+    exam:
+      name: A1 speaking check (SFI course B level)
+      format: |
+        There is no major international Swedish exam at A1; we simulate a short oral check.
+        Part 1 – Presentation (1–2 min): name, where you are from, where you live, family, work/studies.
+        Part 2 – Questions (2–3 min): the examiner asks simple questions about daily life, likes and free time.
+        Part 3 – Simple role-play (2 min): e.g. buying something in a café or shop, asking for prices.
+      scoring: "out of 25: task 8, vocabulary 5, grammar 5, pronunciation 4, interaction 3"
+    units:
+      - id: sv-a1-01
+        title: Hej! – Greetings & introductions
+        topic: Say hello and goodbye, introduce yourself, ask someone's name and how they are.
+        can_do:
+          - Greet people and say goodbye in informal and slightly more formal situations
+          - Say your name and ask for someone else's name
+          - Ask how someone is and answer
+          - Use the basic polite words (tack, förlåt, ursäkta)
+        grammar:
+          - "Personal pronouns: jag, du, han, hon, vi, ni, de"
+          - "Verbs don't change with the person: jag heter, du heter, hon heter; jag är, du är"
+          - "Basic statement: subject + verb (Jag heter Sam). Question words first: Vad heter du?"
+        vocabulary:
+          - hej = hi, hello
+          - hejsan = hi (friendly)
+          - god morgon = good morning
+          - hej då = goodbye
+          - vi ses = see you
+          - tack = thanks
+          - tack så mycket = thank you very much
+          - varsågod = here you are / you're welcome
+          - förlåt = sorry
+          - ursäkta = excuse me
+          - ja = yes
+          - nej = no
+          - jag = I
+          - du = you
+          - heta = to be called
+          - bra = good, well
+          - och = and
+        phrases:
+          - Vad heter du? = What's your name?
+          - Jag heter … = My name is …
+          - Hur mår du? = How are you?
+          - Jag mår bra, tack. = I'm fine, thanks.
+          - Och du? = And you?
+          - Trevligt att träffas! = Nice to meet you!
+          - Hur är läget? = How's it going? (casual)
+        pronunciation: >
+          The nine vowels, especially å, ä and ö. Long vs. short vowels (a long vowel before one
+          consonant, short before two: tak – tack, glas – glass). "Hej" rhymes with English "hey".
+        culture: >
+          Swedes say "hej" to almost everyone — the shop assistant, your boss, the king. Everyone
+          uses "du" and first names. "Tack" is said constantly.
+        scenarios:
+          - Meeting a new colleague on your first day at work
+          - Saying hello to a neighbour in the stairwell
+          - Introducing yourself at a language café
+
+      - id: sv-a1-02
+        title: Var kommer du ifrån? – Countries & languages
+        topic: Say where you come from, where you live and which languages you speak.
+        can_do:
+          - Say where you are from and where you live
+          - Say which languages you speak and how well
+          - Ask simple yes/no questions and questions with question words
+          - Ask someone to repeat or speak more slowly
+        grammar:
+          - "Present tense ends in -r for every person: jag bor, du kommer, vi talar"
+          - "Yes/no questions by putting the verb first: Talar du svenska?"
+          - "Question words: vad, var, vem, hur, varifrån, vilken"
+          - "ja / nej / jo (jo = yes, answering a negative question: Talar du inte svenska? – Jo!)"
+        vocabulary:
+          - Sverige = Sweden
+          - svenska = Swedish (language)
+          - svensk = Swedish (adjective / a Swede)
+          - engelska = English (language)
+          - Frankrike = France
+          - franska = French (language)
+          - Tyskland = Germany
+          - tyska = German (language)
+          - ett land = a country
+          - ett språk = a language
+          - en stad = a city
+          - bo = to live
+          - komma = to come
+          - prata = to talk, speak
+          - tala = to speak
+          - lite = a little
+          - inte = not
+          - också = also, too
+        phrases:
+          - Var kommer du ifrån? = Where are you from?
+          - Jag kommer från … = I come from …
+          - Var bor du? = Where do you live?
+          - Jag bor i … = I live in …
+          - Talar du engelska? = Do you speak English?
+          - Jag pratar lite svenska. = I speak a little Swedish.
+          - Kan du säga det igen? = Can you say that again?
+          - Långsammare, tack. = Slower, please.
+          - Vad betyder …? = What does … mean?
+        pronunciation: >
+          Word stress usually falls on the first syllable (SVENska, ENGelska). The "sv-" cluster.
+          Long "o" in "bo" sounds close to English "oo".
+        culture: >
+          Country names are capitalised, but languages and nationalities are not: svenska, engelska,
+          en svensk. Most Swedes speak excellent English — politely ask them to stay in Swedish:
+          "Kan vi prata svenska?"
+        scenarios:
+          - Small talk at a party with someone who asks where you are from
+          - Signing up for a Swedish course
+
+      - id: sv-a1-03
+        title: Siffror och tid – Numbers, age & time
+        topic: Count, say your age and phone number, tell the time, days of the week.
+        can_do:
+          - Count from 0 to 100 and understand prices and phone numbers
+          - Say how old you are and ask someone's age
+          - Ask and tell the time (full hours, half hours, quarters)
+          - Name the days of the week and say when something happens
+        grammar:
+          - "Numbers: en/ett for 1 depending on the noun (en kopp, ett äpple)"
+          - "Age: Jag är trettio år (gammal)."
+          - "Time: klockan är tre; halv fyra = 3:30 (half TO four!); kvart över tre; kvart i fyra"
+          - "Days are not capitalised: på måndag (on Monday), på måndagar (on Mondays)"
+        vocabulary:
+          - noll, ett, två, tre, fyra, fem = 0, 1, 2, 3, 4, 5
+          - sex, sju, åtta, nio, tio = 6, 7, 8, 9, 10
+          - elva, tolv, tretton, fjorton, femton = 11–15
+          - tjugo, trettio, fyrtio, femtio, hundra = 20, 30, 40, 50, 100
+          - klockan = the clock / o'clock
+          - halv = half (to the next hour)
+          - en kvart = a quarter of an hour
+          - över = past
+          - i = to (when telling the time)
+          - måndag, tisdag, onsdag = Monday, Tuesday, Wednesday
+          - torsdag, fredag, lördag, söndag = Thursday, Friday, Saturday, Sunday
+          - i dag = today
+          - i morgon = tomorrow
+          - gammal = old
+          - ett år = a year
+        phrases:
+          - Hur gammal är du? = How old are you?
+          - Jag är … år. = I'm … years old.
+          - Vad är klockan? = What time is it?
+          - Klockan är halv fyra. = It's half past three (3:30).
+          - Vad är ditt telefonnummer? = What's your phone number?
+          - Vilken dag är det i dag? = What day is it today?
+        pronunciation: >
+          The sj-sound in "sju" vs. the tj-sound in "tjugo" — a classic contrast. "Fyrtio" is said
+          "förti", "trettio" is "tretti", "sjuttio" is "sjutti".
+        culture: >
+          Sweden uses the 24-hour clock in writing (14.30) and the week starts on Monday. Dates are
+          written day/month or year-month-day (2026-11-22).
+        scenarios:
+          - Booking a time at the hairdresser by phone
+          - Exchanging phone numbers with a new friend
+
+      - id: sv-a1-04
+        title: Familjen – Family & possessives
+        topic: Talk about your family and the people close to you.
+        can_do:
+          - Talk about your family members (names, ages, where they live, jobs)
+          - Ask about someone's family
+          - Use my/your/his/her correctly with en- and ett-words
+        grammar:
+          - "en-words and ett-words (en bror, ett barn) — always learn the noun with its article"
+          - "Possessives agree with the noun: min/mitt/mina, din/ditt/dina (min bror, mitt barn, mina syskon)"
+          - "hans, hennes, deras don't change"
+          - "ha (to have): jag har, du har …"
+        vocabulary:
+          - en familj = a family
+          - en mamma = a mum
+          - en pappa = a dad
+          - en förälder = a parent (föräldrar = parents)
+          - en bror = a brother (bröder)
+          - en syster = a sister (systrar)
+          - ett syskon = a sibling
+          - ett barn = a child (barn = children)
+          - en son = a son
+          - en dotter = a daughter
+          - en man = a man / husband
+          - en fru = a wife
+          - en sambo = a live-in partner
+          - en mormor = a grandmother (mother's mother)
+          - en farfar = a grandfather (father's father)
+          - en kompis = a friend, mate
+          - gift = married
+        phrases:
+          - Har du syskon? = Do you have any brothers or sisters?
+          - Jag har en bror och två systrar. = I have one brother and two sisters.
+          - Min syster heter … = My sister is called …
+          - Hon bor i … = She lives in …
+          - Vad jobbar han med? = What does he do (for work)?
+          - Jag är gift / singel. = I'm married / single.
+        pronunciation: >
+          r + d, n, t, s merge into "retroflex" sounds: barn, bord, fort, mors dag. Try "barnen"
+          and "Lars".
+        culture: >
+          Living together as "sambo" is very common and legally recognised. Grandparents are named
+          by side: mormor, morfar, farmor, farfar.
+        scenarios:
+          - Showing family photos on your phone to a colleague
+          - Talking about your family at dinner
+
+      - id: sv-a1-05
+        title: Fika och mat – Food, drinks & ordering
+        topic: Order in a café, talk about food you like, pay.
+        can_do:
+          - Order food and drinks in a café
+          - Say what you like and don't like eating and drinking
+          - Ask about prices and pay
+        grammar:
+          - "Definite singular: en kaka → kakan, ett äpple → äpplet"
+          - "Polite requests: Kan jag få …? / Jag skulle vilja ha …"
+          - "Negation: inte comes after the verb (Jag dricker inte kaffe)"
+        vocabulary:
+          - en fika = a coffee break with something sweet
+          - kaffe = coffee
+          - te = tea
+          - en kanelbulle = a cinnamon bun
+          - en kaka = a cake, cookie
+          - en smörgås = a sandwich (open)
+          - vatten = water
+          - mjölk = milk
+          - socker = sugar
+          - en kopp = a cup
+          - ett glas = a glass
+          - gott = tasty
+          - dricka = to drink
+          - äta = to eat
+          - betala = to pay
+          - ett kort = a card
+        phrases:
+          - Kan jag få en kaffe, tack? = Can I have a coffee, please?
+          - Jag tar en kanelbulle. = I'll have a cinnamon bun.
+          - Något mer? = Anything else?
+          - Nej tack, det är bra så. = No thanks, that's all.
+          - Vad kostar det? = How much is it?
+          - Kan jag betala med kort? = Can I pay by card?
+          - Det var jättegott! = That was really tasty!
+        pronunciation: >
+          k before e, i, y, ä, ö becomes the soft tj-sound (köpa, kött), but stays hard in kaffe,
+          kaka. "Smörgås" — two long vowels.
+        culture: >
+          Fika is a daily institution, at work often twice a day. Sweden is almost cashless — cards
+          and the Swish app. A "påtår" is a free coffee refill.
+        scenarios:
+          - Ordering fika for you and a friend in a café in Stockholm
+          - Buying lunch at a workplace canteen
+
+      - id: sv-a1-06
+        title: Hemma – Home & where things are
+        topic: Describe your home and say where things are.
+        can_do:
+          - Describe your home (type, size, rooms)
+          - Say what there is in a room
+          - Say where things are
+        grammar:
+          - "det finns = there is / there are"
+          - "Prepositions of place: i, på, under, bredvid, framför, bakom, mellan"
+          - "den (en-words) / det (ett-words) = it"
+          - "Position verbs (intro): ligger, står, sitter, hänger"
+        vocabulary:
+          - en lägenhet = an apartment
+          - ett hus = a house
+          - ett rum = a room
+          - ett kök = a kitchen
+          - ett badrum = a bathroom
+          - ett sovrum = a bedroom
+          - ett vardagsrum = a living room
+          - en säng = a bed
+          - ett bord = a table
+          - en stol = a chair
+          - en soffa = a sofa
+          - ett fönster = a window
+          - en dörr = a door
+          - stor = big
+          - liten = small
+          - ny = new
+        phrases:
+          - Jag bor i en lägenhet. = I live in an apartment.
+          - Det finns två rum och ett kök. = There are two rooms and a kitchen.
+          - Var är nyckeln? = Where's the key?
+          - Den ligger på bordet. = It's (lying) on the table.
+          - Hur många rum har du? = How many rooms do you have?
+        pronunciation: >
+          g before e, i, y, ä, ö sounds like English "y" (göra, gärna, Göteborg).
+        culture: >
+          Flat adverts say "2 rok" = två rum och kök (two rooms plus kitchen). Many live in a
+          "hyresrätt" (rental) or own a "bostadsrätt".
+        scenarios:
+          - Describing your flat to a friend on the phone
+          - Looking at a flat with an estate agent
+
+      - id: sv-a1-07
+        title: Min dag – Daily routine
+        topic: Describe a normal day and say when you do things.
+        can_do:
+          - Describe your daily routine in order
+          - Say at what time you do things
+          - Say how often you do things
+        grammar:
+          - "V2 word order: when a time word comes first, the verb comes second (På morgonen dricker jag kaffe)"
+          - "Reflexive verbs: jag tvättar mig, du lägger dig, hon klär på sig"
+          - "Verb groups in the present: jobba – jobbar, läsa – läser, bo – bor"
+        vocabulary:
+          - vakna = to wake up
+          - stiga upp = to get up
+          - duscha = to shower
+          - äta frukost = to have breakfast
+          - åka = to go (by vehicle)
+          - jobba = to work
+          - plugga = to study (casual)
+          - laga mat = to cook
+          - titta på tv = to watch TV
+          - lägga sig = to go to bed
+          - sova = to sleep
+          - på morgonen = in the morning
+          - på kvällen = in the evening
+          - sedan = then, afterwards
+          - alltid = always
+          - ofta = often
+          - ibland = sometimes
+          - aldrig = never
+        phrases:
+          - Jag vaknar klockan sju. = I wake up at seven.
+          - Sedan äter jag frukost. = Then I have breakfast.
+          - På kvällen tittar jag på tv. = In the evening I watch TV.
+          - Vad gör du på helgen? = What do you do at the weekend?
+          - Jag går och lägger mig klockan elva. = I go to bed at eleven.
+        pronunciation: >
+          sk before e, i, y, ä, ö → sj-sound (skina, sked, skön). "Sedan" is usually said "sen".
+        culture: >
+          "Lagom" — not too much, not too little. Swedes often eat dinner early (17–18) and many
+          workplaces have flexible hours.
+        scenarios:
+          - Comparing your routine with a Swedish colleague
+          - Answering a survey about your habits
+
+      - id: sv-a1-08
+        title: Handla – Shopping, clothes & colours
+        topic: Buy things, ask for sizes and prices, describe clothes.
+        can_do:
+          - Ask for items, sizes and prices in a shop
+          - Describe clothes using colours and simple adjectives
+          - Say what you want to buy and decide
+        grammar:
+          - "Adjective agreement: en röd tröja, ett rött hus, röda skor"
+          - "den här / det här / de här = this / these"
+          - "Plural (intro): -or, -ar, -er (flickor, bilar, skor)"
+        vocabulary:
+          - handla = to shop
+          - köpa = to buy
+          - kosta = to cost
+          - en krona = a krona (kronor)
+          - billig = cheap
+          - dyr = expensive
+          - en tröja = a sweater
+          - en jacka = a jacket
+          - byxor = trousers
+          - en skjorta = a shirt
+          - skor = shoes
+          - en storlek = a size
+          - röd = red
+          - blå = blue
+          - grön = green
+          - svart = black
+          - vit = white
+          - gul = yellow
+        phrases:
+          - Vad kostar den här? = How much is this?
+          - Den kostar 299 kronor. = It costs 299 kronor.
+          - Har ni den i storlek M? = Do you have it in size M?
+          - Får jag prova den? = May I try it on?
+          - Jag tar den. = I'll take it.
+          - Jag tittar bara. = I'm just looking.
+        pronunciation: >
+          "skjorta" starts with the sj-sound. Practise "rött" (short ö) vs. "röd" (long ö).
+        culture: >
+          "Rea" means sale. "Ni" is used when talking to a shop as a business ("Har ni …?").
+        scenarios:
+          - Buying a winter jacket in a clothes shop
+          - Returning shoes that are the wrong size
+
+      - id: sv-a1-09
+        title: I stan – Getting around town
+        topic: Ask for and give directions, use public transport, buy a ticket.
+        can_do:
+          - Ask for directions and understand simple answers
+          - Give simple directions
+          - Buy a ticket and ask about transport
+        grammar:
+          - "Imperative = the verb stem: gå!, sväng!, ta!"
+          - "Var ligger …? (where is … located)"
+          - "Movement prepositions: till, från, med (med bussen), genom, förbi"
+        vocabulary:
+          - en station = a station
+          - en buss = a bus
+          - ett tåg = a train
+          - tunnelbanan = the metro
+          - en biljett = a ticket
+          - en gata = a street
+          - ett torg = a square
+          - en affär = a shop
+          - ett apotek = a pharmacy
+          - rakt fram = straight ahead
+          - till vänster = to the left
+          - till höger = to the right
+          - nära = near
+          - långt = far
+          - gå = to walk, go
+          - svänga = to turn
+        phrases:
+          - Ursäkta, var ligger stationen? = Excuse me, where's the station?
+          - Gå rakt fram och sväng till vänster. = Go straight ahead and turn left.
+          - Är det långt härifrån? = Is it far from here?
+          - En biljett till Göteborg, tack. = A ticket to Gothenburg, please.
+          - Vilken buss går till centrum? = Which bus goes to the centre?
+        pronunciation: >
+          "Göteborg" — the g's are soft: roughly "Yöte-borj". Long å in "tåg".
+        culture: >
+          Public transport is often paid with an app or card (SL in Stockholm, Västtrafik in
+          Gothenburg). "Gå" means walking — use "åka" when you go by bus, train or car.
+        scenarios:
+          - Asking a stranger the way to the museum
+          - Buying a train ticket at the station
+
+      - id: sv-a1-10
+        title: Fritid – Free time & likes
+        topic: Talk about hobbies, likes and dislikes, make plans with friends.
+        can_do:
+          - Talk about your hobbies and how often you do them
+          - Say what you like, love and don't like doing
+          - Suggest doing something and accept or decline
+        grammar:
+          - "Modal verbs + infinitive WITHOUT att: kan, vill, måste, ska, får (Jag vill simma)"
+          - "tycka om att / gilla att + infinitive (Jag gillar att läsa)"
+          - "Suggestions: Ska vi …? (Shall we …?)"
+        vocabulary:
+          - fritid = free time
+          - träna = to work out
+          - springa = to run
+          - simma = to swim
+          - läsa = to read
+          - spela = to play (games, instruments)
+          - fotboll = football
+          - musik = music
+          - gå på bio = to go to the cinema
+          - ta en promenad = to go for a walk
+          - resa = to travel
+          - gilla = to like
+          - tycka om = to like
+          - älska = to love
+          - kul = fun
+          - tråkigt = boring
+        phrases:
+          - Vad gör du på fritiden? = What do you do in your free time?
+          - Jag gillar att läsa. = I like reading.
+          - Ska vi gå på bio på lördag? = Shall we go to the cinema on Saturday?
+          - Det låter kul! = That sounds fun!
+          - Tyvärr kan jag inte. = Unfortunately I can't.
+          - Vilken tid passar dig? = What time suits you?
+        pronunciation: >
+          Long vs. short u: "kul" (fun, long) vs. "kull" (litter, short).
+        culture: >
+          "Friluftsliv" (outdoor life) is huge, and the "allemansrätten" lets everyone walk, camp
+          and pick berries in nature.
+        scenarios:
+          - Inviting a colleague to go running
+          - Planning the weekend with a friend
+
+      - id: sv-a1-11
+        title: Väder och årstider – Weather, seasons & plans
+        topic: Talk about the weather, seasons, months and future plans.
+        can_do:
+          - Talk about today's weather and the forecast
+          - Name the seasons and months
+          - Talk about plans for the weekend or holidays
+        grammar:
+          - "det-sentences: det regnar, det snöar, det är kallt"
+          - "Future: ska + infinitive (plan), kommer att + infinitive (prediction), present + time word"
+          - "Months and seasons are not capitalised: i januari, på sommaren, i sommar"
+        vocabulary:
+          - vädret = the weather
+          - solen = the sun
+          - regn = rain
+          - snö = snow
+          - det regnar = it's raining
+          - det snöar = it's snowing
+          - varmt = warm
+          - kallt = cold
+          - molnigt = cloudy
+          - soligt = sunny
+          - en vår = a spring
+          - en sommar = a summer
+          - en höst = an autumn
+          - en vinter = a winter
+          - en grad = a degree (grader)
+          - semester = holiday, vacation
+        phrases:
+          - Hur är vädret i dag? = What's the weather like today?
+          - Det är soligt och tjugo grader. = It's sunny and twenty degrees.
+          - Vad ska du göra i sommar? = What are you going to do this summer?
+          - Det kommer att regna i morgon. = It's going to rain tomorrow.
+          - Jag ska åka till skärgården. = I'm going to the archipelago.
+        pronunciation: >
+          The pitch accent: "anden" (the duck / the spirit) — just listen to the melody, don't worry yet.
+        culture: >
+          Midsummer and the endless light summer nights; long dark winters with candles everywhere.
+          Saying: "Det finns inget dåligt väder, bara dåliga kläder."
+        scenarios:
+          - Small talk about the weather at the bus stop
+          - Telling a friend about your summer plans
+
+      - id: sv-a1-12
+        title: Repetition – A1 review & speaking check
+        topic: Review all A1 material and do a first speaking check.
+        can_do:
+          - Hold a simple 5-minute conversation about yourself, your family, your day and your free time
+          - Understand and answer slow, clear questions on familiar topics
+          - Handle a simple shop or café transaction
+        grammar:
+          - "Review: V2 word order, inte placement, en/ett and definite forms, present tense, modal verbs"
+        vocabulary: []
+        phrases: []
+        scenarios:
+          - A get-to-know-you conversation with a new neighbour
+          - A short A1 oral check with an examiner
+        min_sessions: 1
+
+  - code: A2
+    title: Grundläggande – Waystage
+    description: Handle short social exchanges, talk about the past and plans, describe your background and needs.
+    exam:
+      name: Swedex A2 (oral part)
+      format: |
+        Part 1 – Introduction and interview (2–3 min): questions about yourself, work, studies, free time.
+        Part 2 – Describe and tell (2–3 min): talk about a familiar topic or a past experience (e.g. last holiday).
+        Part 3 – Interaction (3 min): a role-play of an everyday situation (booking, buying, solving a small problem).
+        (Formats change — check the current Swedex specifications before your exam.)
+      scoring: "out of 25: task completion, vocabulary, grammar, pronunciation, interaction (5 each)"
+    units:
+      - id: sv-a2-01
+        title: Vad gjorde du i helgen? – The past
+        topic: Talk about what you did yesterday, last weekend and last year.
+        can_do:
+          - Tell someone what you did last weekend
+          - Ask others about past events
+          - Use time expressions for the past
+        grammar:
+          - "Past tense (preteritum) by verb group: jobbade, läste, bodde, skrev/drack (strong verbs)"
+          - "Time expressions: i går, i förrgår, förra veckan, för två år sedan"
+          - "V2 after time expressions: I går åt vi middag hos Anna."
+        vocabulary:
+          - en helg = a weekend
+          - i går = yesterday
+          - förra veckan = last week
+          - för … sedan = … ago
+          - träffa = to meet
+          - besöka = to visit
+          - en fest = a party
+          - trött = tired
+          - roligt = fun
+          - hända = to happen
+        phrases:
+          - Vad gjorde du i helgen? = What did you do at the weekend?
+          - Jag träffade några vänner. = I met some friends.
+          - Det var jättekul! = It was great fun!
+          - Vad hände sedan? = What happened next?
+        scenarios:
+          - Monday morning chat at the coffee machine
+
+      - id: sv-a2-02
+        title: Resor – Travel & experiences
+        topic: Travel, booking, and talking about experiences.
+        can_do:
+          - Book a hotel room or a ticket
+          - Talk about places you have been to
+          - Describe a trip
+        grammar:
+          - "Perfect tense: har + supinum (har varit, har rest, har ätit)"
+          - "Preteritum vs. perfekt: specific time (i fjol reste jag) vs. experience (har du varit i Kiruna?)"
+        vocabulary:
+          - en resa = a trip
+          - boka = to book
+          - ett hotell = a hotel
+          - ett rum = a room
+          - en flygplats = an airport
+          - en semester = a holiday
+          - stranden = the beach
+          - fjällen = the mountains
+          - packa = to pack
+          - utsikten = the view
+        phrases:
+          - Har du varit i Norrland? = Have you been to Norrland?
+          - Jag skulle vilja boka ett dubbelrum. = I'd like to book a double room.
+          - Hur lång tid tar det? = How long does it take?
+          - Det var en fantastisk resa. = It was a fantastic trip.
+        scenarios:
+          - Checking in at a hotel in Visby
+          - Telling a friend about your best trip
+
+      - id: sv-a2-03
+        title: Hälsa – Health & the body
+        topic: Body parts, feeling ill, at the doctor's or pharmacy.
+        can_do:
+          - Say how you feel and where it hurts
+          - Book an appointment and describe symptoms
+          - Understand and give simple advice
+        grammar:
+          - "Jag har ont i … (huvudet, magen, ryggen) — definite form for body parts"
+          - "Advice: du borde, du ska, du måste"
+        vocabulary:
+          - huvudet = the head
+          - magen = the stomach
+          - halsen = the throat
+          - ryggen = the back
+          - feber = fever
+          - förkyld = having a cold
+          - sjuk = ill
+          - en läkare = a doctor
+          - vårdcentralen = the health centre
+          - en tid = an appointment
+        phrases:
+          - Jag har ont i halsen. = I have a sore throat.
+          - Jag känner mig inte bra. = I don't feel well.
+          - Jag skulle vilja boka en tid. = I'd like to book an appointment.
+          - Du borde vila. = You should rest.
+        culture: >
+          In Sweden you call 1177 for health advice and go to the "vårdcentral" first. Calling in
+          sick is "sjukanmäla sig"; staying home with a sick child is "vabba".
+        scenarios:
+          - Calling the health centre to book an appointment
+          - Buying medicine at the pharmacy
+
+      - id: sv-a2-04
+        title: Jobb och studier – Work & studies
+        topic: Your job or studies, a typical workday, reasons and explanations.
+        can_do:
+          - Describe your job or studies and your workplace
+          - Explain why you do something
+          - Connect sentences with att, eftersom, när, om
+        grammar:
+          - "Subordinate clauses: att, eftersom, när, om, för att"
+          - "BIFF rule: in subordinate clauses inte comes BEFORE the verb (… eftersom jag inte har tid)"
+        vocabulary:
+          - ett jobb = a job
+          - en arbetsplats = a workplace
+          - en kollega = a colleague
+          - en chef = a boss
+          - ett möte = a meeting
+          - en kurs = a course
+          - plugga = to study
+          - eftersom = because, since
+          - heltid = full time
+          - deltid = part time
+        phrases:
+          - Vad jobbar du med? = What do you do for a living?
+          - Jag jobbar som … = I work as …
+          - Jag lär mig svenska eftersom … = I'm learning Swedish because …
+          - Jag tror att det är bra. = I think that it's good.
+        scenarios:
+          - Explaining your job at a dinner party
+
+      - id: sv-a2-05
+        title: Boende och jämförelser – Housing & comparisons
+        topic: Compare places, homes and things; talk about where you'd like to live.
+        can_do:
+          - Compare two places, homes or things
+          - Say what is best, worst, biggest
+          - Describe your neighbourhood
+        grammar:
+          - "Comparative and superlative: stor – större – störst, bra – bättre – bäst, dålig – sämre – sämst"
+          - "mer / mest with long adjectives (mer intressant)"
+          - "lika … som (as … as)"
+        vocabulary:
+          - ett område = an area
+          - en granne = a neighbour
+          - lugn = calm, quiet
+          - centralt = central
+          - billigare = cheaper
+          - hyran = the rent
+          - en balkong = a balcony
+          - på landet = in the countryside
+        phrases:
+          - Stockholm är större än Uppsala. = Stockholm is bigger than Uppsala.
+          - Det bästa med mitt område är … = The best thing about my area is …
+          - Jag skulle hellre bo på landet. = I would rather live in the countryside.
+        scenarios:
+          - Discussing two flats with your partner
+
+      - id: sv-a2-06
+        title: Traditioner och högtider – Traditions & holidays
+        topic: Swedish holidays and traditions, and comparing them with your own.
+        can_do:
+          - Describe a holiday or tradition
+          - Talk about what you usually do at holidays
+          - Compare traditions in different countries
+        grammar:
+          - "Plural forms (the five groups): flickor, bilar, telefoner, äpplen, hus"
+          - "Definite plural: bilarna, husen, äpplena"
+        vocabulary:
+          - midsommar = midsummer
+          - jul = Christmas
+          - påsk = Easter
+          - Lucia = St Lucia's Day (13 December)
+          - fira = to celebrate
+          - en tradition = a tradition
+          - en present = a present
+          - sill = herring
+        phrases:
+          - Hur firar ni jul i ditt land? = How do you celebrate Christmas in your country?
+          - På midsommar dansar man runt midsommarstången. = At midsummer you dance around the maypole.
+          - God jul och gott nytt år! = Merry Christmas and a happy New Year!
+        scenarios:
+          - Being invited to a Swedish midsummer party
+
+      - id: sv-a2-07
+        title: Planer och drömmar – Plans & dreams
+        topic: Future plans, wishes, and what you would do if…
+        can_do:
+          - Talk about short- and long-term plans
+          - Express wishes and dreams
+          - Describe people and things with relative clauses
+        grammar:
+          - "skulle + infinitive for wishes and polite requests (Jag skulle vilja …)"
+          - "Relative clauses with som (en vän som bor i Malmö)"
+          - "om-clauses: Om jag har tid, kommer jag."
+        vocabulary:
+          - en plan = a plan
+          - en dröm = a dream
+          - hoppas = to hope
+          - drömma om = to dream about
+          - flytta = to move
+          - framtiden = the future
+          - spara = to save (money)
+          - kanske = maybe
+        phrases:
+          - Jag hoppas att … = I hope that …
+          - I framtiden vill jag … = In the future I want to …
+          - Om jag har tid, … = If I have time, …
+        scenarios:
+          - Talking about your dreams with a friend at a café
+
+      - id: sv-a2-08
+        title: Repetition A2 & Swedex A2 practice
+        topic: Review of A2 and an oral exam simulation.
+        can_do:
+          - Complete all parts of an A2 oral exam
+          - Talk for 2 minutes about a past experience
+          - Solve an everyday problem in a role-play
+        grammar:
+          - "Review: past and perfect tense, subordinate clauses and BIFF, comparisons, plurals"
+        vocabulary: []
+        phrases: []
+        scenarios:
+          - A full Swedex A2 oral simulation
+        min_sessions: 1
+
+  - code: B1
+    title: Självständig – Threshold
+    description: Deal with most everyday situations, describe experiences and plans, give opinions and reasons.
+    exam:
+      name: Swedex B1 (oral part)
+      format: |
+        Part 1 – Interview (3 min): questions about your background, work, interests and plans.
+        Part 2 – Presentation (3 min): talk about a given everyday or social topic and give your opinion.
+        Part 3 – Discussion (4–5 min): discuss a problem or choice with the examiner, agree, disagree, suggest solutions.
+      scoring: "out of 25: task completion, range, accuracy, fluency & pronunciation, interaction (5 each)"
+    units:
+      - id: sv-b1-01
+        title: Åsikter – Opinions
+        topic: Give and justify opinions, agree and disagree politely.
+        can_do:
+          - Give your opinion with reasons
+          - Agree, disagree and ask for others' opinions
+        grammar:
+          - "tycka (opinion) vs. tro (belief) vs. tänka (think/plan)"
+          - "Connectors: dessutom, däremot, å ena sidan … å andra sidan"
+        vocabulary:
+          - en åsikt = an opinion
+          - anse = to consider, hold the view
+          - hålla med = to agree
+          - en fördel = an advantage
+          - en nackdel = a disadvantage
+          - däremot = on the other hand
+        phrases:
+          - Jag tycker att … eftersom … = I think that … because …
+          - Jag håller inte riktigt med. = I don't quite agree.
+          - Vad anser du om …? = What's your view on …?
+        scenarios:
+          - Discussing whether cars should be banned from the city centre
+
+      - id: sv-b1-02
+        title: Nyheter och samhälle – News & society
+        topic: Talk about news, media and Swedish society.
+        can_do:
+          - Summarise a news item
+          - Discuss social topics in simple terms
+        grammar:
+          - "Passive with -s: det byggs, boken skrevs, man (one)"
+        vocabulary:
+          - en nyhet = a piece of news
+          - samhället = society
+          - regeringen = the government
+          - ett val = an election
+          - en undersökning = a survey
+          - öka = to increase
+          - minska = to decrease
+        phrases:
+          - Jag läste att … = I read that …
+          - Enligt nyheterna … = According to the news …
+        scenarios:
+          - Telling a colleague about a news story
+
+      - id: sv-b1-03
+        title: Miljö och natur – Environment & nature
+        topic: Nature, climate, sustainability and hypothetical situations.
+        can_do:
+          - Discuss environmental questions
+          - Talk about hypothetical situations
+        grammar:
+          - "Hypothetical: Om jag hade mer tid, skulle jag …"
+        vocabulary:
+          - miljön = the environment
+          - klimatet = the climate
+          - återvinna = to recycle
+          - hållbar = sustainable
+          - allemansrätten = the right of public access
+          - en skog = a forest
+        phrases:
+          - Om alla gjorde så, skulle … = If everyone did that, …
+          - Det är viktigt att … = It's important to …
+        scenarios:
+          - Planning a hiking trip and discussing allemansrätten
+
+      - id: sv-b1-04
+        title: Arbetsliv – Working life & job interviews
+        topic: Applying for jobs, interviews, workplace culture.
+        can_do:
+          - Present yourself in a job interview
+          - Describe your experience and strengths
+        grammar:
+          - "Past perfect: hade + supinum (Innan jag flyttade hit hade jag …)"
+          - "Reflexive possessive sin/sitt/sina vs. hans/hennes"
+        vocabulary:
+          - en ansökan = an application
+          - en anställningsintervju = a job interview
+          - erfarenhet = experience
+          - en styrka = a strength
+          - ansvar = responsibility
+          - lönen = the salary
+        phrases:
+          - Jag har erfarenhet av … = I have experience of …
+          - Min största styrka är … = My greatest strength is …
+        culture: >
+          Swedish workplaces are flat and consensus-driven ("förankra" decisions); fika is part of work.
+        scenarios:
+          - A job interview at a Swedish company
+
+      - id: sv-b1-05
+        title: Berätta – Storytelling
+        topic: Tell longer stories and anecdotes with good flow.
+        can_do:
+          - Tell a story with a clear beginning, middle and end
+          - Use connectors to structure narration
+        grammar:
+          - "Time connectors: medan, innan, efter att, när, tills, trots att"
+        vocabulary:
+          - plötsligt = suddenly
+          - till slut = in the end
+          - medan = while
+          - trots att = although
+          - en händelse = an event
+        phrases:
+          - Det var en gång … = Once upon a time …
+          - Det roligaste var när … = The funniest thing was when …
+        scenarios:
+          - Telling the story of a travel mishap
+
+      - id: sv-b1-06
+        title: Repetition B1 & Swedex B1 practice
+        topic: Review of B1 and an oral exam simulation.
+        can_do:
+          - Complete all parts of a B1 oral exam
+          - Present a topic and defend an opinion for 3 minutes
+        grammar:
+          - "Review: passive, hypotheticals, past perfect, sin/sitt/sina, connectors"
+        vocabulary: []
+        phrases: []
+        scenarios:
+          - A full Swedex B1 oral simulation
+        min_sessions: 1
+
+  - code: B2
+    title: Självständig – Vantage
+    description: Interact with fluency and spontaneity, argue a viewpoint, handle abstract topics. Path towards TISUS.
+    exam:
+      name: Swedex B2 (oral part)
+      format: |
+        Part 1 – Interview (3 min): background, work, studies, interests.
+        Part 2 – Presentation (4 min): present a topic (e.g. from a short text or statement) with a clear structure and argumentation.
+        Part 3 – Discussion (5 min): debate the topic, respond to counter-arguments, reach a conclusion.
+        (For TISUS the oral part similarly involves a prepared presentation followed by a discussion.)
+      scoring: "out of 25: task, range, accuracy, fluency & pronunciation, interaction (5 each)"
+    units:
+      - id: sv-b2-01
+        title: Argumentera – Argue & debate
+        topic: Structured argumentation and debate.
+        can_do:
+          - Argue for and against a position with structure
+          - Respond to counter-arguments
+        grammar:
+          - "Advanced connectors: följaktligen, emellertid, i och med att, med tanke på"
+        vocabulary:
+          - ett argument = an argument
+          - en ståndpunkt = a standpoint
+          - följaktligen = consequently
+          - emellertid = however
+        phrases:
+          - Å ena sidan … å andra sidan … = On the one hand … on the other …
+          - Det talar för att … = That suggests that …
+        scenarios:
+          - Debating a four-day work week
+
+      - id: sv-b2-02
+        title: Kultur och samhälle – Culture & society
+        topic: Abstract topics, culture, technology and values.
+        can_do:
+          - Discuss abstract and cultural topics
+          - Use particle verbs naturally
+        grammar:
+          - "Particle verbs: hålla med, ge upp, komma på, ta hand om"
+          - "Nominalisation: utveckla – utvecklingen"
+        vocabulary:
+          - utvecklingen = the development
+          - värderingar = values
+          - jämställdhet = gender equality
+          - påverka = to influence
+        phrases:
+          - Det beror på … = It depends on …
+        scenarios:
+          - Discussing Swedish values with a friend
+
+      - id: sv-b2-03
+        title: Hypoteser – Hypotheses & regrets
+        topic: Past hypotheticals, regrets and speculation.
+        can_do:
+          - Speculate about the past and future
+          - Express regret
+        grammar:
+          - "Om jag hade vetat, skulle jag ha … / hade jag …"
+        vocabulary:
+          - ångra = to regret
+          - antagligen = probably
+          - troligtvis = likely
+        phrases:
+          - Om jag hade vetat det, hade jag … = If I had known, I would have …
+        scenarios:
+          - Discussing life choices
+
+      - id: sv-b2-04
+        title: Formell svenska – Formal Swedish & presentations
+        topic: Formal register, presentations and academic style (TISUS preparation).
+        can_do:
+          - Give a structured presentation
+          - Switch between formal and informal register
+        grammar:
+          - "Formal style: passive, nominal style, avoid slang"
+        vocabulary:
+          - en presentation = a presentation
+          - inledningsvis = to begin with
+          - sammanfattningsvis = to sum up
+          - en slutsats = a conclusion
+        phrases:
+          - Jag skulle vilja börja med att … = I'd like to start by …
+          - Sammanfattningsvis kan man säga att … = To sum up, one can say that …
+        scenarios:
+          - Presenting a topic for a TISUS-style oral exam
+
+      - id: sv-b2-05
+        title: Repetition B2 & exam practice
+        topic: Review of B2 and exam simulation.
+        can_do:
+          - Complete a B2 oral exam with confidence
+        grammar:
+          - "Review of B2 structures"
+        vocabulary: []
+        phrases: []
+        scenarios:
+          - A full Swedex B2 oral simulation
+        min_sessions: 1

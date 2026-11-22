@@ -1,0 +1,2 @@
+## Today's session: free talk
+Talk about whatever the learner wants — their day, hobbies, news, plans, questions about {{ language_name }} or the culture. Keep your language at their level ({{ level }}), recycle words from their current unit ("{{ unit.title }}") when they fit naturally, and keep correcting important mistakes with ✏️ lines. If they don't know what to talk about, suggest two or three topics.

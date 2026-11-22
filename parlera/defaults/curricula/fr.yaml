@@ -1,0 +1,965 @@
+# Parlera curriculum: French (rebuild from A1, then up to B2 / DELF)
+#
+# Same structure as sv.yaml — see the comments there. Edit freely.
+
+language: fr
+name: French
+native_name: Français
+description: >
+  A speaking-first course for a "false beginner" (school French, mostly forgotten): rebuilds A1
+  quickly, then moves through A2, B1 and B2 with the DELF exams as milestones. Each level ends
+  with a DELF-style oral exam simulation.
+
+exams:
+  - id: delf
+    name: DELF
+    levels: [A1, A2, B1, B2]
+    description: >
+      Diplôme d'études en langue française — official, lifelong diplomas from the French ministry
+      of education. Four skills: listening, reading, writing, speaking (25 points each, pass = 50/100
+      with at least 5/25 per skill).
+  - id: dalf
+    name: DALF
+    levels: [C1, C2]
+    description: Advanced diplomas (C1/C2), often required for university study in France.
+  - id: tcf
+    name: TCF
+    levels: [A1, A2, B1, B2, C1, C2]
+    description: Test de connaissance du français — a placement-style test giving a level, valid for 2 years.
+
+levels:
+  - code: A1
+    title: Découverte – Breakthrough
+    description: Introduce yourself, ask and answer simple questions, handle very basic everyday situations.
+    exam:
+      name: DELF A1 – production orale
+      format: |
+        5–7 minutes, 10 minutes preparation (for parts 2 and 3 only).
+        Part 1 – Entretien dirigé (~1 min): the examiner asks questions about you (name, age, nationality, family, hobbies, work).
+        Part 2 – Échange d'informations (~2 min): using keyword cards (e.g. "Profession ?", "Sport ?", "Week-end ?"), YOU ask the examiner questions.
+        Part 3 – Dialogue simulé (~2 min): a role-play of an everyday transaction (buying, ordering, asking prices) — the candidate is the customer.
+      scoring: "out of 25 (part 1: 5, part 2: 4, part 3: 7, language: 9)"
+    units:
+      - id: fr-a1-01
+        title: Bonjour ! – Greetings & introductions
+        topic: Greet people, introduce yourself, tu and vous.
+        can_do:
+          - Greet and say goodbye formally and informally
+          - Introduce yourself (name, how you are)
+          - Ask someone's name and how they are
+          - Choose between tu and vous
+        grammar:
+          - "s'appeler: je m'appelle, tu t'appelles, vous vous appelez"
+          - "être: je suis, tu es, il/elle est, nous sommes, vous êtes, ils/elles sont"
+          - "tu (friends, family, children) vs. vous (strangers, formal, plural)"
+        vocabulary:
+          - bonjour = hello, good day
+          - bonsoir = good evening
+          - salut = hi / bye (informal)
+          - au revoir = goodbye
+          - à bientôt = see you soon
+          - merci = thank you
+          - s'il vous plaît = please (formal)
+          - s'il te plaît = please (informal)
+          - pardon = sorry / excuse me
+          - excusez-moi = excuse me
+          - oui = yes
+          - non = no
+          - madame = madam, Mrs
+          - monsieur = sir, Mr
+          - enchanté = nice to meet you
+          - ça va = it's going (fine)
+        phrases:
+          - Comment tu t'appelles ? = What's your name? (informal)
+          - Comment vous appelez-vous ? = What's your name? (formal)
+          - Je m'appelle … = My name is …
+          - Comment ça va ? = How are you?
+          - Ça va bien, merci. Et toi ? = I'm fine, thanks. And you?
+          - Enchanté(e) ! = Nice to meet you!
+          - Bonne journée ! = Have a nice day!
+        pronunciation: >
+          Final consonants are usually silent (salut, vous, comment). The French r. The difference
+          between u and ou (salut / vous). Nasal vowels in bonjour, bien.
+        culture: >
+          Always say "Bonjour" (and "Bonsoir" in the evening) when you enter a shop — not doing so is
+          rude. Friends greet with "la bise" (cheek kisses). Use vous with strangers.
+        scenarios:
+          - Meeting your neighbour for the first time
+          - Arriving at a language school reception
+
+      - id: fr-a1-02
+        title: Tu viens d'où ? – Countries, nationalities & languages
+        topic: Say where you're from, where you live and which languages you speak.
+        can_do:
+          - Say your nationality and where you are from
+          - Say where you live and which languages you speak
+          - Ask simple questions three ways (intonation, est-ce que, inversion)
+          - Ask someone to repeat or speak more slowly
+        grammar:
+          - "Regular -er verbs in the present: parler, habiter (je parle, nous parlons, vous parlez)"
+          - "venir de / habiter à + city / en + feminine country / au + masculine country / aux États-Unis"
+          - "Nationality agreement: anglais / anglaise, allemand / allemande"
+          - "Questions: Tu parles français ? / Est-ce que tu parles français ? / Parles-tu français ?"
+        vocabulary:
+          - un pays = a country
+          - une ville = a city
+          - la France = France
+          - l'Angleterre = England
+          - l'Allemagne = Germany
+          - la Suède = Sweden
+          - les États-Unis = the USA
+          - français, française = French
+          - anglais, anglaise = English
+          - allemand, allemande = German
+          - suédois, suédoise = Swedish
+          - une langue = a language
+          - parler = to speak
+          - habiter = to live
+          - venir = to come
+          - un peu = a little
+          - aussi = also
+        phrases:
+          - Tu viens d'où ? = Where are you from?
+          - Je viens de … = I'm from …
+          - J'habite à Paris. = I live in Paris.
+          - Je suis allemand / allemande. = I'm German.
+          - Tu parles français ? = Do you speak French?
+          - Je parle un peu français. = I speak a little French.
+          - Vous pouvez répéter, s'il vous plaît ? = Could you repeat, please?
+          - Plus lentement, s'il vous plaît. = More slowly, please.
+        pronunciation: >
+          Masculine vs. feminine you can hear: anglais / anglaise (the final s is pronounced in the
+          feminine). Liaison: vous‿habitez, les‿États-Unis.
+        culture: >
+          Languages and nationalities are lowercase (le français, elle est française), countries
+          take articles (la France, le Canada).
+        scenarios:
+          - Small talk at an international party
+          - Registering at a gym
+
+      - id: fr-a1-03
+        title: Les nombres – Numbers, age, prices & time
+        topic: Count, give your age and phone number, understand prices, tell the time.
+        can_do:
+          - Count from 0 to 100, including 70, 80 and 90
+          - Give your age and phone number
+          - Ask and understand prices
+          - Ask and tell the time
+        grammar:
+          - "avoir: j'ai, tu as, il/elle a, nous avons, vous avez, ils/elles ont"
+          - "Age with avoir: J'ai trente ans (not 'je suis')"
+          - "70 = soixante-dix, 80 = quatre-vingts, 90 = quatre-vingt-dix"
+          - "Time: il est trois heures, et quart, et demie, moins le quart; 18h30"
+        vocabulary:
+          - un, deux, trois, quatre, cinq = 1, 2, 3, 4, 5
+          - six, sept, huit, neuf, dix = 6, 7, 8, 9, 10
+          - onze, douze, treize, quatorze, quinze, seize = 11–16
+          - vingt, trente, quarante, cinquante, soixante = 20, 30, 40, 50, 60
+          - soixante-dix, quatre-vingts, quatre-vingt-dix, cent = 70, 80, 90, 100
+          - un euro = a euro
+          - une heure = an hour / o'clock
+          - et demie = half past
+          - et quart = quarter past
+          - moins le quart = quarter to
+          - lundi, mardi, mercredi = Monday, Tuesday, Wednesday
+          - jeudi, vendredi, samedi, dimanche = Thursday, Friday, Saturday, Sunday
+          - aujourd'hui = today
+          - demain = tomorrow
+          - un an = a year
+        phrases:
+          - Tu as quel âge ? = How old are you?
+          - J'ai trente ans. = I'm thirty.
+          - Quelle heure est-il ? = What time is it?
+          - Il est trois heures et demie. = It's half past three.
+          - Ça coûte combien ? = How much is it?
+          - C'est quoi ton numéro ? = What's your number?
+        pronunciation: >
+          Six and dix: [sis], [dis] alone, but "six livres" [si]. Vingt has a silent t. Liaison with
+          ans: deux‿ans, trois‿ans [z].
+        culture: >
+          Phone numbers are read in pairs (06 12 34 56 78 = zéro six, douze, trente-quatre…). The
+          24-hour clock is common (le train part à 18h30). Belgium and Switzerland say septante,
+          nonante.
+        scenarios:
+          - Buying a train ticket and asking about times
+          - Exchanging numbers with a classmate
+
+      - id: fr-a1-04
+        title: La famille – Family & describing people
+        topic: Talk about your family and describe people.
+        can_do:
+          - Talk about your family members
+          - Describe people simply (age, appearance, character)
+          - Ask about someone else's family
+        grammar:
+          - "Possessive adjectives: mon/ma/mes, ton/ta/tes, son/sa/ses, notre/nos, votre/vos, leur/leurs"
+          - "Adjective agreement: grand / grande / grands / grandes; most adjectives go after the noun"
+          - "avoir for features (Il a les yeux bleus), être for descriptions (Elle est grande)"
+        vocabulary:
+          - la famille = the family
+          - le père = the father
+          - la mère = the mother
+          - les parents = the parents
+          - le frère = the brother
+          - la sœur = the sister
+          - le fils = the son
+          - la fille = the daughter / the girl
+          - le mari = the husband
+          - la femme = the wife / the woman
+          - le copain, la copine = boyfriend/girlfriend, friend
+          - les grands-parents = the grandparents
+          - un enfant = a child
+          - grand = tall, big
+          - petit = small, short
+          - gentil = kind
+          - sympa = nice
+          - marié = married
+        phrases:
+          - Tu as des frères et sœurs ? = Do you have brothers and sisters?
+          - J'ai un frère et une sœur. = I have a brother and a sister.
+          - Ma sœur s'appelle … = My sister is called …
+          - Il a quel âge ? = How old is he?
+          - Elle est très sympa. = She's very nice.
+          - Je suis fils unique / fille unique. = I'm an only child.
+        pronunciation: >
+          fils = [fis] (silent l), fille = [fij]. The "œu" sound in sœur. Gentil / gentille.
+        culture: >
+          "Mon copain" can mean "my friend" or "my boyfriend" — context decides. Long family
+          Sunday lunches are a tradition.
+        scenarios:
+          - Showing family photos to a new friend
+
+      - id: fr-a1-05
+        title: Au café – Food, drinks & ordering
+        topic: Order in a café or bakery, talk about what you like to eat, pay.
+        can_do:
+          - Order food and drinks politely
+          - Say what you like and don't like eating
+          - Ask for the bill and pay
+        grammar:
+          - "Partitive articles: du, de la, de l', des (je bois du café)"
+          - "After a negation: de / d' (je ne bois pas de café)"
+          - "Polite request: je voudrais …"
+          - "aimer / adorer / détester + le, la, les (j'aime le chocolat)"
+        vocabulary:
+          - un café = a coffee (espresso)
+          - un thé = a tea
+          - un croissant = a croissant
+          - une baguette = a baguette
+          - un pain au chocolat = a chocolate pastry
+          - un sandwich = a sandwich
+          - une eau minérale = a mineral water
+          - un jus d'orange = an orange juice
+          - le lait = milk
+          - le sucre = sugar
+          - le fromage = cheese
+          - la viande = meat
+          - les légumes = vegetables
+          - manger = to eat
+          - boire = to drink
+          - l'addition = the bill
+          - la carte = the menu
+          - délicieux = delicious
+        phrases:
+          - Je voudrais un café, s'il vous plaît. = I'd like a coffee, please.
+          - Qu'est-ce que vous prenez ? = What will you have?
+          - Et avec ceci ? = Anything else?
+          - L'addition, s'il vous plaît. = The bill, please.
+          - Je peux payer par carte ? = Can I pay by card?
+          - C'est délicieux ! = It's delicious!
+          - Je n'aime pas le poisson. = I don't like fish.
+        pronunciation: >
+          voudrais [vudʁɛ]; nasal vowels in pain, un, croissant. "Boire" — the "oi" [wa] sound.
+        culture: >
+          "Un café" is an espresso; ask for "un café crème" for milk. A "carafe d'eau" (tap water)
+          is free. Service is included in the price — tipping is optional.
+        scenarios:
+          - Ordering breakfast at a Parisian café
+          - Buying bread and pastries at the boulangerie
+
+      - id: fr-a1-06
+        title: Chez moi – Home & location
+        topic: Describe your home and say where things are.
+        can_do:
+          - Describe your home and rooms
+          - Say what there is and isn't in a room
+          - Say where things are
+        grammar:
+          - "il y a / il n'y a pas de (there is / there isn't)"
+          - "Definite vs. indefinite articles: le/la/les vs. un/une/des"
+          - "Prepositions: dans, sur, sous, devant, derrière, à côté de, entre, en face de"
+          - "Contractions: à côté du lit, en face des toilettes"
+        vocabulary:
+          - un appartement = an apartment
+          - une maison = a house
+          - une pièce = a room
+          - la cuisine = the kitchen
+          - la salle de bains = the bathroom
+          - la chambre = the bedroom
+          - le salon = the living room
+          - un lit = a bed
+          - une table = a table
+          - une chaise = a chair
+          - un canapé = a sofa
+          - une fenêtre = a window
+          - une porte = a door
+          - joli = pretty
+          - clair = bright
+          - le quartier = the neighbourhood
+        phrases:
+          - J'habite dans un appartement. = I live in an apartment.
+          - Il y a trois pièces. = There are three rooms.
+          - Où sont mes clés ? = Where are my keys?
+          - Elles sont sur la table. = They're on the table.
+          - Il n'y a pas de balcon. = There's no balcony.
+        pronunciation: >
+          "il y a" is said [ilja]; nasal "am" in chambre; the silent final letters in appartement.
+        culture: >
+          Flat ads use T1, T2, T3… (number of main rooms, not counting kitchen and bathroom).
+        scenarios:
+          - Visiting a flat to rent
+          - Describing your home to a new friend
+
+      - id: fr-a1-07
+        title: Ma journée – Daily routine
+        topic: Describe a typical day and how often you do things.
+        can_do:
+          - Describe your daily routine
+          - Say when and how often you do things
+          - Ask about someone else's routine
+        grammar:
+          - "Reflexive verbs: je me lève, tu te couches, il se douche, nous nous habillons"
+          - "Irregular verbs: faire, prendre, aller (je fais, je prends, je vais)"
+          - "Frequency: toujours, souvent, parfois, ne … jamais"
+        vocabulary:
+          - se réveiller = to wake up
+          - se lever = to get up
+          - se doucher = to shower
+          - s'habiller = to get dressed
+          - prendre le petit-déjeuner = to have breakfast
+          - travailler = to work
+          - déjeuner = to have lunch
+          - rentrer = to come back home
+          - dîner = to have dinner
+          - se coucher = to go to bed
+          - le matin = in the morning
+          - l'après-midi = in the afternoon
+          - le soir = in the evening
+          - d'abord = first
+          - ensuite = then
+          - toujours = always
+          - souvent = often
+          - parfois = sometimes
+        phrases:
+          - Je me lève à sept heures. = I get up at seven.
+          - D'abord, je prends un café. = First, I have a coffee.
+          - Le soir, je regarde un film. = In the evening, I watch a film.
+          - Qu'est-ce que tu fais le week-end ? = What do you do at the weekend?
+          - Je ne travaille jamais le dimanche. = I never work on Sundays.
+        culture: >
+          Lunch is often a proper meal (12–14h), and dinner is late (around 20h).
+        scenarios:
+          - Comparing your routines with a French colleague
+
+      - id: fr-a1-08
+        title: Faire les courses – Shopping, clothes & colours
+        topic: Buy things, ask for sizes and prices, describe clothes.
+        can_do:
+          - Ask for items, sizes and prices
+          - Describe clothes with colours
+          - Decide and pay
+        grammar:
+          - "Demonstratives: ce, cet, cette, ces"
+          - "Colour adjectives agree and go after the noun: une robe rouge, des chaussures noires"
+          - "Question words: combien, quel, quelle"
+          - "Object pronouns (intro): je le prends, je la prends"
+        vocabulary:
+          - acheter = to buy
+          - coûter = to cost
+          - cher = expensive
+          - un magasin = a shop
+          - un vêtement = a piece of clothing
+          - une chemise = a shirt
+          - un pantalon = trousers
+          - une robe = a dress
+          - une veste = a jacket
+          - un pull = a sweater
+          - des chaussures = shoes
+          - la taille = the size (clothes)
+          - la pointure = the shoe size
+          - rouge = red
+          - bleu = blue
+          - vert = green
+          - noir = black
+          - blanc, blanche = white
+        phrases:
+          - Combien coûte cette veste ? = How much is this jacket?
+          - Elle coûte quarante euros. = It costs forty euros.
+          - Vous l'avez en taille M ? = Do you have it in size M?
+          - Je peux l'essayer ? = Can I try it on?
+          - Je la prends. = I'll take it.
+          - Je regarde seulement. = I'm just looking.
+        culture: >
+          "Les soldes" (sales) happen twice a year, in January and in summer. Markets are great
+          for food shopping.
+        scenarios:
+          - Buying a jacket in a clothes shop
+          - Shopping for fruit at an outdoor market
+
+      - id: fr-a1-09
+        title: En ville – Directions & transport
+        topic: Ask for and give directions, use transport, buy tickets.
+        can_do:
+          - Ask for directions and follow simple instructions
+          - Talk about how you get around
+          - Buy a ticket
+        grammar:
+          - "aller à + le/la/les: au, à la, à l', aux"
+          - "Imperative: tournez, allez, prenez / tourne, va, prends"
+          - "Transport: en bus, en train, en voiture, à pied, à vélo"
+        vocabulary:
+          - la gare = the train station
+          - le métro = the metro
+          - le bus = the bus
+          - le train = the train
+          - un billet = a ticket
+          - la rue = the street
+          - la place = the square
+          - le musée = the museum
+          - la pharmacie = the pharmacy
+          - la boulangerie = the bakery
+          - tout droit = straight on
+          - à gauche = to the left
+          - à droite = to the right
+          - près = near
+          - loin = far
+          - tourner = to turn
+          - traverser = to cross
+        phrases:
+          - Excusez-moi, où est la gare ? = Excuse me, where's the station?
+          - Allez tout droit, puis tournez à gauche. = Go straight on, then turn left.
+          - C'est loin d'ici ? = Is it far from here?
+          - Un billet pour Lyon, s'il vous plaît. = A ticket to Lyon, please.
+          - Je vais au travail à vélo. = I go to work by bike.
+        culture: >
+          Trains are run by the SNCF; in Paris the metro and buses by the RATP. "À pied" (on foot)
+          but "en voiture" (by car).
+        scenarios:
+          - Asking the way to the museum
+          - Buying a train ticket at the station
+
+      - id: fr-a1-10
+        title: Les loisirs – Hobbies & invitations
+        topic: Talk about hobbies, invite someone, accept or decline.
+        can_do:
+          - Talk about your hobbies and preferences
+          - Invite someone and accept or decline politely
+          - Arrange a time and place to meet
+        grammar:
+          - "jouer à (sports, games) vs. jouer de (instruments); faire du / de la"
+          - "Negation: ne … pas (je ne joue pas)"
+          - "pouvoir / vouloir: je peux, tu peux, vous pouvez; je veux, tu veux, vous voulez"
+          - "on = we (spoken French)"
+        vocabulary:
+          - les loisirs = hobbies, leisure
+          - faire du sport = to do sport
+          - jouer au foot = to play football
+          - jouer de la guitare = to play the guitar
+          - nager = to swim
+          - courir = to run
+          - lire = to read
+          - voyager = to travel
+          - le cinéma = the cinema
+          - un concert = a concert
+          - une promenade = a walk
+          - aimer = to like, love
+          - adorer = to love
+          - préférer = to prefer
+          - intéressant = interesting
+          - ennuyeux = boring
+        phrases:
+          - Qu'est-ce que tu aimes faire ? = What do you like doing?
+          - J'adore lire. = I love reading.
+          - Tu veux aller au cinéma samedi ? = Do you want to go to the cinema on Saturday?
+          - Avec plaisir ! = With pleasure!
+          - Désolé(e), je ne peux pas. = Sorry, I can't.
+          - On se retrouve à quelle heure ? = What time shall we meet?
+        scenarios:
+          - Inviting a friend to a concert
+          - Planning a weekend with a colleague
+
+      - id: fr-a1-11
+        title: Le temps et les projets – Weather, seasons & plans
+        topic: Weather, seasons, months and near-future plans.
+        can_do:
+          - Talk about the weather
+          - Name the seasons and months
+          - Talk about plans with the near future
+        grammar:
+          - "il fait + adjective (il fait beau, chaud, froid); il pleut, il neige"
+          - "Futur proche: aller + infinitive (je vais partir)"
+          - "au printemps, en été, en automne, en hiver; en juillet"
+        vocabulary:
+          - le temps = the weather
+          - le soleil = the sun
+          - la pluie = the rain
+          - la neige = the snow
+          - le vent = the wind
+          - il fait beau = the weather is nice
+          - il fait chaud = it's hot
+          - il fait froid = it's cold
+          - il pleut = it's raining
+          - un nuage = a cloud
+          - le printemps = spring
+          - l'été = summer
+          - l'automne = autumn
+          - l'hiver = winter
+          - les vacances = the holidays
+          - un degré = a degree
+        phrases:
+          - Quel temps fait-il ? = What's the weather like?
+          - Il fait beau et chaud. = It's nice and warm.
+          - Qu'est-ce que tu vas faire ce week-end ? = What are you going to do this weekend?
+          - Je vais partir en vacances en juillet. = I'm going on holiday in July.
+          - Il va pleuvoir demain. = It's going to rain tomorrow.
+        culture: >
+          Many French people take long holidays in July or August ("les grandes vacances");
+          cities can feel empty in August.
+        scenarios:
+          - Talking about holiday plans with a colleague
+
+      - id: fr-a1-12
+        title: Révision A1 & DELF A1 oral practice
+        topic: Review all A1 material and practise the three parts of the DELF A1 oral.
+        can_do:
+          - Complete the entretien dirigé (answer questions about yourself)
+          - Ask questions from keyword cards (échange d'informations)
+          - Handle a simple purchase role-play (dialogue simulé)
+        grammar:
+          - "Review: être/avoir, -er verbs, articles and partitives, negation, questions, futur proche"
+        vocabulary: []
+        phrases: []
+        scenarios:
+          - A full DELF A1 oral simulation
+        min_sessions: 1
+
+  - code: A2
+    title: Survie – Waystage
+    description: Talk about the past and plans, describe your environment, handle routine exchanges.
+    exam:
+      name: DELF A2 – production orale
+      format: |
+        6–8 minutes, 10 minutes preparation (parts 2 and 3).
+        Part 1 – Entretien dirigé (~1.5 min): answer questions about yourself, family, tastes, activities.
+        Part 2 – Monologue suivi (~2 min): speak about one of two topics from everyday life (e.g. "Parlez de votre dernier voyage").
+        Part 3 – Exercice en interaction (~3–4 min): an everyday role-play (buy, book, invite, complain politely).
+      scoring: "out of 25 (part 1: 3, part 2: 5, part 3: 4, language: 13)"
+    units:
+      - id: fr-a2-01
+        title: Le week-end dernier – Passé composé
+        topic: Tell what you did last weekend or on holiday.
+        can_do:
+          - Say what you did yesterday, last weekend, last year
+          - Ask others about past events
+        grammar:
+          - "Passé composé with avoir: j'ai mangé, j'ai fait, j'ai vu, j'ai pris"
+          - "Passé composé with être (aller, venir, partir, arriver, rester, naître…) + agreement: elle est allée"
+          - "Time markers: hier, la semaine dernière, il y a deux jours"
+        vocabulary:
+          - hier = yesterday
+          - le week-end dernier = last weekend
+          - il y a = ago
+          - sortir = to go out
+          - rencontrer = to meet
+          - visiter = to visit (a place)
+          - une soirée = an evening, party
+          - fatigué = tired
+        phrases:
+          - Qu'est-ce que tu as fait ce week-end ? = What did you do this weekend?
+          - Je suis allé(e) au cinéma. = I went to the cinema.
+          - C'était super ! = It was great!
+        scenarios:
+          - Monday chat with a colleague
+
+      - id: fr-a2-02
+        title: Voyages et vacances – Travel
+        topic: Booking, travelling, describing a trip.
+        can_do:
+          - Book a hotel room or train ticket
+          - Describe a past trip
+        grammar:
+          - "Pronoun y (j'y vais, on y est allés)"
+          - "Futur proche vs. passé composé"
+        vocabulary:
+          - un voyage = a trip
+          - réserver = to book
+          - une chambre double = a double room
+          - un aller-retour = a return ticket
+          - la plage = the beach
+          - la montagne = the mountains
+          - les bagages = luggage
+        phrases:
+          - Je voudrais réserver une chambre pour deux nuits. = I'd like to book a room for two nights.
+          - Le petit-déjeuner est compris ? = Is breakfast included?
+          - J'y suis allé(e) l'année dernière. = I went there last year.
+        scenarios:
+          - Checking in at a hotel in Nice
+          - Booking a train ticket by phone
+
+      - id: fr-a2-03
+        title: La santé – Health
+        topic: Body parts, feeling ill, the doctor's and the pharmacy.
+        can_do:
+          - Say where it hurts and describe symptoms
+          - Understand and give simple advice
+        grammar:
+          - "avoir mal à + le/la/les: j'ai mal à la tête, au dos, aux dents"
+          - "Advice: il faut + infinitive, tu dois, tu devrais"
+        vocabulary:
+          - la tête = the head
+          - le ventre = the belly
+          - la gorge = the throat
+          - le dos = the back
+          - la fièvre = fever
+          - malade = ill
+          - un médecin = a doctor
+          - un rendez-vous = an appointment
+          - un médicament = a medicine
+        phrases:
+          - J'ai mal à la gorge. = I have a sore throat.
+          - Je voudrais prendre rendez-vous. = I'd like to make an appointment.
+          - Il faut te reposer. = You need to rest.
+        scenarios:
+          - At the doctor's
+          - At the pharmacy
+
+      - id: fr-a2-04
+        title: Travail et études – Work & studies
+        topic: Your job or studies, experience and timelines.
+        can_do:
+          - Describe your job, studies and experience
+          - Say how long you've been doing something
+        grammar:
+          - "Direct object pronouns: le, la, l', les (je le connais)"
+          - "depuis (since/for, ongoing) vs. pendant (for, finished) vs. il y a (ago)"
+        vocabulary:
+          - un métier = a profession
+          - une entreprise = a company
+          - un collègue = a colleague
+          - le patron = the boss
+          - une réunion = a meeting
+          - les études = studies
+          - un stage = an internship
+        phrases:
+          - Je travaille comme … depuis trois ans. = I've been working as … for three years.
+          - J'ai fait des études de … = I studied …
+        scenarios:
+          - Explaining your job at a dinner party
+
+      - id: fr-a2-05
+        title: Logement et comparaisons – Housing & comparisons
+        topic: Compare homes, cities and things.
+        can_do:
+          - Compare places and things
+          - Describe your neighbourhood and say what you prefer
+        grammar:
+          - "Comparatives: plus … que, moins … que, aussi … que; meilleur, mieux"
+          - "Superlatives: le plus grand, la moins chère, le meilleur"
+        vocabulary:
+          - le loyer = the rent
+          - un voisin = a neighbour
+          - calme = quiet
+          - bruyant = noisy
+          - le centre-ville = the town centre
+          - la campagne = the countryside
+        phrases:
+          - Paris est plus cher que Lyon. = Paris is more expensive than Lyon.
+          - C'est le meilleur quartier de la ville. = It's the best area in town.
+        scenarios:
+          - Comparing two flats with a friend
+
+      - id: fr-a2-06
+        title: Souvenirs d'enfance – Childhood memories
+        topic: Describe the past and habits; tell memories.
+        can_do:
+          - Describe what things were like and what you used to do
+          - Tell a memory combining background and events
+        grammar:
+          - "Imparfait: formation (nous form stem + -ais, -ait, -ions…) and uses (description, habits)"
+          - "Imparfait vs. passé composé (background vs. events)"
+        vocabulary:
+          - quand j'étais petit(e) = when I was little
+          - d'habitude = usually
+          - l'école = school
+          - un souvenir = a memory
+          - grandir = to grow up
+        phrases:
+          - Quand j'étais petit, j'habitais à … = When I was little, I lived in …
+          - Tous les étés, nous allions … = Every summer, we used to go …
+        scenarios:
+          - Sharing childhood memories with a friend
+
+      - id: fr-a2-07
+        title: Projets et avenir – Plans & the future
+        topic: Talk about the future and conditions.
+        can_do:
+          - Talk about plans and predictions
+          - Make conditional statements with si
+        grammar:
+          - "Futur simple: je parlerai, j'irai, je serai, j'aurai, je ferai"
+          - "si + présent, futur (S'il fait beau, on ira à la plage)"
+          - "Indirect object pronouns: lui, leur"
+        vocabulary:
+          - l'avenir = the future
+          - un projet = a plan, project
+          - un rêve = a dream
+          - déménager = to move house
+          - économiser = to save money
+        phrases:
+          - L'année prochaine, je ferai … = Next year I'll do …
+          - Si j'ai le temps, je … = If I have time, I'll …
+        scenarios:
+          - Talking about New Year's resolutions
+
+      - id: fr-a2-08
+        title: Révision A2 & DELF A2 oral practice
+        topic: Review A2 and simulate the DELF A2 oral.
+        can_do:
+          - Complete all three parts of the DELF A2 oral
+          - Speak for 2 minutes on an everyday topic
+        grammar:
+          - "Review: passé composé, imparfait, futur, pronouns, comparisons"
+        vocabulary: []
+        phrases: []
+        scenarios:
+          - A full DELF A2 oral simulation
+        min_sessions: 1
+
+  - code: B1
+    title: Seuil – Threshold
+    description: Handle most situations, describe experiences, give opinions and justify them.
+    exam:
+      name: DELF B1 – production orale
+      format: |
+        ~15 minutes, 10 minutes preparation (part 3 only).
+        Part 1 – Entretien dirigé (2–3 min): talk about yourself, your interests, past and future.
+        Part 2 – Exercice en interaction (3–4 min): a role-play where you must solve a problem or convince someone.
+        Part 3 – Expression d'un point de vue (5–7 min): from a short document, identify the topic, give and defend your opinion, then discuss with the examiner.
+      scoring: "out of 25 (part 1: 4, part 2: 5, part 3: 5, language: 11)"
+    units:
+      - id: fr-b1-01
+        title: Donner son avis – Opinions
+        topic: Give and justify opinions, agree and disagree.
+        can_do:
+          - Give your opinion with reasons and examples
+          - Agree and disagree politely
+        grammar:
+          - "je pense que / je crois que + indicative; je ne pense pas que + subjunctive"
+          - "Subjunctive intro: il faut que, je veux que, pour que"
+        vocabulary:
+          - un avis = an opinion
+          - à mon avis = in my opinion
+          - d'accord = agreed
+          - un avantage = an advantage
+          - un inconvénient = a disadvantage
+          - pourtant = yet, however
+        phrases:
+          - À mon avis, … parce que … = In my opinion, … because …
+          - Je ne suis pas tout à fait d'accord. = I don't completely agree.
+        scenarios:
+          - Discussing whether to ban cars from city centres
+
+      - id: fr-b1-02
+        title: Médias et actualités – Media & news
+        topic: Talk about news and media.
+        can_do:
+          - Summarise a news item
+          - Discuss the role of media
+        grammar:
+          - "Relative pronouns: qui, que, où, dont"
+        vocabulary:
+          - l'actualité = current affairs
+          - un article = an article
+          - un journal = a newspaper
+          - les réseaux sociaux = social media
+          - une information = a piece of information
+        phrases:
+          - J'ai lu un article qui dit que … = I read an article that says …
+          - Selon les médias, … = According to the media, …
+        scenarios:
+          - Discussing a news story with a friend
+
+      - id: fr-b1-03
+        title: Environnement et société – Environment & society
+        topic: Environment, social issues and hypotheses.
+        can_do:
+          - Discuss environmental problems and solutions
+          - Make hypotheses and suggestions
+        grammar:
+          - "Conditionnel présent: je ferais, on devrait, il faudrait"
+          - "si + imparfait, conditionnel (Si j'avais le temps, je ferais …)"
+        vocabulary:
+          - l'environnement = the environment
+          - le réchauffement climatique = global warming
+          - recycler = to recycle
+          - durable = sustainable
+          - la pollution = pollution
+        phrases:
+          - On devrait … = We should …
+          - Si tout le monde …, on pourrait … = If everyone …, we could …
+        scenarios:
+          - A neighbourhood meeting about recycling
+
+      - id: fr-b1-04
+        title: Vie professionnelle – Working life
+        topic: Job interviews, workplace situations, polite requests.
+        can_do:
+          - Present yourself in a job interview
+          - Handle workplace situations politely
+        grammar:
+          - "Gérondif: en travaillant, en faisant"
+          - "Polite conditionnel: pourriez-vous, j'aimerais"
+        vocabulary:
+          - un entretien d'embauche = a job interview
+          - un CV = a CV
+          - l'expérience = experience
+          - une compétence = a skill
+          - le salaire = the salary
+        phrases:
+          - J'ai acquis de l'expérience en … = I gained experience in …
+          - Pourriez-vous me dire … ? = Could you tell me …?
+        scenarios:
+          - A job interview in a French company
+
+      - id: fr-b1-05
+        title: Raconter une histoire – Storytelling
+        topic: Tell stories and report what others said.
+        can_do:
+          - Tell a story with clear structure
+          - Report what someone said
+        grammar:
+          - "Plus-que-parfait: j'avais fini, elle était partie"
+          - "Reported speech: il m'a dit que …, elle m'a demandé si …"
+          - "Time connectors: d'abord, ensuite, pendant que, finalement"
+        vocabulary:
+          - soudain = suddenly
+          - finalement = finally
+          - pendant que = while
+          - un événement = an event
+        phrases:
+          - Il m'a dit qu'il viendrait. = He told me he would come.
+          - Tout à coup, … = All of a sudden, …
+        scenarios:
+          - Telling the story of a funny travel mishap
+
+      - id: fr-b1-06
+        title: Révision B1 & DELF B1 oral practice
+        topic: Review B1 and simulate the DELF B1 oral.
+        can_do:
+          - Complete all three parts of the DELF B1 oral
+          - Defend a point of view based on a short document
+        grammar:
+          - "Review: subjunctive, conditionnel, relative pronouns, plus-que-parfait, reported speech"
+        vocabulary: []
+        phrases: []
+        scenarios:
+          - A full DELF B1 oral simulation
+        min_sessions: 1
+
+  - code: B2
+    title: Avancé – Vantage
+    description: Argue a viewpoint fluently, understand complex ideas, adapt register.
+    exam:
+      name: DELF B2 – production orale
+      format: |
+        20 minutes, 30 minutes preparation.
+        From a short document (article, opinion), present its topic, then develop and defend a structured, argued point of view.
+        Then a debate with the examiner, who challenges your arguments.
+      scoring: "out of 25 (monologue: 6, debate: 6, language: 13)"
+    units:
+      - id: fr-b2-01
+        title: Débattre – Debate & argumentation
+        topic: Structured argumentation and debate.
+        can_do:
+          - Build a structured argument with examples
+          - Concede and counter-argue
+        grammar:
+          - "Concession: bien que + subjunctive, même si, pourtant, néanmoins"
+          - "Logical connectors: en effet, par conséquent, en revanche"
+        vocabulary:
+          - un argument = an argument
+          - en revanche = on the other hand
+          - par conséquent = consequently
+          - néanmoins = nevertheless
+        phrases:
+          - Certes …, mais … = Admittedly …, but …
+          - Il faut reconnaître que … = One must admit that …
+        scenarios:
+          - Debating a four-day work week
+
+      - id: fr-b2-02
+        title: Société et culture – Society & culture
+        topic: Abstract social and cultural topics.
+        can_do:
+          - Discuss abstract topics
+          - Use the passive and nominalisation
+        grammar:
+          - "Passive voice: être + participe passé"
+          - "Nominalisation: développer – le développement"
+        vocabulary:
+          - la société = society
+          - les valeurs = values
+          - l'égalité = equality
+          - un enjeu = an issue, stake
+        phrases:
+          - Cela dépend de … = It depends on …
+        scenarios:
+          - Discussing cultural differences
+
+      - id: fr-b2-03
+        title: Hypothèses et regrets – Hypotheses & regrets
+        topic: Past hypotheticals, regrets and speculation.
+        can_do:
+          - Speculate about the past
+          - Express regret
+        grammar:
+          - "Conditionnel passé: j'aurais fait"
+          - "si + plus-que-parfait, conditionnel passé"
+        vocabulary:
+          - regretter = to regret
+          - sans doute = probably
+          - à ta place = in your place
+        phrases:
+          - Si j'avais su, j'aurais … = If I had known, I would have …
+        scenarios:
+          - Discussing life choices
+
+      - id: fr-b2-04
+        title: Registre formel – Formal French
+        topic: Formal register, presentations and formal correspondence.
+        can_do:
+          - Give a structured formal presentation
+          - Switch register appropriately
+        grammar:
+          - "Formal structures and inversion; avoiding colloquialisms"
+        vocabulary:
+          - tout d'abord = first of all
+          - en conclusion = in conclusion
+          - en ce qui concerne = regarding
+        phrases:
+          - Je voudrais aborder la question de … = I'd like to address the question of …
+        scenarios:
+          - Presenting a topic for a DELF B2 oral
+
+      - id: fr-b2-05
+        title: Révision B2 & DELF B2 oral practice
+        topic: Review B2 and simulate the DELF B2 oral.
+        can_do:
+          - Complete the DELF B2 oral with confidence
+        grammar:
+          - "Review of B2 structures"
+        vocabulary: []
+        phrases: []
+        scenarios:
+          - A full DELF B2 oral simulation
+        min_sessions: 1
