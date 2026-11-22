@@ -18,7 +18,7 @@ ask() {
   if [[ $ASSUME_YES == 0 && -t 0 ]]; then read -r -p "$1 " reply; fi
   echo "${reply:-$2}"
 }
-DEFAULT_MODEL="gemma3:27b"
+DEFAULT_MODEL="gemma4:26b"
 
 bold "1/6  Python"
 PY=""
@@ -64,6 +64,9 @@ else
     (open -g -a Ollama 2>/dev/null || (ollama serve >/dev/null 2>&1 &)); sleep 3
   fi
   INSTALLED="$(ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -v -i embed || true)"
+  # If a Gemma 4 model is already installed, pressing Enter uses it (no download).
+  PREFERRED="$(grep -m1 -i '^gemma4' <<< "$INSTALLED" || true)"
+  [[ -n "$PREFERRED" ]] && DEFAULT_MODEL="$PREFERRED"
   if [[ -n "$INSTALLED" ]]; then
     echo "Models you already have in Ollama (they're shared, not copied):"
     i=1; while read -r m; do echo "   $i) $m"; i=$((i+1)); done <<< "$INSTALLED"
@@ -76,7 +79,7 @@ else
   elif [[ $SKIP_MODEL == 1 ]]; then
     echo "Skipping download. Later run:  ollama pull $MODEL"
   else
-    ans="$(ask "Download $MODEL now (gemma3:27b is ~17 GB)? [Y/n]" "Y")"
+    ans="$(ask "Download $MODEL now (~17 GB)? [Y/n]" "Y")"
     if [[ ! "$ans" =~ ^[Nn] ]]; then ollama pull "$MODEL" </dev/null; else echo "Later run:  ollama pull $MODEL"; fi
   fi
   PARLERA_DATA="$DATA_DIR" .venv/bin/python - "$MODEL" <<'PYEOF'

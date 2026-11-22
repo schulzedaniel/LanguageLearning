@@ -135,7 +135,7 @@ def service(y, h, title, items, fill="#ecfdf5", stroke="#6ee7b7"):
     lines(1246, y + 48, items, 12, 17, "#1f2937")
 
 service(140, 92, "Whisper  (speech → text)", ["mlx-whisper on Apple Silicon", "model: whisper-large-v3-turbo", "stored in ~/.cache/huggingface"])
-service(268, 200, "Ollama  (the language model)", ["local server on port 11434", "e.g. gemma3:27b, qwen3, mistral-small", "models live in ~/.ollama/models —", "shared with your other Ollama apps,", "never downloaded twice", "started/quit by run.sh if needed;", "model unloaded when Parlera quits"])
+service(268, 200, "Ollama  (the language model)", ["local server on port 11434", "e.g. gemma4:26b-mlx, qwen3, mistral", "models live in ~/.ollama/models —", "shared with your other Ollama apps,", "never downloaded twice", "started/quit by run.sh if needed;", "model unloaded when Parlera quits"])
 service(492, 150, "Voices  (text → speech)", ["macOS “say” with Premium voices", "  (System Settings → Spoken Content)", "or Piper neural voices", "  (data folder/voices/)", "or browser voices (fallback)"])
 service(842, 190, "Anki  +  AnkiConnect add-on", ["local API on port 8765", "deck per language, set in Settings", "  e.g. Parlera::Swedish (or your own)", "note type “Parlera Vocab”:", "  word, forms, example, audio", "AnkiWeb sync → your phone", "queued if Anki is closed"], "#ecfeff", "#67e8f9")
 

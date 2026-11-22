@@ -74,7 +74,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     },
     "llm": {
         "base_url": "http://127.0.0.1:11434",
-        "model": "gemma3:27b",
+        "model": "gemma4:26b",
         "analysis_model": "",          # empty = same as model
         "temperature": 0.7,
         "num_ctx": 16384,

@@ -87,7 +87,7 @@ the next session. All prompts, curricula and your data live in plain files you c
 
    It asks you a few questions:
    - **Where to keep your data** (progress, sessions, words, prompts). The default is `~/Parlera`. You could also use e.g. `~/Library/Application Support/Parlera/data`. The answer is saved in `parlera.env`.
-   - **Which model to use.** It lists the models you already have in Ollama, and you can pick one or download `gemma3:27b`.
+   - **Which model to use.** It lists the models you already have in Ollama, and you can pick one or download `gemma4:26b`. If you already have a Gemma 4 model (e.g. `gemma4:26b-mlx`), just pressing Enter uses it.
    - **Whether to create a Parlera app** in `~/Applications`, so you can start it from Spotlight or the Dock.
 
    It also downloads the Whisper speech model (~1.6 GB, once).
@@ -140,7 +140,9 @@ On an M5 Pro with 48 GB, any of these run comfortably. Switch any time in *Setti
 
 | Model | Size | Notes |
 |---|---|---|
-| `gemma3:27b` (default) | ~17 GB | Best overall quality, very good Swedish and French |
+| `gemma4:26b` / `gemma4:26b-mlx` (default) | ~17 GB | Fast (mixture-of-experts) with strong Swedish and French. The `-mlx` variant is optimised for Apple Silicon |
+| `gemma4:31b` | ~20 GB | A bit stronger, slower replies |
+| `gemma3:27b` | ~17 GB | Previous generation; fine if you already have it |
 | `qwen3:30b-a3b` | ~19 GB | Noticeably faster replies (mixture-of-experts) |
 | `mistral-small3.2` | ~15 GB | Excellent French |
 
@@ -249,7 +251,7 @@ text goes in `**bold**`: the voice engine uses it to choose the right voice.
 ## Troubleshooting
 
 - **"Ollama offline"**: start the Ollama app. `./run.sh` tries to start it for you.
-- **"Model missing"**: run `ollama pull gemma3:27b` (or pick an installed model in Settings).
+- **"Model missing"**: run `ollama pull gemma4:26b` (or pick an installed model in Settings).
 - **Speech input off**: run `./setup.sh` again, or install it directly:
 
   ```bash

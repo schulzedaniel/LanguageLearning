@@ -17,7 +17,7 @@ The user-facing documentation is `README.md`.
 - Long-term goals: DELF (French) and Swedex/TISUS (Swedish).
 
 **The stack, all local**
-- Ollama runs the LLM (default `gemma3:27b`).
+- Ollama runs the LLM. The default is `gemma4:26b`; the user runs `gemma4:26b-mlx`. Setup's Enter key picks an installed `gemma4*` model, and Gemma 4's thinking mode is turned off via `think:false`.
 - Whisper does speech-to-text: `mlx-whisper` on Apple Silicon, `faster-whisper` elsewhere.
 - Text-to-speech uses macOS `say` (the Premium system voices), Piper, or the browser's speechSynthesis.
 - Anki is reached through the AnkiConnect add-on.

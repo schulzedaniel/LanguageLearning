@@ -26,7 +26,7 @@ state = {"turn": 0}
 
 @ollama.get("/api/tags")
 async def tags():
-    return {"models": [{"name": "gemma3:27b"}, {"name": "qwen3:30b-a3b"}]}
+    return {"models": [{"name": "gemma4:26b"}, {"name": "gemma4:26b-mlx"}, {"name": "qwen3:30b-a3b"}]}
 
 
 @ollama.post("/api/generate")

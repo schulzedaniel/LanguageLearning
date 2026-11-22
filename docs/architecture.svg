@@ -128,7 +128,7 @@
 <rect x="1230" y="268" width="340" height="200" rx="12" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
 <text x="1246" y="294" font-size="14" font-weight="750" fill="#065f46" text-anchor="start">Ollama  (the language model)</text>
 <text x="1246" y="316" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">local server on port 11434</text>
-<text x="1246" y="333" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">e.g. gemma3:27b, qwen3, mistral-small</text>
+<text x="1246" y="333" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">e.g. gemma4:26b-mlx, qwen3, mistral</text>
 <text x="1246" y="350" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">models live in ~/.ollama/models —</text>
 <text x="1246" y="367" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">shared with your other Ollama apps,</text>
 <text x="1246" y="384" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">never downloaded twice</text>
