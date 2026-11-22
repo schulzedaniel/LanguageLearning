@@ -88,6 +88,8 @@ parlera/
               audio.js (Recorder: AudioWorklet + energy VAD + PTT, WAV encode; Player: queue of WAV/speechSynthesis) · recorder-worklet.js
   static/js/views/ dashboard · session (561, the live conversation) · review (post-session) · curriculum (+YAML editor) · vocab (+addWordDialog)
                    history · memory (memories, recurring errors, notes) · prompts (editor + preview) · settings · start (new-session dialog)
+docs/architecture.svg   architecture/data-flow diagram embedded in README — regenerate with `python3 docs/make_architecture.py`
+                        (hand-placed coordinates; update it when components/flows change, then render with Playwright to check)
 tests/test_parlera.py (372)  end-to-end against mock services (spins them up on free ports)
 tools/mock_services.py (137) fake Ollama (canned streaming Swedish replies; JSON by schema shape) + fake AnkiConnect (in-memory)
 ```

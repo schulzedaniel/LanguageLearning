@@ -10,6 +10,12 @@ vocabulary into **Anki flashcards** automatically.
 Nothing leaves your computer: the language model runs in [Ollama](https://ollama.com), speech
 recognition with Whisper, voices with macOS or Piper, and all your data lives in `~/Parlera`.
 
+![Parlera architecture and data flow](docs/architecture.svg)
+
+*How it fits together: what you say goes through Whisper and Ollama and comes back as speech.
+After each session, the analysis feeds your progress, mistakes, memories and Anki cards back into
+the next session. All prompts, curricula and your data live in plain files you can edit.*
+
 ---
 
 ## Features
