@@ -53,37 +53,76 @@ recognition with Whisper, voices with macOS or Piper, and all your data lives in
 
 ## Quick start (Mac with Apple Silicon)
 
-1. **Install [Ollama](https://ollama.com/download)** and start it once.
-2. Get the code. Either download it, or clone it:
+1. **Install [Ollama](https://ollama.com/download).** If you already have it, with models, that's fine. See [Where models are stored](#where-models-are-stored).
+2. **Choose where the program should live** and clone it there. For example, in your user Library:
 
    ```bash
-   git clone https://github.com/schulzedaniel/LanguageLearning.git
+   mkdir -p ~/Library/Application\ Support/Parlera
    ```
-
-3. Run the setup script inside the folder:
 
    ```bash
-   cd LanguageLearning
+   cd ~/Library/Application\ Support/Parlera
    ```
+
+   ```bash
+   git clone https://github.com/schulzedaniel/LanguageLearning.git app
+   ```
+
+   ```bash
+   cd app
+   ```
+
+   Any folder works. `~/Library` is hidden in Finder; open it with *Go → Go to Folder…* (⇧⌘G).
+3. **Run the setup script:**
 
    ```bash
    ./setup.sh
    ```
 
-   This creates a Python environment, installs everything, downloads the tutor model
-   (`gemma3:27b`, ~17 GB) and the Whisper speech model (~1.6 GB).
-4. Start Parlera:
+   It asks you a few questions:
+   - **Where to keep your data** (progress, sessions, words, prompts). The default is `~/Parlera`. You could also use e.g. `~/Library/Application Support/Parlera/data`. The answer is saved in `parlera.env`.
+   - **Which model to use.** It lists the models you already have in Ollama, and you can pick one or download `gemma3:27b`.
+   - **Whether to create a Parlera app** in `~/Applications`, so you can start it from Spotlight or the Dock.
 
-   ```bash
-   ./run.sh
-   ```
+   It also downloads the Whisper speech model (~1.6 GB, once).
+4. **Start Parlera.** Use the **Parlera** app (⌘Space → "Parlera"), `./run.sh`, or double-click `Parlera.command`.
+   Your browser opens at <http://127.0.0.1:8642>. To stop it, press Ctrl+C or close the Terminal window.
 
-   You can also double-click **`Parlera.command`** in Finder. Your browser opens at <http://127.0.0.1:8642>.
+**Updating later:**
+
+```bash
+git pull
+```
+
+```bash
+./setup.sh
+```
+
+Re-running setup is safe. It remembers your data folder and doesn't download anything you already have.
+
+### Do I need to start or stop Ollama myself?
+
+No.
+- **Starting:** `run.sh` checks whether Ollama is running and starts it in the background if it isn't.
+- **Stopping:** when you quit Parlera, it unloads the model from memory, which frees ~17 GB of RAM straight away. If Parlera started Ollama, it quits Ollama too. If Ollama was already running before (e.g. you use it for other things), it's left running.
+- To never quit Ollama, start Parlera with:
+
+  ```bash
+  PARLERA_QUIT_OLLAMA=0 ./run.sh
+  ```
+
+### Where models are stored
+
+Models are never downloaded twice:
+- **Ollama models** stay in Ollama's own store (`~/.ollama/models`). Parlera only talks to Ollama, so it uses any model you already have. Setup lists them so you can pick one, and *Settings → Language model* shows all installed models.
+- **Whisper** is stored in the standard Hugging Face cache (`~/.cache/huggingface`), shared with other tools.
+- **macOS voices** are managed by macOS.
 
 **Strongly recommended (5 minutes):**
 - **Better voices, free.** Go to *System Settings → Accessibility → Spoken Content → System voice → Manage Voices…*
-  and download *Alva (Premium)* or *Klara* (Swedish), *Thomas* or *Audrey (Premium)* (French), and an
-  English voice like *Ava (Premium)*. Then pick them in *Settings → Tutor voice*.
+  and download a Premium or Enhanced voice for Swedish (e.g. *Alva*), French and English. The names
+  differ between macOS versions; any of them works. Parlera picks the best installed voice
+  automatically, or you can choose one in *Settings → Tutor voice* (▶ to test).
 - **Anki.** Install [Anki](https://apps.ankiweb.net), then go to *Tools → Add-ons → Get Add-ons…*, enter code
   **`2055492159`** (AnkiConnect), and restart Anki. In *Settings → Anki*, choose the deck for each language.
   Pick an existing deck, or type a new name like `Languages::Swedish`.
@@ -126,10 +165,28 @@ multilingual ones.
 
 When you press **End & review**, the local model analyses the transcript and produces:
 - a summary for the tutor's memory, and feedback for you
-- your mistakes, merged into your "recurring mistakes" list
+- your mistakes (including English ones and pronunciation flags), merged into your "recurring mistakes" list
 - new memories about you
 - unit mastery and a level estimate (and an exam score in exam mode)
-- flashcard candidates, filtered by word frequency and your existing vocabulary, then sent to Anki
+- flashcards
+
+### How flashcards are chosen
+
+The teacher model reads the whole conversation and **judges which words are worth learning now**.
+It doesn't just copy every word. It prioritises, in this order:
+1. words you **got wrong or struggled with**
+2. words you **asked about** ("how do I say…?")
+3. the current **unit's key vocabulary** that came up
+4. other **useful everyday words** the teacher introduced
+
+Then Parlera filters the list:
+- It drops words you already have, including ones you skipped before.
+- It drops rare words, using a word-frequency list.
+- It keeps at most 15 per session. You can change both limits in *Settings → Progress & cards*.
+
+Each card gets the dictionary form (with *en/ett* or *le/la*), its forms (e.g. *en bil – bilen –
+bilar – bilarna*), an example sentence (preferably the one from your conversation), a translation
+and audio. You can also add any word yourself: click a blue word in the chat, or use *Vocabulary → Add word*.
 
 The next session's system prompt includes all of that, so the tutor follows the curriculum from
 session to session and keeps coming back to what you find hard.
@@ -155,7 +212,8 @@ scoring, or an audio-capable model. See [Roadmap](#roadmap).
 
 ## Your data
 
-Everything is in **`~/Parlera`** (change it with `PARLERA_DATA=/path ./run.sh` or `--data`):
+Everything is in your data folder: **`~/Parlera`** by default, or wherever you chose during
+setup (stored in `parlera.env`; `PARLERA_DATA=/path ./run.sh` also works):
 
 | Path | What |
 |---|---|
