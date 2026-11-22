@@ -1,0 +1,654 @@
+"""FastAPI app: REST API + WebSocket + static GUI."""
+from __future__ import annotations
+
+import asyncio
+import csv
+import io
+import json
+import logging
+import shutil
+import tempfile
+import zipfile
+from datetime import date
+from pathlib import Path
+from typing import Any
+
+import httpx
+from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.staticfiles import StaticFiles
+from starlette.background import BackgroundTask
+
+from . import __version__
+from .anki import AnkiError, display_word
+from .config import DEFAULTS_DIR, LANGUAGES, STATIC_DIR
+from .core import Parlera
+from .curriculum import CurriculumError
+from .db import norm, now
+from .llm import LLMError
+from .prompts import MODES, PROMPT_INFO
+from .textproc import segment_languages
+from .tts import PIPER_BASE, PIPER_CATALOG, TTSError
+from .tutor import TutorSession
+
+log = logging.getLogger("parlera")
+
+
+def create_app(root: Path | None = None) -> FastAPI:
+    core = Parlera(root)
+    app = FastAPI(title="Parlera", version=__version__)
+    app.state.core = core
+
+    @app.on_event("startup")
+    async def _startup() -> None:
+        try:
+            core.daily_backup()
+            core.tts.cleanup_cache()
+        except Exception:  # pragma: no cover
+            log.exception("startup housekeeping failed")
+
+    @app.exception_handler(ValueError)
+    async def _value_error(_: Request, exc: ValueError):
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    @app.exception_handler(LLMError)
+    async def _llm_error(_: Request, exc: LLMError):
+        return JSONResponse({"detail": str(exc)}, status_code=502)
+
+    @app.exception_handler(AnkiError)
+    async def _anki_error(_: Request, exc: AnkiError):
+        return JSONResponse({"detail": str(exc)}, status_code=502)
+
+    @app.exception_handler(CurriculumError)
+    async def _cur_error(_: Request, exc: CurriculumError):
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    @app.exception_handler(TTSError)
+    async def _tts_error(_: Request, exc: TTSError):
+        return JSONResponse({"detail": str(exc)}, status_code=500)
+
+    def lang_ok(language: str) -> str:
+        if language not in LANGUAGES:
+            raise HTTPException(404, f"Unknown language '{language}'")
+        return language
+
+    # ------------------------------------------------------------------
+    # status & settings
+    # ------------------------------------------------------------------
+    @app.get("/api/status")
+    async def status():
+        settings = core.settings.all()
+        ollama: dict[str, Any] = {"ok": False, "models": [], "model": settings["llm"]["model"]}
+        try:
+            ollama["models"] = await core.llm.list_models()
+            ollama["ok"] = True
+            ollama["model_installed"] = any(
+                m == settings["llm"]["model"] or m == settings["llm"]["model"] + ":latest" for m in ollama["models"])
+        except Exception as e:
+            ollama["error"] = str(e)
+        anki_version = await core.anki().version()
+        return {
+            "version": __version__,
+            "data_dir": str(core.paths.root),
+            "ollama": ollama,
+            "stt": core.stt.status(),
+            "tts": core.tts.status(),
+            "anki": {"ok": anki_version is not None, "version": anki_version},
+            "languages": LANGUAGES,
+            "modes": MODES,
+        }
+
+    @app.get("/api/settings")
+    async def get_settings():
+        return core.settings.all()
+
+    @app.put("/api/settings")
+    async def put_settings(patch: dict = Body(...)):
+        return core.settings.update(patch)
+
+    @app.get("/api/models")
+    async def models():
+        return {"models": await core.llm.list_models()}
+
+    # ------------------------------------------------------------------
+    # dashboard / learner / curriculum
+    # ------------------------------------------------------------------
+    @app.get("/api/dashboard/{language}")
+    async def dashboard(language: str):
+        lang_ok(language)
+        learner = core.learner(language)
+        unit = core.current_unit(language)
+        prog = core.db.ensure_unit(language, unit["id"])
+        recent = core.db.all("SELECT * FROM sessions WHERE language=? ORDER BY updated_at DESC LIMIT 6", [language])
+        for s in recent:
+            s.pop("analysis", None)
+            s["duration"] = core.session_duration(s["id"])
+        weak = core.weak_vocab(language, 10)
+        for v in weak:
+            v["display"] = display_word(v)
+        return {
+            "learner": learner,
+            "unit": unit,
+            "unit_progress": prog,
+            "next_unit": core.curricula.next_unit(language, unit["id"]),
+            "immersion": core.immersion(language, unit),
+            "stats": core.stats(language),
+            "recent_sessions": recent,
+            "errors": core.recurring_errors(language, 6),
+            "weak_vocab": weak,
+            "exam": core.exam_for_level(language, unit["level"]),
+        }
+
+    @app.put("/api/learner/{language}")
+    async def put_learner(language: str, body: dict = Body(...)):
+        lang_ok(language)
+        core.learner(language)
+        if "current_unit_id" in body:
+            core.set_current_unit(language, body["current_unit_id"], bool(body.get("complete_previous")))
+        if "notes" in body:
+            core.db.update("learner", language, {"notes": body["notes"]}, key="language")
+        return core.learner(language)
+
+    @app.post("/api/learner/{language}/advance")
+    async def advance(language: str):
+        lang_ok(language)
+        nxt = core.advance(language)
+        return {"next": nxt}
+
+    @app.get("/api/curriculum/{language}")
+    async def curriculum(language: str):
+        lang_ok(language)
+        data = core.curricula.get(language)
+        learner = core.learner(language)
+        return {"curriculum": data, "progress": core.db.unit_progress_map(language),
+                "current_unit_id": learner["current_unit_id"]}
+
+    @app.get("/api/curriculum/{language}/raw", response_class=PlainTextResponse)
+    async def curriculum_raw(language: str):
+        lang_ok(language)
+        return core.curricula.raw(language)
+
+    @app.put("/api/curriculum/{language}/raw")
+    async def curriculum_save(language: str, body: dict = Body(...)):
+        lang_ok(language)
+        data = core.curricula.save_raw(language, body.get("text", ""))
+        core.learner(language)  # re-validate current unit
+        return {"ok": True, "units": len(data["units"])}
+
+    @app.post("/api/curriculum/{language}/validate")
+    async def curriculum_validate(language: str, body: dict = Body(...)):
+        import yaml
+        from .curriculum import normalize, validate
+        try:
+            data = normalize(validate(yaml.safe_load(body.get("text", ""))))
+        except yaml.YAMLError as e:
+            return {"ok": False, "error": f"YAML syntax error: {e}"}
+        except CurriculumError as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, "units": len(data["units"]), "levels": [lv["code"] for lv in data["levels"]]}
+
+    @app.post("/api/curriculum/{language}/reset")
+    async def curriculum_reset(language: str):
+        lang_ok(language)
+        src = DEFAULTS_DIR / "curricula" / f"{language}.yaml"
+        core.curricula.save_raw(language, src.read_text(encoding="utf-8"))
+        return {"ok": True}
+
+    @app.post("/api/curriculum/{language}/units/{unit_id}")
+    async def unit_action(language: str, unit_id: str, body: dict = Body(...)):
+        lang_ok(language)
+        action = body.get("action")
+        if action == "set_current":
+            core.set_current_unit(language, unit_id, bool(body.get("complete_previous")))
+        elif action in ("completed", "active"):
+            core.set_unit_status(language, unit_id, action)
+        elif action == "reset":
+            core.db.execute("DELETE FROM unit_progress WHERE language=? AND unit_id=?", [language, unit_id])
+        else:
+            raise HTTPException(400, "Unknown action")
+        return {"ok": True, "progress": core.db.unit_progress_map(language)}
+
+    # ------------------------------------------------------------------
+    # prompts
+    # ------------------------------------------------------------------
+    @app.get("/api/prompts")
+    async def prompts_list():
+        return [core.prompts.info(n) for n in core.prompts.names()]
+
+    @app.get("/api/prompts/{name}")
+    async def prompt_get(name: str):
+        try:
+            return {**core.prompts.info(name), "text": core.prompts.read(name),
+                    "default": core.prompts.default(name)}
+        except FileNotFoundError:
+            raise HTTPException(404, "Prompt not found")
+
+    @app.put("/api/prompts/{name}")
+    async def prompt_put(name: str, body: dict = Body(...)):
+        core.prompts.write(name, body.get("text", ""))
+        return core.prompts.info(name)
+
+    @app.post("/api/prompts/{name}/reset")
+    async def prompt_reset(name: str):
+        try:
+            core.prompts.reset(name)
+        except FileNotFoundError:
+            raise HTTPException(404, "No default for this prompt")
+        return {**core.prompts.info(name), "text": core.prompts.read(name)}
+
+    @app.post("/api/prompts-preview")
+    async def prompt_preview(body: dict = Body(...)):
+        language = lang_ok(body.get("language", "sv"))
+        ctx = core.build_context(language, body.get("mode", "lesson"), body.get("unit_id"),
+                                 body.get("scenario", ""), body.get("focus", ""))
+        system = core.render_system_prompt(ctx)
+        return {"system": system, "opening": core.prompts.render("opening", **ctx),
+                "chars": len(system), "approx_tokens": len(system) // 4}
+
+    # ------------------------------------------------------------------
+    # sessions
+    # ------------------------------------------------------------------
+    @app.post("/api/sessions")
+    async def session_create(body: dict = Body(...)):
+        s = core.create_session(body.get("language"), body.get("mode", "lesson"), body.get("unit_id"),
+                                body.get("scenario", ""), body.get("focus", ""))
+        return s
+
+    @app.get("/api/sessions")
+    async def sessions_list(language: str | None = None, limit: int = 200):
+        sql = "SELECT * FROM sessions"
+        params: list[Any] = []
+        if language:
+            sql += " WHERE language=?"
+            params.append(language)
+        rows = core.db.all(sql + " ORDER BY created_at DESC LIMIT ?", [*params, limit])
+        for r in rows:
+            r.pop("analysis", None)
+            r["duration"] = core.session_duration(r["id"])
+            r["turns"] = core.db.scalar(
+                "SELECT COUNT(*) FROM messages WHERE session_id=? AND hidden=0 AND role='user'", [r["id"]])
+            unit = core.curricula.unit(r["language"], r["unit_id"]) if r.get("unit_id") else None
+            r["unit_title"] = unit["title"] if unit else ""
+            r["unit_level"] = unit["level"] if unit else ""
+        return rows
+
+    @app.get("/api/sessions/{sid}")
+    async def session_get(sid: int):
+        s = core.session_view(sid)
+        if not s:
+            raise HTTPException(404, "Session not found")
+        return s
+
+    @app.patch("/api/sessions/{sid}")
+    async def session_patch(sid: int, body: dict = Body(...)):
+        allowed = {k: v for k, v in body.items() if k in ("title", "status")}
+        core.db.update("sessions", sid, allowed)
+        return core.db.session(sid)
+
+    @app.delete("/api/sessions/{sid}")
+    async def session_delete(sid: int):
+        core.db.execute("DELETE FROM vocab WHERE session_id=? AND status='candidate'", [sid])
+        core.db.execute("DELETE FROM sessions WHERE id=?", [sid])
+        return {"ok": True}
+
+    @app.post("/api/sessions/{sid}/end")
+    async def session_end(sid: int):
+        result = await core.analyze_session(sid)
+        return {"analysis": result, "session": core.session_view(sid)}
+
+    @app.delete("/api/messages/{mid}")
+    async def message_delete(mid: int):
+        core.db.execute("DELETE FROM messages WHERE id=?", [mid])
+        return {"ok": True}
+
+    @app.get("/api/sessions/{sid}/export.md")
+    async def session_export(sid: int):
+        s = core.session_view(sid)
+        if not s:
+            raise HTTPException(404)
+        a = s.get("analysis") or {}
+        lines = [f"# {s['title']}", "", f"*{s['created_at'][:16].replace('T', ' ')} · {s['mode_info'].get('title', s['mode'])}"
+                 f" · {round(s['duration'] / 60)} min*", ""]
+        if a.get("feedback"):
+            lines += ["## Feedback", "", a["feedback"], ""]
+        if a.get("errors"):
+            lines += ["## Mistakes", ""] + [f"- ~~{e.get('wrong')}~~ → **{e.get('right')}** — {e.get('explanation')}"
+                                            for e in a["errors"]] + [""]
+        lines += ["## Transcript", ""]
+        for m in s["messages"]:
+            who = "**You**" if m["role"] == "user" else "**Tutor**"
+            lines += [f"{who}: {m['content']}", ""]
+        name = f"parlera-session-{sid}.md"
+        return Response("\n".join(lines), media_type="text/markdown",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+    @app.websocket("/ws/sessions/{sid}")
+    async def session_ws(ws: WebSocket, sid: int):
+        await TutorSession(core, ws, sid).run()
+
+    # ------------------------------------------------------------------
+    # vocabulary & Anki
+    # ------------------------------------------------------------------
+    @app.get("/api/vocab")
+    async def vocab_list(language: str | None = None, status: str | None = None, q: str | None = None):
+        sql, params = "SELECT * FROM vocab WHERE 1=1", []
+        if language:
+            sql += " AND language=?"
+            params.append(language)
+        if status:
+            sql += " AND status=?"
+            params.append(status)
+        if q:
+            sql += " AND (lemma LIKE ? OR translation LIKE ? OR example LIKE ?)"
+            params += [f"%{q}%"] * 3
+        rows = core.db.all(sql + " ORDER BY created_at DESC, id DESC", params)
+        for r in rows:
+            r["display"] = display_word(r)
+        return rows
+
+    @app.post("/api/vocab")
+    async def vocab_add(body: dict = Body(...)):
+        row = core.add_manual_vocab(lang_ok(body.get("language", "")), body)
+        row["display"] = display_word(row)
+        return row
+
+    @app.post("/api/vocab/autofill")
+    async def vocab_autofill(body: dict = Body(...)):
+        return await core.autofill_vocab(lang_ok(body.get("language", "")), body.get("word", ""),
+                                         body.get("context", ""))
+
+    @app.patch("/api/vocab/{vid}")
+    async def vocab_patch(vid: int, body: dict = Body(...)):
+        fields = ("lemma", "forms", "gender", "pos", "translation", "example", "example_translation", "notes",
+                  "status", "unit_id")
+        patch = {k: v for k, v in body.items() if k in fields}
+        if "lemma" in patch:
+            patch["lemma_norm"] = norm(patch["lemma"])
+        patch["updated_at"] = now()
+        core.db.update("vocab", vid, patch)
+        row = core.db.one("SELECT * FROM vocab WHERE id=?", [vid])
+        if row:
+            row["display"] = display_word(row)
+        return row
+
+    @app.delete("/api/vocab/{vid}")
+    async def vocab_delete(vid: int):
+        core.db.execute("DELETE FROM vocab WHERE id=?", [vid])
+        return {"ok": True}
+
+    @app.post("/api/vocab/bulk")
+    async def vocab_bulk(body: dict = Body(...)):
+        ids = [int(i) for i in body.get("ids", [])]
+        action = body.get("action")
+        result: dict[str, Any] = {"ok": True}
+        if action in ("accept", "anki"):
+            for i in ids:
+                core.db.execute("UPDATE vocab SET status='learning', updated_at=? WHERE id=? AND status IN "
+                                "('candidate','ignored')", [now(), i])
+            if action == "anki":
+                result.update(await core.push_to_anki(ids))
+        elif action == "ignore":
+            for i in ids:
+                core.db.execute("UPDATE vocab SET status='ignored', updated_at=? WHERE id=?", [now(), i])
+        elif action == "known":
+            for i in ids:
+                core.db.execute("UPDATE vocab SET status='known', updated_at=? WHERE id=?", [now(), i])
+        elif action == "unanki":
+            result["removed"] = await core.remove_from_anki(ids)
+        elif action == "delete":
+            for i in ids:
+                core.db.execute("DELETE FROM vocab WHERE id=?", [i])
+        else:
+            raise HTTPException(400, "Unknown action")
+        return result
+
+    @app.post("/api/anki/sync")
+    async def anki_sync(body: dict = Body(default={})):
+        return await core.sync_anki(body.get("language"))
+
+    @app.post("/api/anki/push-pending")
+    async def anki_push_pending(body: dict = Body(default={})):
+        if await core.anki().version() is None:
+            return {"added": [], "failed": [], "offline": True}
+        return await core.push_pending(body.get("language"))
+
+    @app.get("/api/anki/decks")
+    async def anki_decks():
+        if await core.anki().version() is None:
+            return {"ok": False, "decks": []}
+        return {"ok": True, "decks": await core.anki().deck_names()}
+
+    @app.get("/api/anki/test")
+    async def anki_test():
+        v = await core.anki().version()
+        if v is None:
+            raise HTTPException(502, "AnkiConnect not reachable. Open Anki and install the AnkiConnect add-on (code 2055492159).")
+        decks = await core.anki().invoke("deckNames")
+        return {"version": v, "decks": decks}
+
+    @app.post("/api/vocab/export.apkg")
+    async def vocab_apkg(body: dict = Body(...)):
+        ids = [int(i) for i in body.get("ids", [])]
+        if not ids and body.get("language"):
+            ids = [r["id"] for r in core.db.all(
+                "SELECT id FROM vocab WHERE language=? AND status IN ('learning','known')", [body["language"]])]
+        tmp = Path(tempfile.mkdtemp())
+        out = await asyncio.to_thread(core.export_apkg, ids, tmp / "parlera.apkg")
+        return FileResponse(out, filename=f"parlera-{date.today().isoformat()}.apkg",
+                            media_type="application/octet-stream",
+                            background=BackgroundTask(shutil.rmtree, tmp, ignore_errors=True))
+
+    @app.get("/api/vocab/export.csv")
+    async def vocab_csv(language: str | None = None):
+        rows = await vocab_list(language=language)
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        cols = ["display", "translation", "pos", "gender", "forms", "example", "example_translation", "notes",
+                "status", "unit_id", "anki_interval", "created_at"]
+        w.writerow(cols)
+        for r in rows:
+            w.writerow([r.get(c, "") for c in cols])
+        return Response(buf.getvalue(), media_type="text/csv",
+                        headers={"Content-Disposition": 'attachment; filename="parlera-vocab.csv"'})
+
+    # ------------------------------------------------------------------
+    # memories & errors
+    # ------------------------------------------------------------------
+    @app.get("/api/memories")
+    async def memories(language: str | None = None):
+        if language:
+            return core.db.all("SELECT * FROM memories WHERE language IS NULL OR language=? "
+                               "ORDER BY pinned DESC, updated_at DESC", [language])
+        return core.db.all("SELECT * FROM memories ORDER BY pinned DESC, updated_at DESC")
+
+    @app.post("/api/memories")
+    async def memory_add(body: dict = Body(...)):
+        content = (body.get("content") or "").strip()
+        if not content:
+            raise HTTPException(400, "Memory is empty")
+        ts = now()
+        mid = core.db.insert("memories", {"language": body.get("language") or None,
+                                          "category": body.get("category") or "personal", "content": content,
+                                          "pinned": int(bool(body.get("pinned"))), "active": 1,
+                                          "created_at": ts, "updated_at": ts})
+        return core.db.one("SELECT * FROM memories WHERE id=?", [mid])
+
+    @app.patch("/api/memories/{mid}")
+    async def memory_patch(mid: int, body: dict = Body(...)):
+        patch = {k: v for k, v in body.items() if k in ("content", "category", "pinned", "active", "language")}
+        if "language" in patch and not patch["language"]:
+            patch["language"] = None
+        patch["updated_at"] = now()
+        core.db.update("memories", mid, patch)
+        return core.db.one("SELECT * FROM memories WHERE id=?", [mid])
+
+    @app.delete("/api/memories/{mid}")
+    async def memory_delete(mid: int):
+        core.db.execute("DELETE FROM memories WHERE id=?", [mid])
+        return {"ok": True}
+
+    @app.get("/api/errors")
+    async def errors(language: str):
+        return core.db.all("SELECT * FROM errors WHERE language=? ORDER BY resolved, count DESC, last_seen DESC",
+                           [language])
+
+    @app.patch("/api/errors/{eid}")
+    async def error_patch(eid: int, body: dict = Body(...)):
+        patch = {k: v for k, v in body.items() if k in ("resolved", "pattern", "explanation", "example_wrong",
+                                                       "example_right")}
+        core.db.update("errors", eid, patch)
+        return core.db.one("SELECT * FROM errors WHERE id=?", [eid])
+
+    @app.delete("/api/errors/{eid}")
+    async def error_delete(eid: int):
+        core.db.execute("DELETE FROM errors WHERE id=?", [eid])
+        return {"ok": True}
+
+    # ------------------------------------------------------------------
+    # speech
+    # ------------------------------------------------------------------
+    @app.post("/api/stt")
+    async def stt(file: UploadFile = File(...), language: str = Form("")):
+        data = await file.read()
+        return await asyncio.to_thread(core.stt.transcribe, data, language or None, None)
+
+    @app.post("/api/speak")
+    async def speak(body: dict = Body(...)):
+        language = lang_ok(body.get("language", "sv"))
+        text = body.get("text", "")
+        segs = segment_languages(text, language) if body.get("mixed", True) else [{"lang": body.get("lang", language),
+                                                                                    "text": text}]
+        rate = float(body.get("rate", 1.0))
+        rates = {"en": rate, language: rate * (0.75 if body.get("slow") else 1.0)}
+        wav = await asyncio.to_thread(core.tts.synth_segments, segs, rates)
+        return Response(wav, media_type="audio/wav")
+
+    @app.post("/api/segments")
+    async def segments(body: dict = Body(...)):
+        language = lang_ok(body.get("language", "sv"))
+        from .textproc import SentenceStream
+        s = SentenceStream()
+        out = []
+        for sentence, _ in s.feed(body.get("text", "") + " ") + s.flush():
+            out += segment_languages(sentence, language)
+        return {"segments": out, "engine": core.tts.engine()}
+
+    @app.get("/api/tts/voices")
+    async def tts_voices(engine: str = "macos", refresh: bool = False):
+        if engine == "macos" and refresh:
+            core.tts.macos_voices(refresh=True)
+        return {lang: core.tts.voices(engine, lang) for lang in ("fr", "sv", "en")}
+
+    @app.get("/api/tts/piper/catalog")
+    async def piper_catalog():
+        installed = {v["name"] for v in core.tts.piper_voices()}
+        import importlib.util
+        return {"installed_package": importlib.util.find_spec("piper") is not None,
+                "voices": [{**v, "installed": v["name"] in installed} for v in PIPER_CATALOG]}
+
+    @app.post("/api/tts/piper/download")
+    async def piper_download(body: dict = Body(...)):
+        entry = next((v for v in PIPER_CATALOG if v["name"] == body.get("name")), None)
+        if not entry:
+            raise HTTPException(404, "Unknown voice")
+        async with httpx.AsyncClient(timeout=600, follow_redirects=True) as client:
+            for suffix in (".onnx", ".onnx.json"):
+                url = f"{PIPER_BASE}/{entry['path']}/{entry['name']}{suffix}"
+                dest = core.paths.voices / f"{entry['name']}{suffix}"
+                tmp = dest.with_suffix(dest.suffix + ".part")
+                async with client.stream("GET", url) as r:
+                    if r.status_code != 200:
+                        raise HTTPException(502, f"Download failed ({r.status_code}) for {url}")
+                    with open(tmp, "wb") as f:
+                        async for chunk in r.aiter_bytes():
+                            f.write(chunk)
+                tmp.replace(dest)
+        return {"ok": True}
+
+    @app.post("/api/tts/test")
+    async def tts_test(body: dict = Body(...)):
+        lang = body.get("lang", "sv")
+        samples = {"sv": "Hej! Jag heter Astrid. Välkommen till din svensklektion.",
+                   "fr": "Bonjour ! Je m'appelle Élodie. Bienvenue à ton cours de français.",
+                   "en": "Hi! I'm your language tutor. Let's practise together."}
+        wav = await asyncio.to_thread(core.tts.synth, body.get("text") or samples.get(lang, "Hello"), lang, 1.0)
+        return Response(wav, media_type="audio/wav")
+
+    @app.post("/api/translate")
+    async def translate(body: dict = Body(...)):
+        language = lang_ok(body.get("language", "sv"))
+        direction = body.get("direction", "to_native")
+        ctx = {"language": language, "language_name": LANGUAGES[language]["name"],
+               "native_language": core.settings.get("learner.native_language") or "English",
+               "direction": direction, "text": body.get("text", "")}
+        level = core.current_unit(language)["level"]
+        ctx["level"] = level
+        out = await core.llm.chat(
+            [{"role": "system", "content": core.prompts.render("translate", **ctx)},
+             {"role": "user", "content": body.get("text", "")}], options={"temperature": 0.2})
+        return {"text": out.strip()}
+
+    # ------------------------------------------------------------------
+    # backup / restore
+    # ------------------------------------------------------------------
+    @app.get("/api/backup")
+    async def backup():
+        tmp = Path(tempfile.mkdtemp())
+        db_copy = tmp / "parlera.db"
+        core.db.backup_to(db_copy)
+        out = tmp / "backup.zip"
+        with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+            z.write(db_copy, "parlera.db")
+            z.write(core.paths.settings, "settings.json") if core.paths.settings.exists() else None
+            for sub in ("prompts", "curricula"):
+                for f in getattr(core.paths, sub).glob("*"):
+                    if f.is_file():
+                        z.write(f, f"{sub}/{f.name}")
+            z.writestr("manifest.json", json.dumps({"app": "parlera", "version": __version__, "created": now()}))
+        return FileResponse(out, filename=f"parlera-backup-{date.today().isoformat()}.zip",
+                            media_type="application/zip",
+                            background=BackgroundTask(shutil.rmtree, tmp, ignore_errors=True))
+
+    @app.post("/api/restore")
+    async def restore(file: UploadFile = File(...)):
+        data = await file.read()
+        try:
+            z = zipfile.ZipFile(io.BytesIO(data))
+        except zipfile.BadZipFile:
+            raise HTTPException(400, "Not a zip file")
+        names = z.namelist()
+        if "parlera.db" not in names or "manifest.json" not in names:
+            raise HTTPException(400, "This doesn't look like a Parlera backup.")
+        # keep a safety copy of the current state
+        core.db.backup_to(core.paths.backups / f"before-restore-{now().replace(':', '-')}.db")
+        with tempfile.TemporaryDirectory() as td:
+            z.extractall(td)
+            td_path = Path(td)
+            core.db.close()
+            shutil.copy2(td_path / "parlera.db", core.paths.db)
+            for suffix in ("-wal", "-shm"):
+                Path(str(core.paths.db) + suffix).unlink(missing_ok=True)
+            if (td_path / "settings.json").exists():
+                shutil.copy2(td_path / "settings.json", core.paths.settings)
+            for sub in ("prompts", "curricula"):
+                src = td_path / sub
+                if src.exists():
+                    for f in src.iterdir():
+                        if f.is_file() and f.suffix in (".md", ".yaml", ".yml"):
+                            shutil.copy2(f, getattr(core.paths, sub) / f.name)
+        from .db import DB
+        core.db = DB(core.paths.db)
+        core.settings.reload()
+        core.curricula._cache.clear()
+        return {"ok": True}
+
+    # ------------------------------------------------------------------
+    # static GUI
+    # ------------------------------------------------------------------
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.get("/")
+    async def index():
+        return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
+
+    return app
