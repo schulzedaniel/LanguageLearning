@@ -5,6 +5,7 @@ import asyncio
 import csv
 import io
 import json
+import os
 import logging
 import shutil
 import tempfile
@@ -32,6 +33,9 @@ from .tts import PIPER_BASE, PIPER_CATALOG, TTSError
 from .tutor import TutorSession
 
 log = logging.getLogger("parlera")
+
+
+DEMO = os.environ.get("PARLERA_DEMO") or ""
 
 
 def static_build_id() -> str:
@@ -91,8 +95,15 @@ def create_app(root: Path | None = None) -> FastAPI:
             log.exception("startup housekeeping failed")
         app.state.watchdog = asyncio.create_task(watchdog())
 
+    app.state.demos = []   # demo server processes started from this instance
+
     @app.on_event("shutdown")
     async def _shutdown() -> None:
+        for d in app.state.demos:          # stop demos started from here
+            if d["process"].poll() is None:
+                d["process"].terminate()
+        if DEMO:                           # a demo never unloads shared models, backs up or quits Ollama
+            return
         # Free the RAM used by the model when Parlera quits.
         for model in {core.settings.get("llm.model"), core.settings.get("llm.analysis_model")} - {"", None}:
             await core.llm.unload(model)
@@ -154,6 +165,7 @@ def create_app(root: Path | None = None) -> FastAPI:
             "stt": core.stt.status(),
             "tts": core.tts.status(),
             "anki": {"ok": anki_version is not None, "version": anki_version},
+            "demo": DEMO,
             "languages": LANGUAGES,
             "modes": MODES,
         }
@@ -172,6 +184,16 @@ def create_app(root: Path | None = None) -> FastAPI:
         if not isinstance(data, dict) or not ({"llm", "tts", "ui"} & set(data)):
             raise HTTPException(400, "This doesn't look like a Parlera settings file.")
         return core.settings.update(data)
+
+    @app.post("/api/demo/start")
+    async def demo_start(body: dict = Body(default={})):
+        if DEMO:
+            raise HTTPException(400, "You're already in demo mode.")
+        from .demo import spawn_demo
+        app.state.demos = [d for d in app.state.demos if d["process"].poll() is None]
+        d = await asyncio.to_thread(spawn_demo, core.paths.root, body.get("mode", "copy"), body.get("open_window", True))
+        app.state.demos.append(d)
+        return {"url": d["url"], "port": d["port"]}
 
     @app.get("/api/system")
     async def system_info():

@@ -142,6 +142,15 @@ separate from the program:
 - **Saving:** everything is saved continuously, so there's nothing to "save" before quitting. Unfinished sessions stay *in progress* and can be resumed, or reviewed with *End & review*. A safety copy of the database is written on every quit.
 - **Ollama on quit:** the model is always unloaded, which frees its memory. Ollama itself is quit if Parlera started it. Under *Settings → Starting & quitting* you can choose **always** (also quits an Ollama that was already running, e.g. the menu-bar app) or **never**.
 
+### Demo mode: show Parlera without changing anything
+
+Click **Demo mode** at the bottom of the sidebar, or start it from Terminal with `./run.sh --demo copy`
+or `./run.sh --demo fresh`. A second Parlera opens in its own window, with a striped "DEMO MODE" banner.
+- **Copy of my data** shows your real progress, sessions and prompts. **Fresh start** shows a brand-new learner.
+- Do anything: talk, review sessions, edit prompts, change settings. It all happens in a temporary copy.
+- **End demo**, or close the window, and the copy is deleted. Your real progress, prompts, teacher instructions and settings stay exactly where you left them.
+- Anki is switched off in the demo, so no cards end up in your decks. The demo uses the same language model, and never unloads it or quits Ollama.
+
 ### Its own window
 
 Under *Settings → Starting & quitting → Open Parlera in*, the default opens Parlera in **its own app

@@ -36,6 +36,7 @@ The user-facing documentation is `README.md`.
 - Proper quitting: a "Quit Parlera" button, auto-quit after the last tab closes, the model unloaded, Ollama quit per setting (§6, "Quitting").
 - Natural voices: Kokoro, selectable per language (English, French), alongside macOS/Piper.
 - A weekly mistake workshop (§6), situation presets (can't speak / can't listen), "Message your teacher" instructions, and a chat break (Fika / Pause café / Tea time).
+- A demo mode that leaves no lasting changes (§6, "Demo mode").
 - Settings must survive updates; cache clearing; a dedicated app window; fully offline after setup; never two big models in RAM.
 - The user asked about `muse-glimmer:30b-mlx` (Meta, 30B, reasoning, agent-focused, ~21 GB). Recommended: keep Gemma 4 for conversation, and optionally try Muse Glimmer as the *analysis* model.
 
@@ -44,7 +45,7 @@ The user-facing documentation is `README.md`.
 ```bash
 ./setup.sh            # macOS: venv, deps, choose/pull Ollama model, Whisper prefetch, ~/Applications/Parlera.app
 ./run.sh              # starts Ollama if needed, serves http://127.0.0.1:8642, opens browser
-.venv/bin/python -m pytest -q          # 36 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
+.venv/bin/python -m pytest -q          # 38 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
 python3 tools/update_default_hashes.py # run BEFORE committing changes to parlera/defaults/{prompts,curricula}
 .venv/bin/python tools/mock_services.py [ollama_port] [anki_port]   # fake Ollama (:11434) + AnkiConnect (:8765)
 ```
@@ -88,6 +89,7 @@ parlera/
   stt.py (119)          STTManager: backend auto-select (mlx on Apple Silicon > faster), transcribe() returns {text, language, words:[{word,p}]}, hallucination filter
   tts.py (226)          TTSManager: engines macos/piper/browser/off, voice listing & auto-pick (Premium > Enhanced > preferred names, locale fr_FR/sv_SE/en_US), disk cache, PIPER_CATALOG
   audio.py (71)         WAV decode/resample/concat (numpy, no ffmpeg)
+  demo.py (110)         demo mode: prepare_demo_dir (temporary copy; sqlite backup API), spawn_demo (second server process)
   system.py (170)       app window (open_ui: Chrome/Edge/Brave --app with private profile <data>/browser), offline mode
                         (configure_offline → HF_HUB_OFFLINE=1 when all needed HF repos are cached), cache_info/clear_cache
   anki.py (231)         note type "Parlera Vocab" (fields/templates/CSS), deck_name(), display_word() (adds en/ett, le/la/l'), AnkiConnect client, build_apkg (genanki)
@@ -246,6 +248,14 @@ same context dict from `core.build_context()`:
 - Setup prefetches Whisper, and with Kokoro also `hexgrad/Kokoro-82M` + spaCy `en_core_web_sm` (misaki needs it). The venv is created with `uv venv --seed` so pip exists for spaCy.
 - `static/manifest.json` + `icon-512.png` support Safari "Add to Dock" / Chrome "Install".
 
+**Demo mode** (`demo.py`, `python -m parlera --demo copy|fresh`, `POST /api/demo/start {mode}`):
+- The main server spawns `sys.executable -m parlera --demo <mode> --port <free ≥8650>` with `PARLERA_DATA` = the real root.
+- The child copies into `tempfile.mkdtemp("parlera-demo-")`: the db (via the backup API), prompts/ and curricula/ in copy mode; only settings in fresh mode. `voices/` is symlinked.
+- `DEMO_OVERRIDES` disables Anki (url `127.0.0.1:9`, auto_add/auto_sync off) and sets `quit_ollama=never`. The child sets `PARLERA_DEMO` and uses `PARLERA_DATA` = the temp dir.
+- On exit, `__main__` closes the db and `rmtree`s the temp dir. A demo shutdown skips the model unload, the backup and the Ollama quit (`main.DEMO`).
+- `/api/status.demo` makes the UI show the striped banner and "End demo", and hides the "Demo mode" button.
+- The main server terminates its demo children on shutdown. The demo window reuses the real app-window browser profile (mic permission). The last demo's log is `$TMPDIR/parlera-demo.log`.
+
 **Situation presets** (`session.js` `SITUATIONS`, stored in localStorage `parlera.situation`): full / nospeak (text input, audio on) / nolisten (voice input, audio off, text shown) / silent. They map onto the existing `inputMode` + `audioOn`.
 
 **Immersion** (`core.immersion`): the setting `conversation.immersion` is `"auto"` or a number 0–100.
@@ -393,6 +403,8 @@ analysis prompt turns them into `pronunciation` errors.
 **Backup:** `GET /api/backup`, `POST /api/restore`
 
 **App lifecycle:** `POST /api/heartbeat`, `POST /api/bye`, `POST /api/shutdown`
+
+**Demo:** `POST /api/demo/start` with `{mode: copy|fresh, open_window}`
 
 **System:** `GET /api/system`, `POST /api/cache/clear`, `GET /api/settings/export`, `POST /api/settings/import`
 
