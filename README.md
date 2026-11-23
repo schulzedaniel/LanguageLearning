@@ -106,6 +106,20 @@ git pull
 
 Re-running setup is safe. It remembers your data folder and doesn't download anything you already have.
 
+### "Parlera wants access to control Terminal"
+
+The first time you open the **Parlera** app, macOS asks for permission. Older setups name it
+"applet". Click **OK**. The launcher is a four-line AppleScript that opens a Terminal window and runs
+`./run.sh` in your Parlera folder, so you can see that it's running and stop it with Ctrl+C. To read
+the script yourself:
+
+```bash
+osadecompile ~/Applications/Parlera.app/Contents/Resources/Scripts/main.scpt
+```
+
+If you clicked "Don't Allow", re-enable it in *System Settings → Privacy & Security → Automation*,
+or start Parlera with `./run.sh` instead.
+
 ### Do I need to start or stop Ollama myself?
 
 No.

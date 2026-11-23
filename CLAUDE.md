@@ -53,14 +53,14 @@ That mic plays a constant beep, so hands-free voice detection never sees a pause
 There's no macOS `say` and no Ollama. Test speech by stubbing `core.stt` / `core.tts`, as in
 `tests/test_parlera.py::test_voice_pipeline_with_fake_engines`.
 
-**Git:** develop on a branch (the original work is on `claude/parlera-language-tutor`).
+**Git:** `main` holds the merged app (PR #2). Make changes on a new branch from `origin/main`, push it, and give the user the compare link so they can merge. This clone only fetches `main` by default; when the push hook complains about a missing remote branch, add a fetch refspec for that branch.
 Pushing to `schulzedaniel/LanguageLearning` has worked from cloud sessions.
 
 ## 3. Repository map (≈ line counts)
 
 ```
 setup.sh (129)          interactive mac setup; writes parlera.env (PARLERA_DATA=…), sets llm.model in settings,
-                        lists already-installed Ollama models (no duplicate downloads), creates ~/Applications/Parlera.app (osacompile → Terminal → ./run.sh)
+                        lists already-installed Ollama models (no duplicate downloads), creates ~/Applications/Parlera.app (osacompile → Terminal → ./run.sh; Info.plist renamed to "Parlera" + ad-hoc re-signed so the Automation prompt doesn't say "applet")
 run.sh (45)             sources parlera.env; starts Ollama (open -g -a Ollama | ollama serve) if not running; on exit quits Ollama only if it started it
 Parlera.command (3)     Finder double-click launcher → run.sh
 pyproject.toml          deps; extras: mac (mlx-whisper), faster (faster-whisper), piper (piper-tts), dev (pytest)

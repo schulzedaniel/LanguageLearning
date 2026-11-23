@@ -115,7 +115,24 @@ if command -v osacompile >/dev/null 2>&1; then
       -e 'activate' \
       -e "do script \"cd \" & quoted form of \"$ESCAPED\" & \" && ./run.sh\"" \
       -e 'end tell'
+    # Give the launcher a proper name/identifier so macOS prompts say "Parlera" (not "applet").
+    # Editing Info.plist invalidates the ad-hoc signature, so re-sign it; if that fails, keep the
+    # unmodified app (it still works, the prompt just says "applet").
+    APP="$HOME/Applications/Parlera.app"
+    PLIST="$APP/Contents/Info.plist"
+    cp "$PLIST" "$PLIST.orig"
+    if plutil -replace CFBundleName -string "Parlera" "$PLIST" &&
+       plutil -replace CFBundleDisplayName -string "Parlera" "$PLIST" &&
+       plutil -replace CFBundleIdentifier -string "local.parlera.launcher" "$PLIST" &&
+       codesign --force --sign - "$APP" >/dev/null 2>&1; then
+      rm -f "$PLIST.orig"
+    else
+      mv "$PLIST.orig" "$PLIST"
+      codesign --force --sign - "$APP" >/dev/null 2>&1 || true
+    fi
     echo "Created ~/Applications/Parlera.app — find it with Spotlight (⌘ Space → Parlera) and drag it to your Dock."
+    echo "The first time you open it, macOS asks whether \"Parlera\" may control Terminal: click OK."
+    echo "(It only opens a Terminal window and runs ./run.sh in this folder.)"
   fi
 fi
 
