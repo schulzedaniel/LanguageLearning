@@ -1,5 +1,5 @@
 // Vocabulary manager + shared "add word" dialog.
-import { api, state, LANGS } from '../api.js';
+import { api, state, LANGS, GENDERS } from '../api.js';
 import { h, icon, mount, loading, toast, modal, confirmDialog, fmtDate, download, empty, debounce, spinner } from '../ui.js';
 
 const STATUS = [
@@ -86,10 +86,57 @@ export default async function vocab(main) {
           catch (err) { toast(err.message, 'error'); } finally { btn.disabled = false; }
         } }, icon('refresh', 16), 'Sync from Anki'),
         h('a', { class: 'btn', href: `/api/vocab/export.csv?language=${lang}` }, icon('download', 16), 'CSV'),
+        h('button', { class: 'btn', onclick: () => importAnkiDialog(lang, load) }, icon('upload', 16), 'Import from Anki'),
         h('button', { class: 'btn primary', onclick: () => addWordDialog(lang, '', '', null, load) }, icon('plus', 16), 'Add word'))),
     h('div', { class: 'row between wrap mb' }, search, bulkBar),
     tabs, tableWrap));
   load();
+}
+
+// Link an existing Anki deck (e.g. cards made elsewhere) into Parlera's vocabulary.
+async function importAnkiDialog(lang, onDone) {
+  let decks;
+  try { decks = (await api.get('/api/anki/decks')).decks; } catch (e) { toast(e.message, 'error'); return; }
+  if (!decks.length) { toast('Anki is not open (or has no decks). Start Anki with AnkiConnect first.', 'error', 6000); return; }
+  const deckSel = h('select', {}, h('option', { value: '' }, 'Choose a deck…'), decks.map((d) => h('option', { value: d }, d)));
+  const mapBox = h('div', { class: 'col mt' });
+  let preview = null;
+  const sel = {};
+  const guess = (fields, patterns) => fields.find((f) => patterns.some((p) => p.test(f))) || '';
+  deckSel.addEventListener('change', async () => {
+    if (!deckSel.value) { mount(mapBox); return; }
+    mount(mapBox, spinner());
+    try { preview = await api.get(`/api/anki/deck-preview?deck=${encodeURIComponent(deckSel.value)}`); }
+    catch (e) { mount(mapBox, h('div', { class: 'callout bad' }, e.message)); return; }
+    const f = preview.fields;
+    const picks = {
+      word: guess(f, [/^front$/i, /^word/i, /^term/i, /^english/i, /^expression/i, /^vocab/i]) || f[0] || '',
+      meaning: guess(f, [/^back$/i, /meaning/i, /definition/i, /translation/i, /^answer/i]) || f[1] || '',
+      example: guess(f, [/example/i, /sentence/i, /context/i]),
+    };
+    const mk = (key, label, optional) => {
+      sel[key] = h('select', {}, optional ? h('option', { value: '' }, '— none —') : null, f.map((x) => h('option', { value: x, selected: picks[key] === x }, x)));
+      return h('label', { class: 'field' }, label, sel[key]);
+    };
+    mount(mapBox,
+      h('div', { class: 'small muted' }, `${preview.count} notes · note types: ${preview.models.join(', ')}`),
+      h('div', { class: 'form-grid' }, mk('word', 'Field with the word / expression'), mk('meaning', lang === 'en' ? 'Field with the definition' : 'Field with the meaning'), mk('example', 'Field with an example (optional)', true)),
+      h('div', { class: 'section-label' }, 'Preview'),
+      h('div', { style: { overflowX: 'auto' } }, h('table', { class: 'table' },
+        h('thead', {}, h('tr', {}, f.map((x) => h('th', {}, x)))),
+        h('tbody', {}, preview.sample.map((row) => h('tr', {}, f.map((x) => h('td', { class: 'small' }, (row[x] || '').slice(0, 80)))))))),
+      h('div', { class: 'callout' }, icon('info'), h('div', {}, 'Nothing is changed in Anki. Parlera links these cards so your tutor knows the words, reinforces recently added ones, and uses your review results.')));
+  });
+  modal({
+    title: `Import ${LANGS[lang].name} cards from Anki`, wide: true,
+    body: h('div', {}, h('label', { class: 'field' }, 'Anki deck', deckSel), mapBox),
+    actions: [{ label: 'Cancel' }, { label: 'Import', class: 'primary', onClick: async () => {
+      if (!preview || !sel.word) throw new Error('Choose a deck first');
+      const r = await api.post('/api/anki/import', { language: lang, deck: deckSel.value, word_field: sel.word.value, meaning_field: sel.meaning.value, example_field: sel.example.value });
+      toast(`Imported ${r.added} words (${r.linked} linked, ${r.skipped} skipped) · review data synced`, 'success', 6000);
+      onDone && onDone();
+    } }],
+  });
 }
 
 function statusBadge(s) {
@@ -101,12 +148,12 @@ function statusBadge(s) {
 function wordForm(lang, v) {
   const f = {};
   const input = (key, label, ph = '') => { f[key] = h('input', { type: 'text', value: v[key] || '', placeholder: ph }); return h('label', { class: 'field' }, label, f[key]); };
-  f.gender = h('select', {}, ['', ...(lang === 'sv' ? ['en', 'ett'] : ['m', 'f'])].map((g) => h('option', { value: g, selected: (v.gender || '') === g }, g || '—')));
+  f.gender = h('select', {}, ['', ...(GENDERS[lang] || [])].map((g) => h('option', { value: g, selected: (v.gender || '') === g }, g || '—')));
   f.pos = h('select', {}, ['', 'noun', 'verb', 'adjective', 'adverb', 'phrase', 'preposition', 'pronoun', 'conjunction', 'other'].map((p) => h('option', { value: p, selected: (v.pos || '') === p }, p || '—')));
   const el = h('div', { class: 'form-grid' },
     input('lemma', 'Word (dictionary form)', lang === 'sv' ? 'e.g. bil' : 'e.g. maison'),
-    input('translation', 'Meaning'),
-    h('label', { class: 'field' }, lang === 'sv' ? 'en / ett' : 'Gender', f.gender),
+    input('translation', lang === 'en' ? 'Definition' : 'Meaning'),
+    (GENDERS[lang] || []).length ? h('label', { class: 'field' }, lang === 'sv' ? 'en / ett' : 'Gender', f.gender) : null,
     h('label', { class: 'field' }, 'Part of speech', f.pos),
     h('div', { class: 'full' }, input('forms', 'Forms', lang === 'sv' ? 'en bil – bilen – bilar – bilarna' : 'un cheval – des chevaux')),
     h('div', { class: 'full' }, input('example', 'Example sentence')),

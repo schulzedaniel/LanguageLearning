@@ -1,9 +1,14 @@
-# Parlera — your private, local language tutor 🇸🇪 🇫🇷
+# Parlera — your private, local language tutor 🇸🇪 🇫🇷 🇬🇧
 
 Parlera is a speaking-first language tutor that runs **entirely on your Mac**. You talk to a
-teacher (Astrid for Swedish, Élodie for French), it answers with a real voice, follows a CEFR
-curriculum from A1 to B2, remembers you between sessions, and turns each session's most useful
-vocabulary into **Anki flashcards** automatically.
+teacher, who answers with a real voice, follows a curriculum, remembers you between sessions, and
+turns each session's most useful vocabulary into **Anki flashcards** automatically.
+
+| Course | Teacher | Levels | Aimed at |
+|---|---|---|---|
+| 🇸🇪 Swedish | Astrid | A1 → B2 (from zero) | Swedex, later TISUS |
+| 🇫🇷 French | Élodie | A1 → B2 (refresh school French) | DELF |
+| 🇬🇧 English | Oliver (former IELTS examiner) | B2 → C2, starts at C1 | IELTS Academic, TOEFL iBT, Duolingo English Test |
 
 *"Parlera" means "will speak" in French and "to chat" in Swedish.*
 
@@ -33,7 +38,7 @@ the next session. All prompts, curricula and your data live in plain files you c
 **Pronunciation feedback.** Whisper's per-word confidence, plus a comparison when you repeat a modelled phrase, flags words that didn't sound right. They're underlined in your message and the tutor gives you a targeted tip. There's a dedicated *Pronunciation* session type too. See [How pronunciation feedback works](#how-pronunciation-feedback-works).
 
 **Curriculum and progress**
-- 31 units per language, A1 to B2, with can-do goals, grammar, vocabulary, phrases, pronunciation and culture notes. Aimed at **DELF** (French) and **Swedex / TISUS** (Swedish).
+- Swedish and French: 31 units each, A1 to B2. English: 19 units, B2 to C2. Every unit has can-do goals, grammar, vocabulary, phrases, pronunciation and culture notes. Aimed at **DELF** (French), **Swedex / TISUS** (Swedish) and **IELTS / TOEFL / Duolingo English Test** (English).
 - Session types: guided lesson, conversation, role-play, review, pronunciation, exam simulation (scored), writing practice, placement check and free talk.
 - After each session: feedback, a list of your mistakes, unit mastery, level estimate, exam score, and a suggestion to move on when you're ready.
 - Recurring mistakes and weak Anki cards flow into later sessions automatically.
@@ -44,6 +49,8 @@ the next session. All prompts, curricula and your data live in plain files you c
 - You can add personal notes that the tutor should always keep in mind.
 
 **Anki**
+- **Recently learned words come back in conversation.** Each session, the tutor gets a few words you added in the last weeks and weaves two or three of them in naturally, without quizzing you. Young cards (added 1–21 days ago, short Anki interval) come up most often; mature cards (interval of 21 days or more) rarely; words older than 90 days not at all. Words you keep failing are practised more directly instead. Review data is synced from Anki when a session starts.
+- **Import existing decks.** *Vocabulary → Import from Anki* links cards you made elsewhere (e.g. your English deck), keeping their real creation dates and review history. Nothing in Anki is changed.
 - New words are added to your **chosen deck** automatically after each session, with audio, an example sentence from your conversation, en/ett or le/la colour coding, and reverse cards.
 - If Anki is closed, words are queued and sent the next time it's open. You can remove single cards on the review page.
 - Review data (intervals, lapses) is synced back so the tutor practises the words you keep forgetting.
@@ -94,7 +101,7 @@ the next session. All prompts, curricula and your data live in plain files you c
 4. **Start Parlera.** Use the **Parlera** app (⌘Space → "Parlera"), `./run.sh`, or double-click `Parlera.command`.
    Your browser opens at <http://127.0.0.1:8642>. To stop it, press Ctrl+C or close the Terminal window.
 
-**Updating later:**
+**Updating later:** in the program folder, run:
 
 ```bash
 git pull
@@ -104,21 +111,18 @@ git pull
 ./setup.sh
 ```
 
-Re-running setup is safe. It remembers your data folder and doesn't download anything you already have.
+`setup.sh` installs any new Python packages and rebuilds the Parlera app (with its icon). It
+remembers your data folder and model, and doesn't download anything you already have.
 
-### "Parlera wants access to control Terminal"
-
-The first time you open the **Parlera** app, macOS asks for permission. Older setups name it
-"applet". Click **OK**. The launcher is a four-line AppleScript that opens a Terminal window and runs
-`./run.sh` in your Parlera folder, so you can see that it's running and stop it with Ctrl+C. To read
-the script yourself:
-
-```bash
-osadecompile ~/Applications/Parlera.app/Contents/Resources/Scripts/main.scpt
-```
-
-If you clicked "Don't Allow", re-enable it in *System Settings → Privacy & Security → Automation*,
-or start Parlera with `./run.sh` instead.
+**Your progress is safe across updates.** Everything you've done lives in your *data folder*,
+separate from the program:
+- **Sessions, progress, words, memories and settings** are never touched by an update.
+  Database changes are applied automatically, and a daily backup is kept in `backups/`.
+- **Teacher prompts and curricula you never edited** are upgraded to the new built-in
+  versions automatically.
+- **Files you edited** stay exactly as they are. *Reset* on the Teacher prompts or Curriculum
+  page gets the newest built-in version.
+- **New courses or prompts** (like the English course) are added automatically.
 
 ### Do I need to start or stop Ollama myself?
 
@@ -242,7 +246,7 @@ setup (stored in `parlera.env`; `PARLERA_DATA=/path ./run.sh` also works):
 | `parlera.db` | SQLite: sessions and messages, progress per unit, vocabulary and Anki links, mistakes, memories, exam scores |
 | `settings.json` | Your settings |
 | `prompts/*.md` | Teacher prompts (Jinja2 templates). Edit them in the app or any editor |
-| `curricula/sv.yaml`, `fr.yaml` | The curricula, also editable |
+| `curricula/sv.yaml`, `fr.yaml`, `en.yaml` | The curricula, also editable |
 | `backups/` | Automatic daily database copies (the last 14 are kept) |
 | `voices/` | Piper voices (if you use Piper) |
 | `cache/tts/` | Cached speech audio (cleaned after 30 days) |

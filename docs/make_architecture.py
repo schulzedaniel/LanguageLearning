@@ -103,7 +103,7 @@ steps_live = [
     (378, 0, 0, "", ""),
     (408, 52, 6, "Stream the tutor’s reply", "Ollama sends the answer word by word"),
     (472, 52, 7, "Split & route languages", "textproc.py — **bold** = target voice, rest = English"),
-    (536, 52, 8, "Speak each sentence", "tts.py — French/Swedish + English voices (cached)"),
+    (536, 52, 8, "Speak each sentence", "tts.py — target-language + English voices (cached)"),
     (600, 52, 9, "Send audio + text back", "and save both messages in parlera.db"),
 ]
 for (y, h, n, title, sub) in steps_live:
@@ -114,7 +114,7 @@ for (y, h, n, title, sub) in steps_live:
     text(766, y + 24, title, 13.5, 650, "#111827")
     text(766, y + 42, sub, 11.5, 400, "#4b5563")
 text(766, 380, "+ curriculum unit, memories, recent sessions,", 11.5, 400, "#4b5563")
-text(766, 395, "  weak Anki words, recurring mistakes, history", 11.5, 400, "#4b5563")
+text(766, 395, "  weak & recently learned words, mistakes, history", 11.5, 400, "#4b5563")
 
 steps_post = [
     (778, 10, "Analyse the session", "core.py → Ollama returns JSON (schema-checked)"),
@@ -145,8 +145,8 @@ text(306, 1118, "YOUR DATA FOLDER", 14, 750, "#92400e")
 text(600, 1118, "~/Parlera by default — chosen in setup.sh, remembered in parlera.env · backed up daily · one-click backup/restore", 12, 400, "#92400e")
 data_boxes = [
     (306, 270, "parlera.db  (SQLite)", ["sessions & every message", "progress per unit (mastery)", "vocabulary + Anki links", "recurring mistakes · memories", "exam scores"]),
-    (592, 250, "prompts/*.md", ["teacher’s instructions (editable)", "tutor_base · persona_sv / _fr", "context · mode_lesson, _exam …", "analysis_session · analysis_vocab", "→ edit in “Teacher prompts”"]),
-    (858, 230, "curricula/*.yaml", ["sv.yaml · fr.yaml", "A1 → B2, 31 units each", "goals, grammar, words, phrases", "exam formats (DELF, Swedex)", "→ edit in “Curriculum”"]),
+    (592, 250, "prompts/*.md", ["teacher’s instructions (editable)", "tutor_base · persona_sv/_fr/_en", "context · mode_lesson, _exam …", "analysis_session · analysis_vocab", "→ edit in “Teacher prompts”"]),
+    (858, 230, "curricula/*.yaml", ["sv.yaml · fr.yaml · en.yaml", "SV/FR A1→B2 · EN B2→C2", "goals, grammar, words, phrases", "exams: DELF, Swedex, IELTS…", "→ edit in “Curriculum”"]),
     (1104, 210, "settings.json", ["model, voices, speed", "Anki decks, auto-add", "immersion %, input mode", "pronunciation hints", "→ edit in “Settings”"]),
     (1330, 224, "backups/ · cache/ · voices/", ["daily copies of parlera.db", "cached speech audio", "Piper voice files", "", ""]),
 ]

@@ -43,6 +43,11 @@ Progress on this unit: {{ unit_progress.sessions }} previous session(s), estimat
 ## Words the learner keeps forgetting (weave 2–4 of them in naturally)
 {{ weak_vocab | join(", ") }}
 {% endif %}
+{% if reinforce_vocab %}
+## Recently learned words — reinforce them subtly
+The learner added these to their flashcards recently. During the session, naturally use two or three of them yourself, or create an easy opportunity for the learner to use them. Never present them as a list or a quiz, don't say they come from their flashcards, and skip any that don't fit the conversation.
+{{ reinforce_vocab | join("; ") }}
+{% endif %}
 {% if recurring_errors %}
 ## Recurring mistakes to watch for
 {% for e in recurring_errors %}- {{ e.pattern }}{% if e.example_wrong %} (e.g. "{{ e.example_wrong }}" → "{{ e.example_right }}"){% endif %} — seen {{ e.count }}×

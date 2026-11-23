@@ -14,6 +14,8 @@ PROMPT_INFO: dict[str, tuple[str, str, str]] = {
                    "How the tutor behaves in every session: turn length, language mixing, corrections, bold marking for the voice engine."),
     "persona_sv": ("Teacher", "Swedish teacher persona",
                    "Who your Swedish teacher is (name, background, accent) and Swedish-specific teaching notes."),
+    "persona_en": ("Teacher", "English coach persona",
+                   "Who your English coach is (IELTS examiner background) and what advanced learners need."),
     "persona_fr": ("Teacher", "French teacher persona",
                    "Who your French teacher is (name, background, accent) and French-specific teaching notes."),
     "context": ("Teacher", "Learner & unit context",

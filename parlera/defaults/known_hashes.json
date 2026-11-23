@@ -1,0 +1,65 @@
+{
+ "curricula/fr.yaml": [
+  "baafb5b7890c5c1328ffdc392583130b90183b092c901e5e727715873d855d43"
+ ],
+ "curricula/sv.yaml": [
+  "4066921cd29dbecbcda1753481ca9881259ba6aa9f00276eea38c8e3dbf0edb7"
+ ],
+ "prompts/analysis_session.md": [
+  "4308f6e21cd27d25ea3adfa2b60180f16af3648a3b0bc7d484194a979671fd8f"
+ ],
+ "prompts/analysis_vocab.md": [
+  "5196fe17a8b668ce98221944db4f557e63ca34499f7341a2f0db876e310e7704"
+ ],
+ "prompts/context.md": [
+  "1e9e18cb1b2be956b9e9a252238ca358aaae8452083d2794d6aa2a4d7b6da6cd"
+ ],
+ "prompts/mode_conversation.md": [
+  "7edad66ff577264c8554c5b72783779b59d1f2a3e11554c0d072688638226eac"
+ ],
+ "prompts/mode_exam.md": [
+  "01ce2017f3377224549a236c35cf63936c989bedb8ef06b5cc0f866b03199cfd"
+ ],
+ "prompts/mode_free.md": [
+  "8b98ac4679d791e54370522cd3bdb851364f4d340816a30cecc4bd47158e7926"
+ ],
+ "prompts/mode_lesson.md": [
+  "841484b58ce02ccb621765307cae87af26956cc7df51c94bd4f8067cc2a182dd"
+ ],
+ "prompts/mode_placement.md": [
+  "4c856130c16fedbddae280593d4fdf1e3865796e1bf209ccb9887bab135d7af7"
+ ],
+ "prompts/mode_pronunciation.md": [
+  "befdf8455ecb9c62ababd2ce010ec90ff23bfc17530b1ae6ddf5f5c2d8bdca3f"
+ ],
+ "prompts/mode_review.md": [
+  "afa3a39507a9865e676d1694fa358482bfba3db2ba54600e52a4ab216371706c"
+ ],
+ "prompts/mode_roleplay.md": [
+  "022ed8025ebd9312745a989b3aa3f9ea56e6eff6be4f89a58081c86d6c2a8269"
+ ],
+ "prompts/mode_writing.md": [
+  "9a80c10b92574fb247768dd28bb8f51f10bedddff9d616a820c14e894cf5e243"
+ ],
+ "prompts/opening.md": [
+  "3e01cc6797c9689136d2f03ced19e6786f66c1e4d783c66fd51ed04e138cd3a0"
+ ],
+ "prompts/persona_fr.md": [
+  "8027342df16a97239ea92106519ed331ccbf7bb593dacdb0c0f67ba3ba564137"
+ ],
+ "prompts/persona_sv.md": [
+  "6314f2a2aa3f022e3521369549778c153a45bb3fbd0d473a631ffc48637f1302"
+ ],
+ "prompts/resume.md": [
+  "d7c6cc12f1c36ed51961cd306a72b46327e26da9fe09677f4382647ca381ad51"
+ ],
+ "prompts/translate.md": [
+  "c15efdcaa2615f45b0be4404a4ed91085eaafa43bc047549ff5fd196ff4b5b75"
+ ],
+ "prompts/tutor_base.md": [
+  "80260bbf4e331811fd2ce40529311c0ffd1a32815748878dd828ca70dba389df"
+ ],
+ "prompts/vocab_autofill.md": [
+  "8743ffd43ef580824f883d9a257b45b6816be72a7dada37613499acea3d0c9fc"
+ ]
+}

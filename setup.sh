@@ -121,11 +121,29 @@ if command -v osacompile >/dev/null 2>&1; then
     APP="$HOME/Applications/Parlera.app"
     PLIST="$APP/Contents/Info.plist"
     cp "$PLIST" "$PLIST.orig"
+    # App icon: build an .icns from the Parlera logo (sips + iconutil ship with macOS).
+    ICON_SRC="$HERE/parlera/static/icon-1024.png"
+    if [[ -f "$ICON_SRC" ]] && command -v iconutil >/dev/null 2>&1; then
+      ICONSET="$(mktemp -d)/Parlera.iconset"
+      mkdir -p "$ICONSET"
+      for s in 16 32 128 256 512; do
+        sips -z "$s" "$s" "$ICON_SRC" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
+        sips -z "$((s * 2))" "$((s * 2))" "$ICON_SRC" --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+      done
+      if iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/applet.icns"; then
+        # newer osacompile apps also carry an asset catalog icon, which would win — remove it
+        rm -f "$APP/Contents/Resources/Assets.car"
+        plutil -remove CFBundleIconName "$PLIST" >/dev/null 2>&1 || true
+        plutil -replace CFBundleIconFile -string "applet" "$PLIST"
+      fi
+      rm -rf "$(dirname "$ICONSET")"
+    fi
     if plutil -replace CFBundleName -string "Parlera" "$PLIST" &&
        plutil -replace CFBundleDisplayName -string "Parlera" "$PLIST" &&
        plutil -replace CFBundleIdentifier -string "local.parlera.launcher" "$PLIST" &&
        codesign --force --sign - "$APP" >/dev/null 2>&1; then
       rm -f "$PLIST.orig"
+      touch "$APP"   # refresh Finder/Dock icon cache
     else
       mv "$PLIST.orig" "$PLIST"
       codesign --force --sign - "$APP" >/dev/null 2>&1 || true

@@ -101,7 +101,6 @@ export async function refreshStatus() {
 }
 
 async function boot() {
-  document.getElementById('brand-mark').append(icon('chat', 17));
   try {
     await loadSettings();
   } catch (e) {

@@ -92,7 +92,9 @@ def _parse_ts(ts: str) -> datetime:
 class Parlera:
     def __init__(self, root: Path | None = None):
         self.paths = Paths(root)
-        self.paths.ensure()
+        self.upgraded_defaults = self.paths.ensure()
+        if self.upgraded_defaults:
+            log.info("Updated unedited default files: %s", ", ".join(self.upgraded_defaults))
         self.settings = Settings(self.paths.settings)
         self.db = DB(self.paths.db)
         self.curricula = Curricula(self.paths.curricula)
@@ -158,8 +160,15 @@ class Parlera:
             self.set_current_unit(language, nxt["id"])
         return nxt
 
+    def is_monolingual(self, language: str) -> bool:
+        """True when the studied language is also the explanation language (e.g. English)."""
+        native = (self.settings.get("learner.native_language") or "English").strip().lower()
+        return LANGUAGES.get(language, {}).get("name", "").lower() == native
+
     def immersion(self, language: str, unit: dict | None) -> int:
         setting = self.settings.get("conversation.immersion", "auto")
+        if self.is_monolingual(language):
+            return 100
         if str(setting).isdigit():
             return max(0, min(100, int(setting)))
         if not unit:
@@ -187,6 +196,63 @@ class Parlera:
             "SELECT * FROM vocab WHERE language=? AND status='learning' ORDER BY updated_at DESC LIMIT ?",
             [language, min(limit, 8)])
 
+    def reinforce_vocab(self, language: str, seed: int | None = None, exclude: set[int] | None = None) -> list[dict]:
+        """Pick recently learned words for the tutor to weave in subtly.
+
+        Each word gets a weight from how long ago it was added and how it's doing in Anki.
+        A few words are sampled per session (the seed keeps the choice stable for one
+        session) so different words come up in different sessions.
+
+        Age: added today 0.4 (Anki shows it anyway), 1–21 days 1.0, 22–45 days 0.6,
+        46–90 days 0.3, older ignored.
+        Anki: not in Anki / not synced 0.7, never reviewed 0.5, interval ≤ 7 d 1.0,
+        8–20 d 0.6, ≥ 21 d (mature) 0.15. Struggling words (lapses ≥ 2) are left to
+        `weak_vocab`, which the tutor practises more directly.
+        """
+        if not self.settings.get("vocab.reinforce", True):
+            return []
+        import random
+        limit = int(self.settings.get("vocab.reinforce_count", 6))
+        rows = self.db.all("SELECT * FROM vocab WHERE language=? AND status IN ('learning','known')", [language])
+        today = datetime.now()
+        pool: list[tuple[float, dict]] = []
+        for v in rows:
+            if exclude and v["id"] in exclude:
+                continue
+            if (v.get("anki_lapses") or 0) >= 2:
+                continue
+            try:
+                age = (today - _parse_ts(v["created_at"])).days
+            except (TypeError, ValueError):
+                continue
+            if age > 90:
+                continue
+            w_age = 0.4 if age < 1 else 1.0 if age <= 21 else 0.6 if age <= 45 else 0.3
+            interval, reps = v.get("anki_interval"), v.get("anki_reps")
+            if v.get("anki_note_id") is None or interval is None:
+                w_anki = 0.7
+            elif not reps:
+                w_anki = 0.5
+            elif interval <= 7:
+                w_anki = 1.0
+            elif interval <= 20:
+                w_anki = 0.6
+            else:
+                w_anki = 0.15
+            pool.append((w_age * w_anki, v))
+        rng = random.Random(seed)
+        picked: list[dict] = []
+        while pool and len(picked) < limit:
+            total = sum(w for w, _ in pool)
+            r, acc = rng.random() * total, 0.0
+            for i, (w, v) in enumerate(pool):
+                acc += w
+                if acc >= r:
+                    picked.append(v)
+                    pool.pop(i)
+                    break
+        return picked
+
     def recurring_errors(self, language: str, limit: int = 8) -> list[dict]:
         return self.db.all("SELECT * FROM errors WHERE language=? AND resolved=0 "
                            "ORDER BY count DESC, last_seen DESC LIMIT ?", [language, limit])
@@ -211,10 +277,12 @@ class Parlera:
         lang_info = LANGUAGES.get(language, {"name": language})
         immersion = self.immersion(language, unit)
         level_units = [u for u in cur["units"] if u["level"] == level]
+        weak = self.weak_vocab(language)
         return {
             "language": language,
             "language_name": cur.get("name") or lang_info["name"],
             "native_language": settings["learner"].get("native_language") or "English",
+            "monolingual": self.is_monolingual(language),
             "learner_name": settings["learner"].get("name") or "",
             "learner_goal": (settings["learner"].get("goals") or {}).get(language, ""),
             "learner_notes": learner.get("notes") or "",
@@ -234,7 +302,10 @@ class Parlera:
             "memories": [m["content"] for m in self.memories_for(language)],
             "recent_summaries": self.recent_summaries(language, exclude=session_id),
             "weak_vocab": [display_word(v) + (f" ({v['translation']})" if v.get("translation") else "")
-                           for v in self.weak_vocab(language)],
+                           for v in weak],
+            "reinforce_vocab": [display_word(v) + (f" ({v['translation']})" if v.get("translation") else "")
+                                for v in self.reinforce_vocab(language, seed=session_id,
+                                                              exclude={w["id"] for w in weak})],
             "recurring_errors": self.recurring_errors(language),
             "exam": self.exam_for_level(language, level),
             "exams": cur.get("exams", []),
@@ -504,6 +575,8 @@ class Parlera:
                 freq = max(zipf_frequency(w, lang) for w in ln.split()) if " " in ln else zipf_frequency(ln, lang)
             if freq < min_zipf and reason in ("new",) and " " not in ln:
                 continue
+            if lang == "en" and reason == "new" and freq > 5.2:  # too basic for an advanced learner
+                continue
             gender = normalize_gender(str(it.get("gender", "")), lang)
             picked[ln] = {
                 "language": lang, "lemma": lemma, "lemma_norm": ln, "forms": str(it.get("forms", ""))[:200],
@@ -611,6 +684,48 @@ class Parlera:
                             [now(), i])
         return await self.push_to_anki(ids)
 
+    async def import_anki_deck(self, language: str, deck: str, word_field: str, meaning_field: str,
+                               example_field: str = "") -> dict:
+        """Link an existing Anki deck's notes into Parlera's vocabulary (nothing is changed in Anki).
+
+        The note's creation time (encoded in its id) becomes `created_at`, so reinforcement
+        and "recently learned" use the real dates. Review stats are synced right after.
+        """
+        client = self.anki()
+        notes = await client.deck_notes(deck)
+        existing = {r["lemma_norm"]: r for r in self.db.all(
+            "SELECT id, lemma_norm, anki_note_id FROM vocab WHERE language=?", [language])}
+        added = linked = skipped = 0
+        for n in notes:
+            f = n["fields"]
+            lemma = clean_lemma(f.get(word_field, ""), language)
+            ln = norm(lemma)
+            if not ln or len(ln) > 120:
+                skipped += 1
+                continue
+            if ln in existing:
+                row = existing[ln]
+                if not row["anki_note_id"]:
+                    self.db.update("vocab", row["id"], {"anki_note_id": n["noteId"]})
+                    linked += 1
+                else:
+                    skipped += 1
+                continue
+            try:
+                created = datetime.fromtimestamp(n["noteId"] / 1000).isoformat(timespec="seconds")
+            except (OverflowError, OSError, ValueError):
+                created = now()
+            vid = self.db.insert("vocab", {
+                "language": language, "lemma": lemma, "lemma_norm": ln,
+                "translation": f.get(meaning_field, "")[:300] if meaning_field else "",
+                "example": f.get(example_field, "")[:300] if example_field else "",
+                "unit_id": "", "status": "learning", "source": "anki", "reason": "imported",
+                "anki_note_id": n["noteId"], "created_at": created, "updated_at": now()})
+            existing[ln] = {"id": vid, "lemma_norm": ln, "anki_note_id": n["noteId"]}
+            added += 1
+        synced = await self.sync_anki(language)
+        return {"notes": len(notes), "added": added, "linked": linked, "skipped": skipped, "synced": synced}
+
     async def remove_from_anki(self, ids: list[int]) -> int:
         rows = [self.db.one("SELECT id, anki_note_id FROM vocab WHERE id=?", [i]) for i in ids]
         note_ids = [r["anki_note_id"] for r in rows if r and r["anki_note_id"]]
@@ -698,6 +813,7 @@ class Parlera:
 # helpers
 # ---------------------------------------------------------------------------
 ARTICLES = {
+    "en": ("a ", "an ", "the ", "to "),
     "sv": ("en ", "ett "),
     "fr": ("le ", "la ", "les ", "un ", "une ", "des ", "l'", "l’"),
 }

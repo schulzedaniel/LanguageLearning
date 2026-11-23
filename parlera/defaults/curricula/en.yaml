@@ -1,0 +1,471 @@
+# Parlera curriculum: English for an advanced learner (B2 → C2), aimed at top IELTS / TOEFL / DET scores
+#
+# Same structure as sv.yaml (see the comments there). `start_unit` sets where a new learner starts:
+# the learner rates themselves B2/C1, so we start at C1 (the B2 units remain available for review).
+# For English, vocabulary entries are "expression = short definition".
+
+language: en
+name: English
+native_name: English
+start_unit: en-c1-01
+description: >
+  An advanced speaking-and-accuracy course from B2 to C2. It polishes grammar and builds
+  sophisticated vocabulary, aimed at the highest scores in IELTS Academic, TOEFL iBT and the
+  Duolingo English Test. Writing practice sessions cover the essay and report tasks.
+
+exams:
+  - id: ielts
+    name: IELTS Academic
+    levels: [B2, C1, C2]
+    description: Bands 0–9 per skill. Speaking is an 11–14 min face-to-face interview; Writing has Task 1 (report) and Task 2 (essay).
+    format: >
+      Speaking, 11–14 min. Part 1 (4–5 min): questions about familiar topics.
+      Part 2 (3–4 min): a cue card, 1 minute to prepare, then speak for up to 2 minutes, followed by one or two questions.
+      Part 3 (4–5 min): an abstract discussion linked to the Part 2 topic.
+      Four equally weighted criteria: Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, Pronunciation.
+  - id: toefl
+    name: TOEFL iBT
+    levels: [B2, C1, C2]
+    description: Since January 2026 the test is shorter and adaptive, with scores reported on a 1–6 band scale (plus the familiar 0–120). Check ets.org for the current details.
+    format: >
+      Speaking (2026 format): "Listen and Repeat" (hear a sentence, then repeat it exactly; tests pronunciation
+      and accuracy) and "Take an Interview" (a simulated interview with open-ended questions, often about
+      academic or campus life, answered at length). Scored 1–6.
+  - id: det
+    name: Duolingo English Test
+    levels: [B2, C1, C2]
+    description: An adaptive online test scored 10–160. Speaking tasks include Interactive Speaking, Speak About the Photo and Read, Then Speak; the task list changes, so check the official Question Guide.
+    format: >
+      Speaking: Interactive Speaking (a series of spoken questions, about 35 seconds each), Speak About the
+      Photo (describe an image, at least 30 seconds), Read, Then Speak (read a prompt, then speak for up to
+      90 seconds), plus an unscored speaking sample. Scored 10–160.
+
+levels:
+  - code: B2
+    title: Consolidation – accuracy foundations
+    description: Quick, targeted review of the grammar areas that still cost advanced learners marks. Skip any unit you already master.
+    exam:
+      name: IELTS Speaking (band 6.5–7 target)
+      format: |
+        Full IELTS Speaking test: Part 1 interview (4–5 min), Part 2 long turn with 1 minute of preparation (2 min),
+        Part 3 discussion (4–5 min).
+      scoring: "IELTS band 0–9 per criterion (Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, Pronunciation); overall = average rounded to the nearest 0.5"
+    units:
+      - id: en-b2-01
+        title: Tense & aspect precision
+        topic: Choose tenses and aspects precisely when talking about experiences, changes and plans.
+        can_do:
+          - Contrast present perfect (simple/continuous) and past simple accurately
+          - Use past perfect and continuous forms to sequence a story
+          - Choose naturally between future forms (will, going to, present continuous, future perfect)
+        grammar:
+          - "Present perfect vs. past simple (I've lived / I lived); for/since; already/yet/just"
+          - "Continuous aspect for temporary or ongoing situations; stative verbs"
+          - "Future perfect and future continuous (By 2030 I will have…)"
+        vocabulary:
+          - to undergo = to experience (a change or process)
+          - a turning point = a moment of decisive change
+          - to take up = to start a hobby or job
+          - to phase out = to stop gradually
+          - unprecedented = never having happened before
+          - in the long run = eventually, over a long period
+        phrases:
+          - Over the past few years, I've been… = typical opener for describing change
+          - It wasn't until … that I realised… = emphasising a moment
+        scenarios:
+          - IELTS Part 1 questions about your work, studies and hometown
+          - Telling the story of a turning point in your life
+
+      - id: en-b2-02
+        title: Articles, countability & determiners
+        topic: The small words that advanced learners still get wrong.
+        can_do:
+          - Use a/an, the and zero article correctly in general and specific statements
+          - Handle uncountable nouns (advice, research, information, evidence)
+          - Use quantifiers precisely (a number of / the number of, few / a few, each / every)
+        grammar:
+          - "Generic statements: zero article with plurals/uncountables (Technology changes society)"
+          - "Uncountable nouns that are countable in other languages: advice, information, furniture, research, evidence, feedback"
+          - "Quantifiers and agreement: a number of people are…, the number of people is…"
+        vocabulary:
+          - a body of evidence = a large amount of evidence
+          - a piece of advice = one item of advice
+          - a growing number of = more and more
+          - the vast majority of = almost all
+          - to a large extent = mostly
+        phrases:
+          - The research suggests that… = no article for research in general
+          - There is little evidence that… = little (not "few") with uncountables
+        scenarios:
+          - Discussing scientific research and the news
+
+      - id: en-b2-03
+        title: Conditionals & hypothetical meaning
+        topic: Speculate, regret and imagine with full control of conditionals.
+        can_do:
+          - Use all conditional types including mixed conditionals
+          - Express wishes and regrets (wish, if only, should have)
+          - Use alternatives to "if" (provided that, unless, as long as, otherwise)
+        grammar:
+          - "Mixed conditionals (If I had studied medicine, I would be a doctor now)"
+          - "wish / if only + past simple / past perfect / would"
+          - "It's (high) time + past simple; I'd rather you + past simple"
+          - "Inverted conditionals (Had I known…, Should you need…, Were it not for…)"
+        vocabulary:
+          - provided that = only if
+          - in hindsight = looking back now
+          - a blessing in disguise = something bad that turns out good
+          - to have second thoughts = to doubt a decision
+        phrases:
+          - Had I known then what I know now, I would have… = elegant regret
+          - Were it not for…, … = formal hypothetical
+        scenarios:
+          - Discussing life choices and alternative paths
+
+      - id: en-b2-04
+        title: Prepositions, dependent prepositions & phrasal verbs
+        topic: Collocating prepositions and the most useful phrasal verbs.
+        can_do:
+          - Use dependent prepositions correctly after verbs, nouns and adjectives
+          - Use common phrasal verbs naturally and in the right register
+        grammar:
+          - "Verb + preposition: depend on, consist of, insist on, object to + -ing"
+          - "Adjective/noun + preposition: aware of, responsible for, an increase in, a solution to"
+          - "Phrasal verbs: separable vs. inseparable; formal alternatives (find out → discover)"
+        vocabulary:
+          - to account for = to explain / to make up a proportion
+          - to come up with = to think of (an idea)
+          - to look into = to investigate
+          - to bring about = to cause
+          - to cope with = to deal with successfully
+        phrases:
+          - I'm looking forward to hearing… = "to" + -ing
+          - There has been a sharp increase in… = increase in
+        scenarios:
+          - Solving a problem at work with a colleague
+
+      - id: en-b2-05
+        title: Passive, reporting verbs & reported speech
+        topic: Report information objectively and accurately.
+        can_do:
+          - Use passive structures, including impersonal passives (It is believed that…)
+          - Use a range of reporting verbs with the correct patterns
+          - Report statements and questions accurately
+        grammar:
+          - "Impersonal passive: It is said that… / He is said to have…"
+          - "Reporting verbs + patterns: suggest + -ing/that, urge sb to, deny + -ing, claim to"
+          - "Reported questions: She asked whether I had…"
+        vocabulary:
+          - to acknowledge = to accept or admit
+          - to allege = to claim without proof
+          - to emphasise = to stress
+          - widely regarded as = considered by many to be
+        phrases:
+          - It is widely believed that… = objective opener
+          - Critics argue that… = presenting a view
+        scenarios:
+          - Summarising a news story you read recently
+
+  - code: C1
+    title: Advanced – range, precision & fluency
+    description: The core of the course. Every unit targets the descriptors that separate band 7 from band 8+.
+    exam:
+      name: IELTS Speaking (band 7.5–8.5 target)
+      format: |
+        Full IELTS Speaking test: Part 1 interview (4–5 min), Part 2 long turn with 1 minute of preparation (2 min),
+        Part 3 abstract discussion (4–5 min). Writing practice: Task 1 report (150+ words) and Task 2 essay (250+ words).
+      scoring: "IELTS band 0–9 per criterion (Fluency & Coherence, Lexical Resource, Grammatical Range & Accuracy, Pronunciation); overall = average rounded to the nearest 0.5"
+    units:
+      - id: en-c1-01
+        title: Fluency & coherence – extended answers
+        topic: Speak at length with structure, signposting and natural discourse markers.
+        can_do:
+          - Give extended, well-organised answers (point → reason → example → link)
+          - Use a range of discourse markers naturally, not mechanically
+          - Gain thinking time elegantly instead of using fillers
+        grammar:
+          - "Linking across sentences: having said that, on top of that, by contrast, as a result"
+          - "Paraphrasing the question to open an answer"
+        vocabulary:
+          - that's a tricky question = buys thinking time naturally
+          - by and large = generally
+          - to a certain extent = partly
+          - as far as … is concerned = regarding
+          - on balance = after considering everything
+          - be that as it may = nevertheless
+        phrases:
+          - Off the top of my head, I'd say… = quick, natural opener
+          - What I mean by that is… = clarifying
+          - To put it another way… = rephrasing
+        pronunciation: Chunking long answers into thought groups; pausing at natural boundaries.
+        scenarios:
+          - IELTS Part 1 and Part 2 practice on everyday topics
+          - Describing a place that means a lot to you (cue card)
+        min_sessions: 2
+
+      - id: en-c1-02
+        title: Collocations & precise vocabulary
+        topic: Replace vague words with precise verbs and strong collocations.
+        can_do:
+          - Use strong verb–noun and adjective–noun collocations
+          - Avoid overusing get, make, do, thing, very, good, big
+          - Paraphrase with precise synonyms
+        grammar:
+          - "Intensifying adverbs that collocate: highly unlikely, deeply concerned, utterly exhausted"
+        vocabulary:
+          - to pose a threat = to be a danger
+          - to address an issue = to deal with a problem
+          - a heated debate = an angry, intense discussion
+          - a viable alternative = a realistic option
+          - to raise awareness = to make people know more about something
+          - a far-reaching consequence = an effect with wide impact
+          - to bear in mind = to remember / consider
+          - a vicious circle = a problem that makes itself worse
+        phrases:
+          - This has far-reaching implications for… = strong collocation
+          - It's worth bearing in mind that… = natural, sophisticated
+        scenarios:
+          - Discussing environmental problems and solutions
+
+      - id: en-c1-03
+        title: Emphasis – inversion, clefts & fronting
+        topic: Structures that add emphasis and grammatical range.
+        can_do:
+          - Use negative inversion naturally in speech and writing
+          - Use cleft sentences to focus information
+          - Front information for contrast and emphasis
+        grammar:
+          - "Negative inversion: Not only…, Never have I…, Rarely does…, Only when… did I…"
+          - "Cleft sentences: What I find fascinating is…, It was … that…, The reason why… is…"
+          - "Fronting: Difficult as it was, we…"
+        vocabulary:
+          - by no means = not at all
+          - under no circumstances = never
+          - little did I know = I didn't know at all
+          - no sooner … than = immediately after
+        phrases:
+          - What really struck me was… = cleft for emphasis
+          - Not only does it…, but it also… = inversion for range
+        scenarios:
+          - Telling a memorable story with emphasis (IELTS Part 2)
+
+      - id: en-c1-04
+        title: Hedging, nuance & stance
+        topic: Sound balanced and academic; express degrees of certainty.
+        can_do:
+          - Hedge claims appropriately
+          - Use modals of deduction and speculation in all time frames
+          - Signal your stance politely
+        grammar:
+          - "Modals of deduction: must/might/can't have done"
+          - "Hedging: tend to, appear to, it would seem that, arguably, to some extent"
+        vocabulary:
+          - arguably = it can be argued that
+          - to a large extent = mostly
+          - it stands to reason that = it is logical that
+          - inconclusive = not leading to a firm conclusion
+          - a sweeping generalisation = an overly broad claim
+        phrases:
+          - It could be argued that… = hedged claim
+          - I'd be inclined to say… = tentative opinion
+          - That's not to say that… = conceding
+        scenarios:
+          - IELTS Part 3 discussion on education
+
+      - id: en-c1-05
+        title: Complex sentences – relative & participle clauses, nominalisation
+        topic: Build sophisticated sentences with grammatical range.
+        can_do:
+          - Use defining and non-defining relative clauses including with prepositions (in which, whereby)
+          - Use participle clauses to condense information
+          - Use nominalisation for an academic register
+        grammar:
+          - "Relative clauses: whose, whereby, in which, the extent to which"
+          - "Participle clauses: Having finished…, Given that…, Faced with…"
+          - "Nominalisation: decide → decision, the government decided → the government's decision"
+        vocabulary:
+          - whereby = by which (a system whereby…)
+          - given that = considering that
+          - in light of = considering
+          - the extent to which = how much
+        phrases:
+          - Given that…, it seems reasonable to… = academic linking
+          - Faced with…, many people… = participle opener
+        scenarios:
+          - Explaining how a system or process works (IELTS Writing Task 1 style)
+
+      - id: en-c1-06
+        title: Idiomatic language & phrasal verbs in context
+        topic: Use idioms and phrasal verbs naturally, accurately and sparingly.
+        can_do:
+          - Use a repertoire of natural idioms in the right register
+          - Recognise when an idiom is too informal or clichéd
+        grammar:
+          - "Fixed expressions and their grammatical behaviour (can't be bothered to, it's no use + -ing)"
+        vocabulary:
+          - to hit the nail on the head = to describe exactly right
+          - a double-edged sword = something with both benefits and drawbacks
+          - to bite off more than you can chew = to take on too much
+          - to be on the fence = to be undecided
+          - the tip of the iceberg = a small visible part of a larger problem
+          - to go the extra mile = to make extra effort
+        phrases:
+          - Social media is a double-edged sword. = natural idiom in opinion answers
+        scenarios:
+          - Chatting with a British colleague about work and life
+
+      - id: en-c1-07
+        title: Abstract topics & argumentation (IELTS Part 3)
+        topic: Discuss society, technology, education and globalisation in depth.
+        can_do:
+          - Develop arguments with reasons, examples and consequences
+          - Compare, speculate about the future and evaluate solutions
+          - Concede and counter-argue smoothly
+        grammar:
+          - "Concession: although, even though, while, despite/in spite of + -ing, admittedly"
+          - "Future speculation: is likely to, is bound to, in all likelihood"
+        vocabulary:
+          - to outweigh = to be more important than
+          - a trade-off = a balance between two things
+          - detrimental = harmful
+          - to exacerbate = to make worse
+          - sustainable = able to continue long term
+          - in all likelihood = very probably
+        phrases:
+          - While there are clear benefits, the drawbacks arguably outweigh them. = balanced view
+          - It remains to be seen whether… = future uncertainty
+        scenarios:
+          - IELTS Part 3 on technology and work
+          - Debating whether university should be free
+
+      - id: en-c1-08
+        title: Pronunciation for high bands
+        topic: Word stress, sentence stress, intonation and connected speech.
+        can_do:
+          - Stress multi-syllable words correctly
+          - Use sentence stress and intonation to convey meaning
+          - Use connected speech features (linking, weak forms) naturally
+        grammar:
+          - "Weak forms of function words (can, was, to, of) in natural speech"
+        vocabulary:
+          - PHOtograph – phoTOgraphy – photoGRAPHic = word stress shifts
+          - a REcord / to reCORD = noun vs. verb stress
+          - comfortable = /ˈkʌmftəbl/ (3 syllables)
+        pronunciation: Word stress families, contrastive stress, falling vs. rising intonation, th-sounds, final consonants.
+        scenarios:
+          - Listen-and-repeat drills (TOEFL style)
+
+      - id: en-c1-09
+        title: Exam strategy & mock tests
+        topic: Full IELTS, TOEFL and Duolingo English Test speaking simulations with band feedback.
+        can_do:
+          - Complete a full IELTS Speaking test at band 7.5+
+          - Handle the TOEFL "Listen and Repeat" and "Take an Interview" tasks
+          - Handle the Duolingo English Test speaking tasks within time limits
+        grammar:
+          - "Review of C1 structures under time pressure"
+        vocabulary: []
+        phrases: []
+        scenarios:
+          - Full IELTS Speaking mock test
+          - TOEFL iBT 2026 speaking tasks
+          - Duolingo English Test speaking tasks
+        min_sessions: 1
+
+  - code: C2
+    title: Proficiency – near-native control
+    description: Polish for band 8.5–9; register, subtle grammar and rhetorical skill.
+    exam:
+      name: IELTS Speaking (band 8.5–9 target)
+      format: |
+        Full IELTS Speaking test with demanding Part 3 follow-ups; examiner-level feedback against the band 8–9 descriptors.
+      scoring: "IELTS band 0–9 per criterion; overall = average rounded to the nearest 0.5"
+    units:
+      - id: en-c2-01
+        title: Register & style shifting
+        topic: Move effortlessly between formal, neutral and informal English.
+        can_do:
+          - Adapt vocabulary and grammar to formal and informal situations
+          - Recognise and avoid register clashes
+        grammar:
+          - "Formal structures (passive, nominalisation, inversion) vs. informal ellipsis and contractions"
+        vocabulary:
+          - to commence = to begin (formal)
+          - to ascertain = to find out (formal)
+          - to pull off = to succeed (informal)
+          - notwithstanding = despite (formal)
+        phrases:
+          - I'd be grateful if you could… = formal request
+        scenarios:
+          - Same story told to a friend and to a panel
+
+      - id: en-c2-02
+        title: Advanced lexis & figurative language
+        topic: Less common lexical items, academic vocabulary and metaphor.
+        can_do:
+          - Use less common and academic vocabulary precisely
+          - Use and explain figurative language
+        grammar:
+          - "Noun phrases with complex pre- and post-modification"
+        vocabulary:
+          - ubiquitous = found everywhere
+          - to mitigate = to make less severe
+          - a paradigm shift = a fundamental change in approach
+          - to undermine = to weaken gradually
+          - nuanced = showing subtle differences
+          - to galvanise = to shock or excite someone into action
+        phrases:
+          - This marks a paradigm shift in… = sophisticated
+        scenarios:
+          - Discussing art, culture and media
+
+      - id: en-c2-03
+        title: Subtle grammar – subjunctive, ellipsis, modality
+        topic: Grammar that marks near-native control.
+        can_do:
+          - Use the subjunctive in formal contexts
+          - Use ellipsis and substitution naturally
+          - Express subtle modality (needn't have, was to have, might well)
+        grammar:
+          - "Subjunctive: It is essential that he be…, I suggest that she take…"
+          - "Ellipsis/substitution: so do I, I hope so, I'd like to but I can't"
+          - "Advanced modality: needn't have done vs. didn't need to; may well; was to have"
+        vocabulary:
+          - be that as it may = nevertheless
+          - come what may = whatever happens
+        phrases:
+          - It is imperative that… be… = subjunctive
+        scenarios:
+          - Formal meeting with recommendations
+
+      - id: en-c2-04
+        title: Persuasion & rhetoric
+        topic: Persuade, debate and present with rhetorical devices.
+        can_do:
+          - Structure a persuasive talk
+          - Use rhetorical devices (tricolon, rhetorical questions, contrast)
+          - Rebut arguments diplomatically
+        grammar:
+          - "Parallel structures and emphatic do (I do believe…)"
+        vocabulary:
+          - to concede = to admit something is true
+          - to refute = to prove wrong
+          - a compelling argument = a very convincing argument
+          - to play devil's advocate = to argue the opposite on purpose
+        phrases:
+          - Let me play devil's advocate for a moment. = debate
+        scenarios:
+          - A formal debate on a controversial topic
+
+      - id: en-c2-05
+        title: C2 mock exams & band 9 polishing
+        topic: Full exam simulations with examiner-level feedback.
+        can_do:
+          - Perform at band 8.5–9 across all four IELTS criteria
+        grammar:
+          - "Review of all structures"
+        vocabulary: []
+        phrases: []
+        scenarios:
+          - Full IELTS Speaking mock (band 9 descriptors)
+        min_sessions: 1

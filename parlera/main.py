@@ -256,6 +256,12 @@ def create_app(root: Path | None = None) -> FastAPI:
     # ------------------------------------------------------------------
     @app.post("/api/sessions")
     async def session_create(body: dict = Body(...)):
+        # Fresh Anki review data → better choice of words to reinforce in this session.
+        if core.settings.get("anki.auto_sync", True) and body.get("language") in LANGUAGES:
+            try:
+                await asyncio.wait_for(core.sync_anki(body["language"]), timeout=4)
+            except Exception:
+                pass
         s = core.create_session(body.get("language"), body.get("mode", "lesson"), body.get("unit_id"),
                                 body.get("scenario", ""), body.get("focus", ""))
         return s
@@ -423,6 +429,24 @@ def create_app(root: Path | None = None) -> FastAPI:
         if await core.anki().version() is None:
             return {"ok": False, "decks": []}
         return {"ok": True, "decks": await core.anki().deck_names()}
+
+    @app.get("/api/anki/deck-preview")
+    async def anki_deck_preview(deck: str):
+        notes = await core.anki().deck_notes(deck)
+        fields: list[str] = []
+        for n in notes:
+            for f in n["order"]:
+                if f not in fields:
+                    fields.append(f)
+        return {"count": len(notes), "fields": fields, "models": sorted({n["modelName"] for n in notes}),
+                "sample": [n["fields"] for n in notes[:6]]}
+
+    @app.post("/api/anki/import")
+    async def anki_import(body: dict = Body(...)):
+        if not body.get("deck") or not body.get("word_field"):
+            raise HTTPException(400, "Choose a deck and the field that contains the word.")
+        return await core.import_anki_deck(lang_ok(body.get("language", "")), body["deck"], body["word_field"],
+                                           body.get("meaning_field", ""), body.get("example_field", ""))
 
     @app.get("/api/anki/test")
     async def anki_test():

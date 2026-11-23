@@ -68,6 +68,7 @@ export default async function settings(main) {
       text('stt.model', 'Whisper model', 'mlx-community/whisper-large-v3-turbo is fast and accurate. First use downloads it (~1.6 GB).'),
       text('stt.models.sv', 'Swedish override (optional)', 'e.g. a KB-Whisper model for better Swedish (faster-whisper backend: KBLab/kb-whisper-large).'),
       text('stt.models.fr', 'French override (optional)'),
+      text('stt.models.en', 'English override (optional)'),
       h('div', { class: 'full' }, check('stt.pronunciation_hints', 'Pronunciation hints',
         'Words Whisper was unsure about, or heard differently when you repeat a phrase, are underlined and passed to the tutor for a pronunciation tip.')),
       range('stt.confidence_threshold', 'Flag words recognised below', 0.2, 0.9, 0.05, (v) => `${Math.round(v * 100)}% confidence`),
@@ -99,9 +100,10 @@ export default async function settings(main) {
   const learner = section('learner', 'About you',
     h('div', { class: 'form-grid' },
       text('learner.name', 'Your name', 'The tutor will use it.'),
-      text('learner.native_language', 'Explanation language', 'The language the tutor uses for explanations.'),
+      text('learner.native_language', 'Explanation language', 'The language the tutor uses for explanations in the Swedish and French courses.'),
       h('div', { class: 'full' }, text('learner.goals.sv', '🇸🇪 Swedish goal')),
       h('div', { class: 'full' }, text('learner.goals.fr', '🇫🇷 French goal')),
+      h('div', { class: 'full' }, text('learner.goals.en', '🇬🇧 English goal')),
       select('ui.theme', 'Appearance', [['auto', 'Match system'], ['light', 'Light'], ['dark', 'Dark']])));
 
   // --- curriculum & vocab ---
@@ -110,6 +112,8 @@ export default async function settings(main) {
       range('curriculum.advance_threshold', 'Mastery needed to move on', 0.5, 0.95, 0.05, (v) => `${Math.round(v * 100)}%`),
       h('div', {}, check('curriculum.auto_advance', 'Move to the next unit automatically', 'Otherwise you get a "Move on" button.')),
       text('vocab.max_cards_per_session', 'Max. flashcards suggested per session', '', { type: 'number' }),
+      h('div', {}, check('vocab.reinforce', 'Reinforce recently learned words', 'The tutor subtly reuses words you added in the last weeks — more often for young cards, rarely for mature ones.')),
+      text('vocab.reinforce_count', 'Words offered to the tutor per session', 'It uses two or three of them naturally.', { type: 'number' }),
       range('vocab.min_zipf', 'Skip rare words below frequency', 0, 4, 0.5, (v) => (v === 0 ? 'off' : `Zipf ${v}`))));
 
   // --- anki ---
@@ -127,6 +131,7 @@ export default async function settings(main) {
     h('div', { class: 'form-grid' },
       deckField('sv', '🇸🇪 Swedish deck'),
       deckField('fr', '🇫🇷 French deck'),
+      deckField('en', '🇬🇧 English deck'),
       h('div', { class: 'full' }, check('anki.auto_add', 'Add new words to Anki automatically after each session',
         'You can still remove single cards on the review page. If Anki is closed, words are queued and sent next time it\'s open.')),
       text('anki.url', 'AnkiConnect URL'),
@@ -176,7 +181,7 @@ async function renderVoices(box, st, set, status) {
       const ctx = new AudioContext(); const src = ctx.createBufferSource(); src.buffer = await ctx.decodeAudioData(buf); src.connect(ctx.destination); src.start();
     } catch (e) { toast(e.message, 'error'); }
   };
-  const langs = [['sv', '🇸🇪 Swedish'], ['fr', '🇫🇷 French'], ['en', '🇬🇧 English (explanations)']];
+  const langs = [['sv', '🇸🇪 Swedish'], ['fr', '🇫🇷 French'], ['en', '🇬🇧 English (explanations + English course)']];
   if (engine === 'macos') {
     mount(box, spinner());
     const voices = await api.get('/api/tts/voices?engine=macos');

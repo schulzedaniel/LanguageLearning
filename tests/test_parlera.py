@@ -370,3 +370,118 @@ def test_speak_endpoint_and_concat(client):
     with wave.open(_io.BytesIO(r.content)) as wf:
         assert wf.getframerate() == 16000          # resampled to the first segment's rate
         assert wf.getnframes() > 0.6 * 16000       # both segments + gap
+
+
+# ---------------------------------------------------------------------------
+# English course, reinforcement, Anki import, default upgrades
+# ---------------------------------------------------------------------------
+def test_english_course_is_monolingual(client):
+    d = client.get("/api/dashboard/en").json()
+    assert d["unit"]["id"] == "en-c1-01"              # start_unit from en.yaml
+    assert d["immersion"] == 100
+    cur = client.get("/api/curriculum/en").json()["curriculum"]
+    assert [lv["code"] for lv in cur["levels"]] == ["B2", "C1", "C2"]
+    pv = client.post("/api/prompts-preview", json={"language": "en", "mode": "lesson"}).json()["system"]
+    assert "Oliver" in pv and "IELTS" in pv
+    assert "Mixing languages" not in pv and "✏️ Upgrade" in pv
+    exam = client.post("/api/prompts-preview", json={"language": "en", "mode": "exam"}).json()["system"]
+    assert "TOEFL iBT" in exam and "Duolingo English Test" in exam
+    # all English goes to one voice
+    assert segment_languages("Great answer! Try **mitigate the risk** next time.", "en") == [
+        {"lang": "en", "text": "Great answer! Try mitigate the risk next time."}]
+    assert clean_lemma("to mitigate", "en") == "mitigate"
+    assert normalize_gender("m", "en") == ""
+    # the Swedish course still mixes languages
+    sv = client.post("/api/prompts-preview", json={"language": "sv", "mode": "lesson"}).json()["system"]
+    assert "Mixing languages" in sv and "Oliver" not in sv
+
+
+def test_reinforcement_prefers_recent_young_cards(client):
+    from datetime import datetime, timedelta
+    core = client.core
+    ts = lambda days: (datetime.now() - timedelta(days=days)).isoformat(timespec="seconds")
+    rows = [  # (lemma, age_days, anki_interval, reps, lapses)
+        ("recent_young", 5, 3, 4, 0), ("recent_unsynced", 8, None, None, None), ("mature", 10, 60, 9, 0),
+        ("ancient", 200, 2, 3, 0), ("struggling", 4, 1, 6, 4), ("brand_new_today", 0, None, None, None)]
+    for lemma, age, interval, reps, lapses in rows:
+        core.db.insert("vocab", {"language": "fr", "lemma": lemma, "lemma_norm": lemma, "status": "learning",
+                                 "anki_note_id": 1 if interval is not None else None, "anki_interval": interval,
+                                 "anki_reps": reps, "anki_lapses": lapses, "created_at": ts(age), "updated_at": ts(age)})
+    counts = {}
+    for seed in range(300):
+        for v in core.reinforce_vocab("fr", seed=seed):
+            counts[v["lemma"]] = counts.get(v["lemma"], 0) + 1
+    assert "ancient" not in counts and "struggling" not in counts     # too old / left to weak_vocab
+    core.settings.update({"vocab": {"reinforce_count": 1}})
+    single = {}
+    for seed in range(600):
+        lemma = core.reinforce_vocab("fr", seed=seed)[0]["lemma"]
+        single[lemma] = single.get(lemma, 0) + 1
+    assert single["recent_young"] > single["mature"] * 3              # young cards far more often
+    assert single["recent_young"] > single["brand_new_today"]
+    # the same session always gets the same selection (stable prompt for Ollama's cache)
+    assert core.reinforce_vocab("fr", seed=42) == core.reinforce_vocab("fr", seed=42)
+    ctx = core.build_context("fr", "conversation", session_id=7)
+    assert ctx["reinforce_vocab"]
+    pv = core.render_system_prompt(ctx)
+    assert "Recently learned words" in pv
+
+
+def test_import_existing_anki_deck(client):
+    preview = client.get("/api/anki/deck-preview", params={"deck": "English Vocab"}).json()
+    assert preview["count"] == 3 and preview["fields"] == ["Front", "Back", "Example"]
+    assert preview["sample"][2]["Front"] == "nuance"                  # HTML stripped
+    r = client.post("/api/anki/import", json={"language": "en", "deck": "English Vocab", "word_field": "Front",
+                                              "meaning_field": "Back", "example_field": "Example"}).json()
+    assert r["added"] == 3 and r["synced"]["linked"] >= 3
+    words = {v["lemma"]: v for v in client.get("/api/vocab?language=en").json()}
+    assert set(words) == {"ubiquitous", "mitigate", "nuance"}         # "to " stripped
+    assert words["mitigate"]["translation"] == "to make less severe"
+    assert words["ubiquitous"]["created_at"].startswith("2025-")      # real creation date from the note id
+    again = client.post("/api/anki/import", json={"language": "en", "deck": "English Vocab", "word_field": "Front",
+                                                  "meaning_field": "Back"}).json()
+    assert again["added"] == 0 and again["skipped"] == 3
+
+
+def test_unedited_default_prompts_are_upgraded(tmp_path):
+    import hashlib
+    import json as _json
+    from parlera.config import DEFAULTS_DIR, Paths, file_hash
+    paths = Paths(tmp_path / "d")
+    paths.ensure()
+    old_default = "An OLD built-in version of the opening prompt."
+    (paths.prompts / "opening.md").write_text(old_default)            # pretend: an old, unedited default
+    (paths.prompts / "resume.md").write_text("My own edited resume prompt.")
+    known = _json.loads((DEFAULTS_DIR / "known_hashes.json").read_text())
+    known["prompts/opening.md"].append(file_hash(old_default.encode()))
+    import parlera.config as cfg
+    orig = cfg._known_default_hashes
+    cfg._known_default_hashes = lambda: {k: set(v) for k, v in known.items()}
+    try:
+        upgraded = paths.ensure()
+    finally:
+        cfg._known_default_hashes = orig
+    assert upgraded == ["prompts/opening.md"]
+    assert (paths.prompts / "opening.md").read_text() == (DEFAULTS_DIR / "prompts/opening.md").read_text()
+    assert (paths.prompts / "resume.md").read_text() == "My own edited resume prompt."   # user edits kept
+    assert (paths.curricula / "en.yaml").exists()                      # new files are installed
+
+
+def test_known_hashes_cover_git_history():
+    """Every committed version of a default file must be listed, or users' copies won't upgrade."""
+    import json as _json
+    import subprocess
+    from parlera.config import DEFAULTS_DIR, file_hash
+    try:
+        commits = subprocess.run(["git", "log", "--format=%H", "--", "parlera/defaults/prompts", "parlera/defaults/curricula"],
+                                 cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
+    except (OSError, subprocess.CalledProcessError):
+        pytest.skip("not a git checkout")
+    known = _json.loads((DEFAULTS_DIR / "known_hashes.json").read_text())
+    for c in commits:
+        files = subprocess.run(["git", "ls-tree", "-r", "--name-only", c, "--", "parlera/defaults/prompts",
+                                "parlera/defaults/curricula"], cwd=ROOT, capture_output=True, text=True).stdout.split()
+        for f in files:
+            data = subprocess.run(["git", "show", f"{c}:{f}"], cwd=ROOT, capture_output=True).stdout
+            rel = f[len("parlera/defaults/"):]
+            assert file_hash(data) in known.get(rel, []), f"{rel}@{c[:7]} missing — run tools/update_default_hashes.py"
