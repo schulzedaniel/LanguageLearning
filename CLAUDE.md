@@ -50,7 +50,7 @@ The user-facing documentation is `README.md`.
 ```bash
 ./setup.sh            # macOS: venv, deps, choose/pull Ollama model, Whisper prefetch, ~/Applications/Parlera.app
 ./run.sh              # starts Ollama if needed, serves http://127.0.0.1:8642, opens browser
-.venv/bin/python -m pytest -q          # 49 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
+.venv/bin/python -m pytest -q          # 50 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
 python3 tools/update_default_hashes.py # run BEFORE committing changes to parlera/defaults/{prompts,curricula}
 .venv/bin/python tools/mock_services.py [ollama_port] [anki_port]   # fake Ollama (:11434) + AnkiConnect (:8765)
 ```
@@ -207,7 +207,9 @@ same context dict from `core.build_context()`:
 | `workshop` | The workshop digest (only in `workshop` sessions) |
 | `break_name` | fika / pause café / tea time |
 
-`TutorSession` caches the system prompt per WebSocket connection, so it stays stable for Ollama's KV cache.
+`TutorSession._system()` caches the system prompt per WebSocket connection, so it stays stable for Ollama's KV cache. It is rebuilt when `core.context_version` changes: an HTTP middleware in `main.py` bumps it after any successful non-GET request to `/api/directives`, `/api/memories`, `/api/learner/`, `/api/settings`, `/api/prompts/` or `/api/curriculum/` (`CONTEXT_PATHS`). So instructions, memories, notes, prompt edits and settings apply from the next reply, even in an open session.
+
+**What goes into a session's prompt (and what doesn't):** only the session language's persona, curriculum unit, memories (that language + language-less personal ones) and instructions (that language + "all languages"), plus `tutor_base`, `context` and the one `mode_*` file. Other languages' personas, curricula and instructions are never sent.
 
 **Reinforcement** (`core.reinforce_vocab`, settings `vocab.reinforce`, `vocab.reinforce_count`=6):
 - Considers `learning`/`known` words added within the last 90 days, excluding `anki_lapses ≥ 2` (those go to `weak_vocab`) and words already in `weak_vocab`.
@@ -235,6 +237,7 @@ same context dict from `core.build_context()`:
 **Message your teacher** (`core.parse_teacher_note`, `save_directives`, `active_directives`):
 - `teacher_note.md` turns a free-text note into `NOTE_SCHEMA` items (`days` 0 = permanent, `all_languages`). The UI (`views/teachernote.js`) lets the user edit each item, set its duration (7/14/30 days or permanent) and save.
 - Active, unexpired items are listed in every system prompt under "The learner's own requests".
+- Editing: Memory → Teacher instructions (route `#/memory/directives`, `memory.js editDirective`). `PATCH /api/directives/{id}` accepts `content`, `active`, `kind`, `days` (0 = permanent, from now) and `all_languages` + `language`. The note dialog lists active instructions with a "View & edit" link.
 
 **Chat break** (mode `break`): `mode_break.md` makes it relaxed, with recast corrections and no curriculum. The session view hides the unit panel and titles it "Fika with Astrid" etc. The sidebar has a button labelled per language.
 
@@ -446,7 +449,7 @@ analysis prompt turns them into `pronunciation` errors.
 **Workshop & teacher notes:**
 - `GET /api/workshops/status/{lang}`, `POST /api/workshops` with `{language}` (returns the new session)
 - `POST /api/teacher-note/parse` with `{language, text}`
-- `POST|GET /api/directives`, `PATCH|DELETE /api/directives/{id}`
+- `POST|GET /api/directives`, `PATCH|DELETE /api/directives/{id}` (PATCH: `content, active, kind, days, all_languages, language`)
 - `GET /api/tts/engines`
 
 **Errors:** `ValueError` and `CurriculumError` map to 400, `LLMError` and `AnkiError` to 502, `TTSError` to 500. The body is `{detail}`.

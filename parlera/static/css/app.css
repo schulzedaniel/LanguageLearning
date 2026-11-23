@@ -496,3 +496,8 @@ input.answer-input.wrong, input.gap-input.wrong, textarea.fix-input.wrong { bord
 .msg-actions .translate-btn { padding: 3px 8px; font-size: 12.5px; gap: 5px; }
 .sel-translate { position: fixed; z-index: 90; box-shadow: var(--shadow); }
 .pop-meaning { margin: 2px 0 8px; display: flex; gap: 6px; align-items: center; color: var(--ink); }
+
+/* Message your teacher: instructions already in place */
+.current-dirs { margin: 4px 0 12px; padding: 8px 12px; border-radius: 10px; background: var(--bg-sunk); border: 1px solid var(--line); }
+.current-dirs summary { cursor: pointer; font-weight: 600; font-size: 13.5px; }
+.current-dirs ul { margin: 8px 0 2px; padding-left: 20px; }

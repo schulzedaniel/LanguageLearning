@@ -55,6 +55,7 @@ class TutorSession:
         self.task: asyncio.Task | None = None
         self.audio_enabled = True
         self.system_prompt: str | None = None
+        self._prompt_version = -1
 
     @property
     def target(self) -> str:
@@ -68,8 +69,11 @@ class TutorSession:
                 pass
 
     def _system(self) -> str:
-        if self.system_prompt is None:
+        version = getattr(self.app, "context_version", 0)
+        if self.system_prompt is None or version != self._prompt_version:
+            # stays identical between turns (Ollama keeps it in its KV cache) unless something changed
             self.system_prompt = self.app.system_prompt(self.session)
+            self._prompt_version = version
         return self.system_prompt
 
     def _rates(self) -> dict[str, float]:

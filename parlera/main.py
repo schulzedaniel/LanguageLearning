@@ -10,7 +10,7 @@ import logging
 import shutil
 import tempfile
 import zipfile
-from datetime import date
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -415,7 +415,24 @@ def create_app(root: Path | None = None) -> FastAPI:
 
     @app.patch("/api/directives/{did}")
     async def directive_patch(did: int, body: dict = Body(...)):
+        """Edit an instruction: content, active, kind, `days` (0 = permanent, counted from now) and
+        `all_languages` (with `language` for the language it belongs to otherwise)."""
+        row = core.db.one("SELECT * FROM directives WHERE id=?", [did])
+        if not row:
+            raise HTTPException(404, "Instruction not found")
         patch = {k: v for k, v in body.items() if k in ("content", "active", "expires_at")}
+        if "content" in patch:
+            patch["content"] = str(patch["content"]).strip()[:500]
+            if not patch["content"]:
+                raise ValueError("The instruction is empty.")
+        if body.get("kind") in ("behaviour", "focus", "vocabulary", "other"):
+            patch["kind"] = body["kind"]
+        if "days" in body:
+            days = int(body.get("days") or 0)
+            patch["expires_at"] = (datetime.now() + timedelta(days=max(1, min(365, days)))).isoformat(timespec="seconds") \
+                if days else None
+        if "all_languages" in body:
+            patch["language"] = None if body["all_languages"] else lang_ok(body.get("language") or row["language"] or "sv")
         core.db.update("directives", did, patch)
         return core.db.one("SELECT * FROM directives WHERE id=?", [did])
 
@@ -914,9 +931,15 @@ def create_app(root: Path | None = None) -> FastAPI:
         cache = "public, max-age=31536000, immutable" if build_id == build else "no-cache"
         return FileResponse(target, headers={"Cache-Control": cache})
 
+    CONTEXT_PATHS = ("/api/directives", "/api/memories", "/api/learner/", "/api/settings", "/api/prompts/",
+                     "/api/curriculum/")
+
     @app.middleware("http")
     async def no_stale_static(request: Request, call_next):
         response = await call_next(request)
+        # anything that changes the system prompt → open sessions rebuild it before their next reply
+        if request.method != "GET" and request.url.path.startswith(CONTEXT_PATHS) and response.status_code < 400:
+            core.context_version += 1
         if request.url.path.startswith("/static/") and not request.url.path.startswith("/static/v-"):
             response.headers["Cache-Control"] = "no-cache"   # always revalidate unversioned files
         return response

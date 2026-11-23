@@ -1008,3 +1008,36 @@ def test_auto_mode_rechecks_unsure_english(client):
     # confident English stays English (no second pass)
     from parlera.tutor import confidence
     assert confidence({"words": [{"p": 0.9}, {"p": 0.8}]}) > 0.7 and confidence({}) == 1.0
+
+
+def test_edit_teacher_instructions_and_live_prompt_refresh(client):
+    from datetime import datetime
+    core = client.core
+    saved = client.post("/api/directives", json={"language": "fr", "text": "note", "items": [
+        {"content": "Speak more slowly.", "kind": "behaviour", "days": 7, "all_languages": False}]}).json()
+    did = saved[0]["id"]
+    # edit text, make it permanent and valid for all languages
+    d = client.patch(f"/api/directives/{did}", json={"content": "Speak slowly and clearly.", "days": 0,
+                                                     "all_languages": True, "kind": "behaviour"}).json()
+    assert d["content"] == "Speak slowly and clearly." and d["expires_at"] is None and d["language"] is None
+    assert "Speak slowly and clearly." in core.render_system_prompt(core.build_context("sv", "lesson"))  # all languages
+    d = client.patch(f"/api/directives/{did}", json={"days": 14, "all_languages": False, "language": "fr"}).json()
+    assert d["language"] == "fr" and (datetime.fromisoformat(d["expires_at"]) - datetime.now()).days in (13, 14)
+    assert "Speak slowly" not in core.render_system_prompt(core.build_context("sv", "lesson"))
+    assert client.patch(f"/api/directives/{did}", json={"content": "  "}).status_code == 400
+    assert client.patch("/api/directives/99999", json={"active": 0}).status_code == 404
+
+    # an open session picks up changes before its next reply (prompt cached otherwise)
+    from parlera.tutor import TutorSession
+    s = client.post("/api/sessions", json={"language": "fr", "mode": "conversation"}).json()
+    ts = TutorSession.__new__(TutorSession)
+    ts.app, ts.session, ts.system_prompt, ts._prompt_version = core, core.db.session(s["id"]), None, -1
+    first = ts._system()
+    assert "Speak slowly and clearly." in first and ts._system() is first   # cached between turns
+    v = core.context_version
+    client.post("/api/directives", json={"language": "fr", "text": "x", "items": [
+        {"content": "Use lots of food vocabulary.", "kind": "focus", "days": 7, "all_languages": False}]})
+    assert core.context_version == v + 1
+    client.get("/api/directives?language=fr")
+    assert core.context_version == v + 1                                 # reads don't count
+    assert "Use lots of food vocabulary." in ts._system()                # rebuilt for the next reply

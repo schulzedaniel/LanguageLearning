@@ -146,6 +146,7 @@ def _parse_ts(ts: str) -> datetime:
 class Parlera:
     def __init__(self, root: Path | None = None):
         self.paths = Paths(root)
+        self.context_version = 0   # bumped when instructions/memories/notes/prompts/settings change (tutor.py rebuilds)
         self.upgraded_defaults = self.paths.ensure()
         if self.upgraded_defaults:
             log.info("Updated unedited default files: %s", ", ".join(self.upgraded_defaults))
