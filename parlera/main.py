@@ -526,6 +526,11 @@ def create_app(root: Path | None = None) -> FastAPI:
             r["unit_level"] = unit["level"] if unit else ""
         return rows
 
+    @app.post("/api/sessions/{sid}/pick")
+    async def session_pick(sid: int, body: dict = Body(...)):
+        """Words picked in the transcript → flashcard candidates (fields filled in by the model)."""
+        return await core.pick_words(sid, [w for w in (body.get("words") or []) if isinstance(w, dict)])
+
     @app.get("/api/sessions/{sid}")
     async def session_get(sid: int):
         s = core.session_view(sid)

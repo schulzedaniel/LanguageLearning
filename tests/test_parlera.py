@@ -1073,3 +1073,27 @@ def test_continue_offers_unfinished_session_and_archive(client):
     client.put("/api/settings", json={"history": {"archive_after_days": 0}})      # 0 = never archive automatically
     rows = {r["id"]: r for r in client.get("/api/sessions?language=sv").json()}
     assert not rows[old["id"]]["is_archived"] and rows[s["id"]]["is_archived"]
+
+
+def test_pick_words_from_transcript(client):
+    core = client.core
+    sid = client.post("/api/sessions", json={"language": "sv", "mode": "lesson"}).json()["id"]
+    core.db.add_message(sid, "user", "Jag heter Sam.")
+    core.db.add_message(sid, "assistant", "**Trevligt att träffas!**")
+    client.post("/api/vocab", json={"language": "sv", "lemma": "trevlig", "translation": "nice", "status": "learning"})
+    r = client.post(f"/api/sessions/{sid}/pick", json={"words": [
+        {"text": "heter", "context": "Jag heter Sam."}, {"text": "Trevligt", "context": "**Trevligt att träffas!**"},
+        {"text": "heter"}]}).json()                      # duplicates are dropped
+    # the mock fills in "heta" for the 1st word and "trevlig" (already saved) for the 2nd
+    assert [v["lemma"] for v in r["added"]] == ["heta"] and r["added"][0]["status"] == "candidate"
+    assert r["added"][0]["reason"] == "picked" and r["added"][0]["session_id"] == sid
+    assert [v["lemma"] for v in r["existing"]] == ["trevlig"]
+    view = client.get(f"/api/sessions/{sid}").json()
+    assert any(v["lemma"] == "heta" for v in view["vocab"])
+    assert {"lemma": "trevlig", "status": "learning"} in view["saved_lemmas"]
+    # a word skipped earlier comes back when picked explicitly
+    hid = r["added"][0]["id"]
+    client.post("/api/vocab/bulk", json={"ids": [hid], "action": "ignore"})
+    again = client.post(f"/api/sessions/{sid}/pick", json={"words": [{"text": "heter"}]}).json()
+    assert again["added"][0]["id"] == hid and again["added"][0]["status"] == "candidate"
+    assert client.post(f"/api/sessions/{sid}/pick", json={"words": [{"text": "  "}]}).status_code == 400

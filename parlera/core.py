@@ -683,7 +683,74 @@ class Parlera:
         s["vocab"] = self.db.all("SELECT * FROM vocab WHERE session_id=? ORDER BY id", [sid])
         for v in s["vocab"]:
             v["display"] = display_word(v)
+        # for highlighting in the transcript word picker: everything already in the vocabulary list
+        s["saved_lemmas"] = self.db.all("SELECT lemma, status FROM vocab WHERE language=? AND status != 'ignored'",
+                                        [s["language"]])
         return s
+
+    async def pick_words(self, sid: int, words: list[dict]) -> dict:
+        """Flashcards for words the learner picked in the transcript: one model call fills in the fields,
+        the words are stored as candidates of this session (shown in the review table to check and send)."""
+        s = self.db.session(sid)
+        if not s:
+            raise ValueError("Session not found")
+        lang = s["language"]
+        clean = []
+        seen = set()
+        for w in words[:30]:
+            text = re.sub(r"\s+", " ", str((w or {}).get("text", "")).replace("**", "")).strip(" .,!?;:\"'«»“”()")
+            if text and len(text) <= 80 and norm(text) not in seen:
+                seen.add(norm(text))
+                clean.append({"text": text, "context": str(w.get("context") or "").replace("**", "")[:300]})
+        if not clean:
+            raise ValueError("Pick at least one word.")
+        ctx = self.build_context(lang, s["mode"], s.get("unit_id"), session_id=sid)
+        ctx["words"] = clean
+        try:
+            data = await self.llm.chat_json(
+                [{"role": "system", "content": self.prompts.render("vocab_pick", **ctx)},
+                 {"role": "user", "content": "Return the JSON now."}], schema=VOCAB_SCHEMA)
+            items = data.get("items", []) if isinstance(data, dict) else []
+        except Exception:
+            log.exception("vocab pick failed; falling back to one call per word")
+            items = []
+        added, existing = [], []
+        ts = now()
+        for i, w in enumerate(clean):
+            it = items[i] if i < len(items) and isinstance(items[i], dict) else None
+            if it is None:
+                try:
+                    it = await self.autofill_vocab(lang, w["text"], w["context"])
+                except Exception:
+                    it = {"lemma": w["text"]}
+            lemma = clean_lemma(str(it.get("lemma") or w["text"]), lang)
+            ln = norm(lemma)
+            if not ln:
+                continue
+            row = self.db.one("SELECT * FROM vocab WHERE language=? AND lemma_norm=?", [lang, ln])
+            if row and row["status"] != "ignored":
+                row["display"] = display_word(row)
+                existing.append(row)
+                continue
+            fields = {
+                "forms": str(it.get("forms", ""))[:200], "gender": normalize_gender(str(it.get("gender", "")), lang),
+                "pos": str(it.get("pos", "")).lower()[:30], "translation": str(it.get("translation", ""))[:200],
+                "example": str(it.get("example", "") or w["context"])[:300],
+                "example_translation": str(it.get("example_translation", ""))[:300],
+                "notes": str(it.get("notes", ""))[:300], "session_id": sid, "status": "candidate",
+                "reason": "picked", "updated_at": ts,
+            }
+            if row:   # a word you once skipped: bring it back
+                self.db.update("vocab", row["id"], fields)
+                vid = row["id"]
+            else:
+                vid = self.db.insert("vocab", {"language": lang, "lemma": lemma, "lemma_norm": ln,
+                                               "unit_id": s.get("unit_id") or "", "source": "manual", "freq": 0,
+                                               "created_at": ts, **fields})
+            r = self.db.one("SELECT * FROM vocab WHERE id=?", [vid])
+            r["display"] = display_word(r)
+            added.append(r)
+        return {"added": added, "existing": existing}
 
     def transcript(self, sid: int, max_chars: int = 24000) -> str:
         s = self.db.session(sid)

@@ -43,6 +43,8 @@ PROMPT_INFO: dict[str, tuple[str, str, str]] = {
     "lecture_grammar": ("Practice", "Grammar lecture",
                         "Practice → Grammar: writes a structured explanation of a grammar topic with examples and a quiz (JSON, may use thinking)."),
     "lecture_followup": ("Practice", "Grammar follow-up question", "Answers your follow-up questions about a grammar lecture."),
+    "vocab_pick": ("Analysis", "Picked flashcards",
+                   "Review page → Pick words from the transcript: fills in meaning, gender, forms and an example (JSON)."),
     "vocab_autofill": ("Utilities", "Vocabulary autofill", "Fills in translation, gender, forms and an example when you add a word manually."),
 }
 

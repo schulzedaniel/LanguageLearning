@@ -2,6 +2,7 @@
 import { api, state, LANGS, GENDERS } from '../api.js';
 import { h, icon, mount, loading, toast, fmtDate, fmtDuration, progressBar, download, empty, spinner } from '../ui.js';
 import { renderMarkdown } from '../markdown.js';
+import { transcriptPicker } from './wordpicker.js';
 
 const inlineMd = (x) => renderMarkdown(x).replace(/<\/?p>/g, '');
 import { navigate, refreshStatusSoon } from '../nav.js';
@@ -93,10 +94,12 @@ export default async function review(main, { id }) {
     a.memories.map((m) => h('div', { class: 'goal' }, icon('brain', 14), m.content))) : null;
 
   // --- transcript ---
-  const transcript = h('details', { class: 'card' }, h('summary', { style: { cursor: 'pointer', fontWeight: 650 } }, 'Transcript'),
-    h('div', { class: 'col mt' }, s.messages.map((m) => h('div', { class: 'small' }, h('b', {}, m.role === 'user' ? 'You: ' : `${L.tutor}: `),
-      h('span', { html: renderMarkdown(m.content).replace(/<\/?p>/g, ' ') })))),
-    h('div', { class: 'mt' }, h('a', { href: `/api/sessions/${s.id}/export.md`, class: 'btn sm' }, icon('download', 14), 'Export as Markdown')));
+  const transcript = transcriptPicker(s, { onAdded: async () => {
+    const fresh = await api.get(`/api/sessions/${s.id}`);
+    s.vocab = fresh.vocab;
+    renderVocab(vocabCard, s);
+    vocabCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } });
 
   mount(main, h('div', { class: 'page' }, head,
     h('div', { class: 'grid c2' }, h('div', { class: 'col gap-lg' }, feedback, errors), h('div', { class: 'col gap-lg' }, ...progressCards, memCard)),
@@ -125,7 +128,7 @@ function renderVocab(card, s) {
   const vErr = s.analysis?.vocab_error;
   const auto = s.analysis?.anki_auto;
 
-  const reasons = { mistake: ['bad', 'you struggled'], asked: ['warn', 'you asked'], unit: ['accent', 'unit word'], new: ['', 'new'] };
+  const reasons = { mistake: ['bad', 'you struggled'], asked: ['warn', 'you asked'], unit: ['accent', 'unit word'], new: ['', 'new'], picked: ['good', 'you picked'], manual: ['good', 'you picked'] };
   const rows = candidates.map((v) => {
     const cb = h('input', { type: 'checkbox', checked: true, onchange: () => { cb.checked ? selected.add(v.id) : selected.delete(v.id); } });
     const field = (key, ph, w) => h('input', { type: 'text', value: v[key] || '', placeholder: ph, style: w ? { width: w } : null,
@@ -162,34 +165,41 @@ function renderVocab(card, s) {
     refreshStatusSoon();
   };
 
-  mount(card, 
+  const deck = state.settings.anki?.decks?.[lang] || `Parlera::${LANGS[lang]?.name || lang}`;
+  const toPicker = () => document.getElementById('transcript-picker')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const chips = h('div', { class: 'chips' }, done.map((v) => h('span', { class: 'chip', title: v.example || '' }, h('b', { class: `word-g-${v.gender}` }, v.display || v.lemma),
+    h('span', { class: 'm' }, v.translation), v.anki_note_id ? icon('cards', 12) : null,
+    h('button', { class: 'btn ghost icon sm', style: { padding: '0 2px' }, title: v.anki_note_id ? 'Remove from Anki' : 'Don\'t learn this word',
+      onclick: async () => {
+        try {
+          if (v.anki_note_id) await api.post('/api/vocab/bulk', { ids: [v.id], action: 'unanki' });
+          else await api.post('/api/vocab/bulk', { ids: [v.id], action: 'ignore' });
+          toast(`Removed "${v.lemma}"`); const fresh = await api.get(`/api/sessions/${s.id}`); s.vocab = fresh.vocab; renderVocab(card, s);
+        } catch (e) { toast(e.message, 'error'); }
+      } }, icon('x', 12)))));
+
+  mount(card,
     h('div', { class: 'card-head' }, h('h3', {}, 'Flashcards from this session'),
-      h('span', { class: 'small faint' }, candidates.length ? 'Edit anything before saving. Unchecked words won\'t be suggested again.' : '')),
-    vErr ? h('div', { class: 'callout warn mb' }, icon('alert'), `Vocabulary extraction failed: ${vErr}`) : null,
+      h('button', { class: 'btn ghost sm', onclick: toPicker }, icon('plus', 14), 'Pick words from the transcript')),
+    vErr ? h('div', { class: 'callout warn mb' }, icon('alert'), h('div', {}, h('b', {}, 'The automatic word suggestions failed. '), `(${vErr}) You can still pick words from the transcript below.`)) : null,
+    auto && auto.added?.length ? h('div', { class: 'callout good mb' }, icon('checkCircle'), h('div', {}, h('b', {}, `${auto.added.length} card${auto.added.length === 1 ? '' : 's'} added to Anki automatically`),
+      ` (deck "${deck}"). Remove any you don't want with ×.`)) : null,
+    auto && auto.failed?.length ? h('div', { class: 'callout warn mb' }, icon('alert'), h('div', {}, `${auto.failed.length} card(s) could not be added: ${auto.failed[0].error}`)) : null,
+    auto && auto.queued ? h('div', { class: 'callout warn mb' }, icon('info'), h('div', {}, `Anki wasn't open, so ${auto.queued} word(s) are waiting. They're sent to "${deck}" automatically the next time Parlera starts while Anki is running.`)) : null,
     candidates.length ? h('div', {},
+      h('div', { class: 'small muted mb' }, ankiOk && !state.settings.anki?.auto_add
+        ? 'Suggested for you: check the details, untick what you don\'t want, then add them to Anki.'
+        : 'Check the details, untick what you don\'t want, then add them. Unticked words won\'t be suggested again.'),
       h('div', { style: { overflowX: 'auto' } }, h('table', { class: 'table' },
         h('thead', {}, h('tr', {}, h('th', {}, ''), h('th', {}, 'Word'), (GENDERS[lang] || []).length ? h('th', {}, lang === 'sv' ? 'en/ett' : 'Gender') : null, h('th', {}, lang === 'en' ? 'Definition' : 'Meaning'), h('th', {}, 'Example'), h('th', {}, 'Forms'))),
         h('tbody', {}, rows))),
       h('div', { class: 'row wrap mt' },
         h('button', { class: 'btn primary', disabled: !ankiOk, title: ankiOk ? '' : 'Open Anki (with AnkiConnect) to enable', onclick: () => act('anki') }, icon('cards', 16), 'Add selected to Anki'),
-        h('button', { class: 'btn', onclick: () => act('accept') }, icon('check', 16), 'Save without Anki'),
+        h('button', { class: 'btn', onclick: () => act('accept') }, icon('check', 16), ankiOk ? 'Save without Anki' : 'Save (send to Anki later)'),
         h('button', { class: 'btn', onclick: () => download('/api/vocab/export.apkg', { ids: [...selected] }, 'parlera.apkg').catch((e) => toast(e.message, 'error')) }, icon('download', 16), 'Download .apkg'),
         h('button', { class: 'btn ghost', onclick: () => act('ignore') }, 'Skip all'),
-        !ankiOk ? h('span', { class: 'small faint' }, 'Anki isn\'t open — start Anki to push cards directly.') : null))
-      : done.length ? h('div', {},
-        auto && auto.added?.length ? h('div', { class: 'callout good mb' }, icon('checkCircle'), h('div', {}, h('b', {}, `${auto.added.length} new card${auto.added.length === 1 ? '' : 's'} added to Anki`),
-          ` (deck "${state.settings.anki?.decks?.[lang] || ''}"). Remove any you don't want with ×.`)) : null,
-        auto && auto.queued ? h('div', { class: 'callout warn mb' }, icon('info'), h('div', {}, `Anki wasn't open — ${auto.queued} word(s) are queued and will be sent automatically next time Anki is running.`)) : null,
-        h('div', { class: 'chips' }, done.map((v) => h('span', { class: 'chip', title: v.example || '' }, h('b', { class: `word-g-${v.gender}` }, v.display || v.lemma),
-          h('span', { class: 'm' }, v.translation), v.anki_note_id ? icon('cards', 12) : null,
-          h('button', { class: 'btn ghost icon sm', style: { padding: '0 2px' }, title: v.anki_note_id ? 'Remove from Anki' : 'Don\'t learn this word',
-            onclick: async () => {
-              try {
-                if (v.anki_note_id) await api.post('/api/vocab/bulk', { ids: [v.id], action: 'unanki' });
-                else await api.post('/api/vocab/bulk', { ids: [v.id], action: 'ignore' });
-                toast(`Removed "${v.lemma}"`); const fresh = await api.get(`/api/sessions/${s.id}`); s.vocab = fresh.vocab; renderVocab(card, s);
-              } catch (e) { toast(e.message, 'error'); }
-            } }, icon('x', 12))))),
-      h('div', { class: 'small faint mt' }, 'Manage all words in ', h('a', { href: '#/vocab' }, 'Vocabulary'), '.'))
-        : empty('cards', 'No new words this time.'));
+        !ankiOk ? h('span', { class: 'small faint' }, 'Anki isn\'t open. Start Anki (with AnkiConnect) to send cards directly.') : null)) : null,
+    done.length ? h('div', { class: candidates.length ? 'mt-lg' : '' }, candidates.length ? h('div', { class: 'section-label' }, 'Already saved from this session') : null, chips) : null,
+    !candidates.length && !done.length ? empty('cards', vErr ? 'No suggestions.' : 'No new words were suggested this time. Pick your own from the transcript below.') : null,
+    h('div', { class: 'small faint mt' }, 'Manage all words in ', h('a', { href: '#/vocab' }, 'Vocabulary'), '.'));
 }
