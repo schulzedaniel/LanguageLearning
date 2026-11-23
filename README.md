@@ -35,8 +35,9 @@ the next session. All prompts, curricula and your data live in plain files you c
 - A real voice, with the target language and English each spoken by the right voice in the same sentence.
 - Tells you which language you're speaking (Swedish/French, English or auto) for accurate transcripts.
 - Streaming replies: the tutor starts speaking after its first sentence.
-- Mostly in the target language: when you answer in English, it shows you how to say it and asks you to try. **It also corrects your English.**
-- Gentle ✏️ corrections, replay and slow replay, translate any message, "How do I say…?" helper.
+- Mostly in the target language: when you answer in English, it shows you how to say it and asks you to try. **It also corrects your English** (switch this off in *Settings → Conversation*). If speech recognition turns your French or Swedish into strange "English", the teacher asks you to repeat instead of correcting it, and in *Auto* mode an unsure "English" result is re-checked in the target language.
+- Gentle ✏️ corrections, replay and slow replay, "How do I say…?" helper.
+- **Translate** under every teacher message, or **select any part** of a message to translate just that. Clicking a blue word shows its meaning in that sentence. Optionally, a translation can appear under every message automatically.
 - Listening mode: hide the text, then reveal it message by message.
 - Click any **blue word** to hear it or turn it into a flashcard.
 

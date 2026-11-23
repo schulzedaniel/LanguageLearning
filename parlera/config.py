@@ -161,6 +161,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "barge_in": False,
         "immersion": "auto",           # auto | 0..100
         "show_text": True,
+        "correct_native": True,        # Swedish/French sessions: also correct mistakes in my English
+        "auto_translate": False,       # show a translation under every tutor message (one extra model call each)
     },
     "anki": {
         "url": "http://127.0.0.1:8765",

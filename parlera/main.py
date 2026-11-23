@@ -834,7 +834,9 @@ def create_app(root: Path | None = None) -> FastAPI:
         direction = body.get("direction", "to_native")
         ctx = {"language": language, "language_name": LANGUAGES[language]["name"],
                "native_language": core.settings.get("learner.native_language") or "English",
-               "direction": direction, "text": body.get("text", "")}
+               "direction": direction, "text": body.get("text", ""),
+               "context": str(body.get("context") or "")[:600].replace("**", ""),
+               "monolingual": core.is_monolingual(language)}
         level = core.current_unit(language)["level"]
         ctx["level"] = level
         out = await core.llm.chat(

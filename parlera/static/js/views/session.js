@@ -65,6 +65,10 @@ export default async function session(main, { id }) {
   // ---------------- DOM ----------------
   const chatInner = h('div', { class: 'chat-inner' });
   const chat = h('div', { class: 'chat' }, chatInner);
+  chat.addEventListener('mouseup', () => setTimeout(selectionPopover, 10));
+  chat.addEventListener('scroll', () => document.querySelector('.sel-translate')?.remove());
+  const dropSel = (e) => { if (!e.target.closest?.('.sel-translate')) document.querySelector('.sel-translate')?.remove(); };
+  document.addEventListener('mousedown', dropSel);
   const ring = h('span', { class: 'ring' });
   const micBtn = h('button', { class: 'mic off', title: 'Microphone' }, ring, icon('mic', 26));
   const micStatus = h('div', { class: 'mic-status' });
@@ -381,6 +385,7 @@ export default async function session(main, { id }) {
         if (full !== undefined && full !== null && full !== '') text = full;
         if (failed && !text) { el.remove(); return; }
         render(); addActions(mid);
+        if (role === 'assistant' && !mono && state.settings.conversation?.auto_translate && text.trim()) translate(bubble, text, { auto: true });
       },
     };
     function addActions(mid) {
@@ -388,7 +393,7 @@ export default async function session(main, { id }) {
       mount(actions, 
         h('button', { class: 'btn ghost icon sm', title: 'Play again', onclick: () => replay(text, false, el) }, icon('volume', 15)),
         h('button', { class: 'btn ghost icon sm', title: 'Play slowly', onclick: () => replay(text, true, el) }, icon('turtle', 15)),
-        h('button', { class: 'btn ghost icon sm', title: mono ? 'Explain (paraphrase + difficult words)' : 'Translate', onclick: () => translate(bubble, text) }, icon('translate', 15)));
+        h('button', { class: 'btn ghost sm translate-btn', title: mono ? 'Explain (paraphrase + difficult words). Tip: select part of a message to explain just that.' : 'Translate this message. Tip: select part of a message to translate just that.', onclick: () => translate(bubble, text) }, icon('translate', 15), mono ? 'Explain' : 'Translate'));
     }
     if (final) addActions(id);
     return api_;
@@ -412,9 +417,9 @@ export default async function session(main, { id }) {
     } catch (e) { toast(e.message, 'error'); }
   }
 
-  async function translate(bubble, text) {
+  async function translate(bubble, text, { auto = false } = {}) {
     const existing = bubble.querySelector('.translation');
-    if (existing) { existing.remove(); return; }
+    if (existing) { if (!auto) existing.remove(); return; }
     const box = h('div', { class: 'translation' }, spinner());
     bubble.append(box);
     try {
@@ -427,14 +432,55 @@ export default async function session(main, { id }) {
   function wordPopover(anchor, word, context) {
     document.querySelector('.popover')?.remove();
     const rect = anchor.getBoundingClientRect();
-    const pop = h('div', { class: 'popover', style: { left: `${Math.min(window.innerWidth - 240, rect.left)}px`, top: `${rect.bottom + 6}px` } },
-      h('div', { class: 'w' }, word),
+    const meaning = h('div', { class: 'small muted pop-meaning' }, spinner(), ' ');
+    const pop = h('div', { class: 'popover', style: { left: `${Math.min(window.innerWidth - 260, rect.left)}px`, top: `${rect.bottom + 6}px` } },
+      h('div', { class: 'w' }, word), meaning,
       h('div', { class: 'row' },
         h('button', { class: 'btn sm', onclick: () => sayWord(word) }, icon('volume', 14), 'Listen'),
         h('button', { class: 'btn sm', onclick: () => { pop.remove(); addWordDialog(lang, word, context, s.id); } }, icon('plus', 14), 'Add card')));
     document.body.append(pop);
     const close = (e) => { if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('mousedown', close); } };
     setTimeout(() => document.addEventListener('mousedown', close), 0);
+    meaningOf(word, context).then((m) => mount(meaning, m)).catch(() => meaning.remove());
+  }
+
+  // meaning of a word/phrase as used in the teacher's sentence (cached per session)
+  const meanings = new Map();
+  function meaningOf(text, context) {
+    const key = `${text}\u0000${context}`;
+    if (!meanings.has(key)) {
+      const sentence = (String(context).replace(/\*\*/g, '').split(/(?<=[.!?])\s+/).find((x) => x.includes(text.replace(/\*\*/g, ''))) || context).slice(0, 400);
+      meanings.set(key, api.post('/api/translate', { text, context: sentence, language: lang, direction: 'to_native' }).then((r) => r.text));
+    }
+    return meanings.get(key);
+  }
+
+  // select part of a teacher message → translate just that
+  function selectionPopover() {
+    document.querySelector('.sel-translate')?.remove();
+    const sel = window.getSelection();
+    const picked = sel && !sel.isCollapsed ? sel.toString().trim() : '';
+    if (!picked || picked.length > 400) return;
+    const bubbleEl = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest('.msg.assistant .bubble');
+    if (!bubbleEl || bubbleEl.classList.contains('blurred')) return;
+    const rect = sel.getRangeAt(0).getBoundingClientRect();
+    const context = bubbleEl.querySelector('.content')?.innerText || '';
+    const btn = h('button', { class: 'btn sm primary sel-translate', style: { left: `${Math.max(8, Math.min(window.innerWidth - 150, rect.left + rect.width / 2 - 60))}px`, top: `${Math.max(8, rect.top - 40)}px` },
+      onmousedown: (e) => e.preventDefault(),
+      onclick: async () => {
+        btn.remove();
+        const pop = h('div', { class: 'popover', style: { left: `${Math.min(window.innerWidth - 300, Math.max(8, rect.left))}px`, top: `${rect.bottom + 6}px`, maxWidth: '300px' } },
+          h('div', { class: 'w' }, picked), h('div', { class: 'small muted pop-meaning' }, spinner()),
+          h('div', { class: 'row' },
+            h('button', { class: 'btn sm', onclick: () => sayWord(picked) }, icon('volume', 14), 'Listen'),
+            !mono && picked.split(/\s+/).length <= 4 ? h('button', { class: 'btn sm', onclick: () => { pop.remove(); addWordDialog(lang, picked, context, s.id); } }, icon('plus', 14), 'Add card') : null));
+        document.body.append(pop);
+        const close = (e) => { if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('mousedown', close); } };
+        setTimeout(() => document.addEventListener('mousedown', close), 0);
+        const out = pop.querySelector('.pop-meaning');
+        try { mount(out, await meaningOf(picked, context)); } catch (e) { mount(out, `Translation failed: ${e.message}`); }
+      } }, icon('translate', 14), mono ? 'Explain' : 'Translate');
+    document.body.append(btn);
   }
 
   async function sayWord(word) {
@@ -529,6 +575,8 @@ export default async function session(main, { id }) {
 
   // ---------------- leaving ----------------
   function teardown() {
+    document.removeEventListener('mousedown', dropSel);
+    document.querySelector('.sel-translate')?.remove();
     closed = true;
     clearInterval(timer);
     try { ws?.close(); } catch { /* ignore */ }
