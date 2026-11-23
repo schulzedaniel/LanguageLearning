@@ -494,20 +494,38 @@ def test_known_hashes_cover_git_history():
 # quitting, voices per language, mistake workshop, DB migration
 # ---------------------------------------------------------------------------
 def test_heartbeat_bye_and_shutdown(client):
-    import time
-
     class FakeServer:
         should_exit = False
-    assert client.post("/api/heartbeat").json()["ok"]
-    assert client.app.state.last_seen is not None
-    before = client.app.state.last_seen
-    client.post("/api/bye")
-    assert client.app.state.last_seen < before            # quit soon unless another tab beats
+    hb = client.post("/api/heartbeat").json()
+    assert hb["ok"] and hb["build"] == client.app.state.build
+    assert client.app.state.last_seen is not None and client.app.state.bye_at is None
+    client.post("/api/bye")                                   # tab closed → quit soon…
+    assert client.app.state.bye_at is not None
+    client.post("/api/heartbeat")                             # …unless a reload/another tab beats
+    assert client.app.state.bye_at is None
     assert client.post("/api/shutdown").json()["ok"] is False   # not started via run.sh
     client.app.state.server = FakeServer()
     assert client.post("/api/shutdown").json()["ok"] is True
     assert client.app.state.server.should_exit is True
-    assert time.monotonic() > 0
+
+
+def test_versioned_assets_prevent_stale_cache(client):
+    """index.html must load the UI from a build-specific URL, so browsers can't mix old cached files."""
+    build = client.app.state.build
+    html = client.get("/").text
+    assert f'/static/v-{build}/js/app.js' in html and f'/static/v-{build}/css/app.css' in html
+    assert "__BUILD__" not in html and "no-store" in client.get("/").headers["cache-control"]
+    js = client.get(f"/static/v-{build}/js/app.js")
+    assert js.status_code == 200 and "immutable" in js.headers["cache-control"]
+    assert "javascript" in js.headers["content-type"]
+    # relative module imports resolve inside the versioned folder
+    assert client.get(f"/static/v-{build}/js/views/dashboard.js").status_code == 200
+    # an old build id still works but is never cached for long
+    old = client.get("/static/v-0000000000/js/app.js")
+    assert old.status_code == 200 and old.headers["cache-control"] == "no-cache"
+    assert client.get("/static/js/app.js").headers["cache-control"] == "no-cache"
+    assert client.get(f"/static/v-{build}/../main.py").status_code == 404
+    assert client.get(f"/static/v-{build}/%2e%2e/main.py").status_code == 404
 
 
 def test_per_language_voice_engines(client):

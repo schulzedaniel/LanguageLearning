@@ -104,10 +104,30 @@ export async function refreshStatus() {
 
 // Heartbeat: the server quits by itself a few minutes after the last tab is gone.
 function startHeartbeat() {
-  const beat = () => fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
+  let failures = 0;
+  const beat = () => fetch('/api/heartbeat', { method: 'POST' })
+    .then((r) => r.json())
+    .then((j) => {
+      failures = 0;
+      document.getElementById('server-gone')?.remove();
+      // the server was updated while this page was open → reload to get the new version
+      const current = document.querySelector('script[type=module]')?.src.match(/v-([0-9a-f]+)/)?.[1];
+      if (j.build && current && j.build !== current) location.reload();
+    })
+    .catch(() => { failures += 1; if (failures >= 2) showServerGone(); });
   beat();
   setInterval(beat, 20000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) beat(); });
+  window.addEventListener('pageshow', (e) => { if (e.persisted) beat(); });
   window.addEventListener('pagehide', () => { try { navigator.sendBeacon('/api/bye'); } catch { /* ignore */ } });
+}
+
+function showServerGone() {
+  if (document.getElementById('server-gone')) return;
+  document.body.append(h('div', { id: 'server-gone', class: 'overlay' }, h('div', { class: 'overlay-box' },
+    h('img', { src: '/static/favicon.svg', width: 56, height: 56, alt: '' }),
+    h('h2', {}, 'Parlera is not running'),
+    h('div', { class: 'muted' }, 'It was stopped (Quit button, closed tab or Terminal window). Your progress is saved. Start it again with the Parlera app or ./run.sh — this page reconnects by itself.'))));
 }
 
 async function quitApp() {
@@ -135,6 +155,7 @@ async function boot() {
   }
   applyTheme();
   renderLangSwitch();
+  window.__parleraBooted = true;
   refreshStatus();
   startHeartbeat();
   const { openTeacherNote } = await import('./views/teachernote.js');

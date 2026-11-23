@@ -141,8 +141,10 @@ class AnkiConnect:
 
     async def version(self) -> int | None:
         try:
-            return await self.invoke("version")
-        except AnkiError:
+            async with httpx.AsyncClient(timeout=2.5) as client:
+                r = await client.post(self.url, json={"action": "version", "version": 6})
+            return r.json().get("result")
+        except (httpx.HTTPError, ValueError):
             return None
 
     async def ensure_model(self) -> None:

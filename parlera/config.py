@@ -101,8 +101,8 @@ def _known_default_hashes() -> dict[str, set[str]]:
 DEFAULT_SETTINGS: dict[str, Any] = {
     "ui": {"language": "sv", "theme": "auto"},
     "app": {
-        "auto_quit": True,             # stop Parlera a few minutes after the last browser tab is closed
-        "auto_quit_minutes": 3,
+        "auto_quit": True,             # stop Parlera when the last browser tab is closed (~45 s grace for reloads)
+        "idle_quit_minutes": 30,       # fallback: stop if no tab was seen for this long (browsers pause hidden tabs)
         "quit_ollama": "if_started",   # on quit: if_started (only if Parlera started it) | always | never
     },
     "learner": {
