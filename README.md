@@ -62,6 +62,8 @@ the next session. All prompts, curricula and your data live in plain files you c
 - You can also start a workshop any time from *Focus areas* or *Memory → Recurring mistakes*.
 
 **Curriculum and progress**
+- **Clear progress:** each unit shows what completes it: *reviewed sessions (e.g. 1 of 2)* and *mastery (e.g. 62% of 75% needed)*, with the target marked on the bar. Each level shows how many units are done. Mastery is the teacher's estimate after each *End & review*, averaged over your sessions.
+- **Sessions page, grouped by level → unit** (or by date). Each session says *Unfinished · continue here*, *Older, unfinished*, *Continued after review* or *Reviewed*. Inside a session, dividers show when you started and each time you came back.
 - Swedish and French: 31 units each, A1 to B2. English: 19 units, B2 to C2. Every unit has can-do goals, grammar, vocabulary, phrases, pronunciation and culture notes. Aimed at **DELF** (French), **Swedex / TISUS** (Swedish) and **IELTS / TOEFL / Duolingo English Test** (English).
 - Session types: guided lesson, conversation, role-play, review & quiz, pronunciation, exam simulation (scored), writing practice, placement check and free talk.
 - After each session: feedback, a list of your mistakes, unit mastery, level estimate, exam score, and a suggestion to move on when you're ready.
@@ -153,11 +155,11 @@ separate from the program:
 
 ### Starting and stopping
 
-- **Start:** the Parlera app, `./run.sh` or `Parlera.command`. Ollama is started automatically if needed.
+- **Start:** the **Parlera app** opens only Parlera's own window. There's no Terminal window, and the log goes to `<data folder>/logs/parlera.log`. If Ollama isn't running, it's started in the background without its window (*Settings → Starting & quitting → Start Ollama* switches to the Ollama app instead). Opening the app again while Parlera runs just brings its window back. To watch the log live, start with `./run.sh` or `Parlera.command` instead.
 - **Stop:** click **Quit Parlera** at the bottom of the sidebar. Or just close the browser tab: Parlera stops by itself about 45 seconds later (reloading the page is fine).
 - **Settings are kept across updates:** they live in `settings.json` in your data folder. A previous copy is kept next to it and daily copies go to `backups/`; a damaged file is restored from the last good copy automatically. Re-running `./setup.sh` keeps your chosen model (press Enter). You can also export and import settings under *Settings → Your data*.
 - **Clear cache:** *Settings → Your data → Storage & cache* shows what each cache uses and clears it. Your progress, words and settings are never affected.
-- **Saving:** everything is saved continuously, so there's nothing to "save" before quitting. Unfinished sessions stay *in progress* and can be resumed, or reviewed with *End & review*. A safety copy of the database is written on every quit.
+- **Saving:** everything is saved continuously, so there's nothing to "save" before quitting. Unfinished sessions can be continued (the Sessions page marks the one to continue) or reviewed with *End & review*. A safety copy of the database is written on every quit.
 - **Ollama on quit:** the model is always unloaded, which frees its memory. Ollama itself is quit if Parlera started it. Under *Settings → Starting & quitting* you can choose **always** (also quits an Ollama that was already running, e.g. the menu-bar app) or **never**.
 
 ### Demo mode: show Parlera without changing anything

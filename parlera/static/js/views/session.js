@@ -1,6 +1,6 @@
 // Live conversation: voice (hands-free or push-to-talk) or text, streaming replies with speech.
 import { api, state, LANGS } from '../api.js';
-import { h, icon, mount, loading, toast, confirmDialog, modal, fmtDuration, spinner, escapeHtml } from '../ui.js';
+import { h, icon, mount, loading, toast, confirmDialog, modal, fmtDuration, fmtDate, spinner, escapeHtml } from '../ui.js';
 import { renderMarkdown } from '../markdown.js';
 import { Recorder, Player, b64FromBuffer, bufferFromB64 } from '../audio.js';
 import { navigate } from '../nav.js';
@@ -131,13 +131,26 @@ export default async function session(main, { id }) {
   mount(main, layout);
 
   // existing messages (resumed session)
-  for (const m of s.messages) addMessage(m.role, m.content, { id: m.id, final: true, pron: m.meta?.pron });
+  // dividers show when the session was started and each time you came back to it
+  const GAP_MS = 20 * 60 * 1000;
+  const divider = (text) => chatInner.append(h('div', { class: 'chat-divider' }, h('span', {}, text)));
+  let prevTs = null;
+  for (const m of s.messages) {
+    const ts = new Date(m.created_at).getTime();
+    if (prevTs === null) divider(`Started ${fmtDate(m.created_at, { time: true })}`);
+    else if (ts - prevTs > GAP_MS) divider(`Continued ${fmtDate(m.created_at, { time: true })}`);
+    prevTs = ts;
+    addMessage(m.role, m.content, { id: m.id, final: true, pron: m.meta?.pron });
+  }
+  if (prevTs !== null && Date.now() - prevTs > GAP_MS) divider('Now · continuing where you left off');
   if (s.messages.length) markUsed();
 
   // start gate: a click is needed to unlock audio playback and the microphone
   const gate = h('div', { class: 'card center', style: { alignSelf: 'center', marginTop: s.messages.length ? '10px' : '12vh', maxWidth: '440px' } },
     h('div', { class: 'avatar', style: { width: '56px', height: '56px', fontSize: '22px', margin: '0 auto 12px' } }, L.tutor[0]),
     h('h2', {}, s.messages.length ? `Continue with ${L.tutor}` : `${L.hello}! I'm ${L.tutor}.`),
+    s.messages.length ? h('p', { class: 'small', style: { margin: '6px 0 0' } }, `You're continuing the session you started ${fmtDate(s.created_at, { time: true })} (${((n) => `${n} turn${n === 1 ? '' : 's'}`)(s.messages.filter((m) => m.role === 'user').length)} so far). ${L.tutor} remembers everything and picks up where you stopped.`)
+      : h('p', { class: 'small faint', style: { margin: '6px 0 0' } }, 'A new session.'),
     h('p', { class: 'muted mt' }, isWriting ? 'This is a writing session — you type, I correct.'
       : inputMode === 'handsfree' ? 'Hands-free: just talk. I\'ll answer when you pause. Use headphones for the best experience.'
         : inputMode === 'ptt' ? 'Hold the mic button (or the space bar) while you speak.' : 'Type your answers below.'),

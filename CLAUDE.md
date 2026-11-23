@@ -50,7 +50,7 @@ The user-facing documentation is `README.md`.
 ```bash
 ./setup.sh            # macOS: venv, deps, choose/pull Ollama model, Whisper prefetch, ~/Applications/Parlera.app
 ./run.sh              # starts Ollama if needed, serves http://127.0.0.1:8642, opens browser
-.venv/bin/python -m pytest -q          # 52 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
+.venv/bin/python -m pytest -q          # 53 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
 python3 tools/update_default_hashes.py # run BEFORE committing changes to parlera/defaults/{prompts,curricula}
 .venv/bin/python tools/mock_services.py [ollama_port] [anki_port]   # fake Ollama (:11434) + AnkiConnect (:8765)
 ```
@@ -76,7 +76,8 @@ Pushing to `schulzedaniel/LanguageLearning` has worked from cloud sessions.
 ```
 setup.sh (129)          interactive mac setup; writes parlera.env (PARLERA_DATA=…), sets llm.model in settings,
                         lists already-installed Ollama models (no duplicate downloads), creates ~/Applications/Parlera.app (osacompile → Terminal → ./run.sh; Info.plist renamed to "Parlera" + ad-hoc re-signed so the Automation prompt doesn't say "applet")
-run.sh (45)             sources parlera.env; starts Ollama (open -g -a Ollama | ollama serve) if not running; on exit quits Ollama only if it started it
+run.sh (60)             sources parlera.env; starts Ollama if not running: headless `ollama serve` (CLI or the binary inside Ollama.app, log <data>/logs/ollama.log) unless app.ollama_start = app (`open -g -j -a Ollama`); on exit quits Ollama only if it started it
+launch.sh (50)          used by Parlera.app: no Terminal window. Already running → open_ui; no .venv → Terminal + setup; else nohup run.sh (log <data>/logs/parlera.log, previous run kept), dialog if not up in 45 s
 Parlera.command (3)     Finder double-click launcher → run.sh
 pyproject.toml          deps; extras: mac (mlx-whisper), faster (faster-whisper), piper (piper-tts), dev (pytest)
 parlera/
@@ -251,7 +252,7 @@ same context dict from `core.build_context()`:
 - If heartbeats fail twice, the page shows a "Parlera is not running" overlay. If the heartbeat returns a different `build`, the page reloads itself.
 - `POST /api/shutdown` is the sidebar's Quit button; the page then shows "Parlera has stopped".
 - On shutdown: unload the model(s), write `backups/parlera-last-quit.db`, and if `quit_ollama == always`, `osascript quit app "Ollama"` + `pkill -x ollama`. `run.sh` quits an Ollama it started unless the setting is `never`.
-- The launcher's Terminal command ends with `; exit`, so the window closes.
+- The Parlera.app launcher (`osacompile` → `do shell script "… nohup ./launch.sh &"`) shows no Terminal window; re-running `./setup.sh` rebuilds it. `./run.sh` and `Parlera.command` still run in a Terminal for a live log.
 
 **Settings safety:**
 - `Settings.update` copies the previous valid file to `settings.json.bak` before writing.
@@ -290,6 +291,8 @@ same context dict from `core.build_context()`:
 - Model-written Markdown is rendered everywhere (review feedback/strengths/explanations, memory, history summaries, workshop panel).
 
 **Resume instead of duplicating** (`core.open_session`, `GET /api/sessions/open?language&mode&unit_id`): the latest `active` session with the same language, mode and unit (for unit modes), no scenario/focus and at least one visible user turn. `start.js startSession` asks "Continue where you left off?" (Continue / Start fresh) before creating a session; `fresh: true` skips it. The dashboard payload includes `open_lesson` (button label "Continue lesson").
+
+**Progress display** (`core.unit_status`, `views/progress.js`): a unit is complete when reviewed sessions ≥ `min_sessions` (A1/A2: 2, else 1) and mastery ≥ `curriculum.advance_threshold` (+ the model's ready flag, see End & review). `unitChecklist` shows both conditions with a target marker (`masteryBar`); used on the dashboard (`/api/dashboard.unit_status`: number in level, level done/total, open sessions), Curriculum cards/drawer (`/api/curriculum.threshold`) and the Sessions page. Sessions rows carry `unit_index`, `unit_mode`, `resumes` (hidden messages − 1), `last_activity`, `reviewed_before`; the Sessions page groups by level → unit (or by date, localStorage `parlera.history.group`) and marks the newest unfinished session per unit+mode "continue here", older ones "Older, unfinished". "Start fresh" archives the old unfinished session. `session.js` draws "Started / Continued" dividers for gaps > 20 min.
 
 **Archive** (`history.archive_after_days` 7, 0 = never): `/api/sessions` rows carry `is_archived`; the Sessions page has Recent / Archive tabs (route `#/history/archive`), per-row archive/restore via `PATCH /api/sessions/{id} {archived: true|false|null}`. The dashboard's recent list hides archived sessions.
 
@@ -382,7 +385,7 @@ analysis prompt turns them into `pronunciation` errors.
 | Section | Keys |
 |---|---|
 | `ui` | `language` (sv\|fr\|en, the currently studied language), `theme` (auto\|light\|dark) |
-| `app` | `auto_quit` (true), `idle_quit_minutes` (30), `quit_ollama` (if_started\|always\|never), `window` (auto\|app\|browser), `offline` (auto\|always) |
+| `app` | `auto_quit` (true), `idle_quit_minutes` (30), `quit_ollama` (if_started\|always\|never), `ollama_start` (headless\|app), `window` (auto\|app\|browser), `offline` (auto\|always) |
 | `workshop` | `interval_days` (7), `min_mistakes` (3), `thinking` (true) |
 | `teachers` | `{sv,fr,en}.{name, gender female\|male}` (defaults Astrid/f, Élodie/f, Oliver/m) |
 | `learner` | `name`, `native_language` ("English"), `goals.{sv,fr}` |

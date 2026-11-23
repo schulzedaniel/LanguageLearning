@@ -16,11 +16,12 @@ export async function startSession({ mode = 'lesson', unit_id = null, scenario =
         body: h('div', { class: 'col' },
           h('p', {}, 'You have an unfinished session: ', h('b', {}, open.title), '.'),
           h('div', { class: 'small muted' }, `Last activity ${fmtDate(open.updated_at, { time: true })} · ${open.turns} turn${open.turns === 1 ? '' : 's'} so far. Your teacher remembers the whole conversation.`),
-          h('div', { class: 'tiny faint' }, 'If you start fresh, the unfinished one stays under Sessions (and moves to the archive after a week without activity).')),
+          h('div', { class: 'tiny faint' }, 'If you start fresh, the unfinished one moves to Sessions → Archive, so there is only ever one session to continue. You can still open it there.')),
         actions: [{ label: 'Start fresh', value: 'new' }, { label: 'Continue', class: 'primary', value: 'continue' }],
       }).done;
       if (!choice) return;
       if (choice === 'continue') { navigate(`session/${open.id}`); return; }
+      await api.patch(`/api/sessions/${open.id}`, { archived: true }).catch(() => {});
     }
   }
   const s = await api.post('/api/sessions', { language: lang, mode, unit_id, scenario, focus });

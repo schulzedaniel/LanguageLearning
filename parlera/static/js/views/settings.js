@@ -191,6 +191,8 @@ export default async function settings(main) {
     h('div', { class: 'form-grid' },
       h('div', {}, check('app.auto_quit', 'Stop Parlera automatically when I close the browser tab', 'About 45 seconds after the last Parlera tab is closed, the server stops and the model is unloaded. Reloading the page is fine.')),
       text('app.idle_quit_minutes', 'Also stop if no tab was seen for … minutes', 'Safety net for tabs that were never closed properly. Browsers pause hidden tabs, so keep this generous.', { type: 'number' }),
+      select('app.ollama_start', 'Start Ollama', [['headless', 'In the background, no window (recommended)'], ['app', 'As the Ollama app (shows its window)']],
+        'Only when Parlera starts it. If Ollama is already running (e.g. you opened it yourself), it is left as it is.'),
       select('app.quit_ollama', 'Quit Ollama when Parlera stops', [['if_started', 'Only if Parlera started it (recommended)'], ['always', 'Always (also if it was already running)'], ['never', 'Never']],
         'The model itself is always unloaded, freeing its memory. The idle Ollama app uses almost nothing.'),
       select('app.window', 'Open Parlera in', [['auto', 'Its own app window if possible (recommended)'], ['app', 'Its own app window (Chrome / Edge / Brave)'], ['browser', 'A normal browser tab']],

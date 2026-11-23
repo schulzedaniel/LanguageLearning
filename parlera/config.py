@@ -105,6 +105,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "auto_quit": True,             # stop Parlera when the last browser tab is closed (~45 s grace for reloads)
         "idle_quit_minutes": 30,       # fallback: stop if no tab was seen for this long (browsers pause hidden tabs)
         "quit_ollama": "if_started",   # on quit: if_started (only if Parlera started it) | always | never
+        "ollama_start": "headless",    # how run.sh starts Ollama: headless (ollama serve, no window) | app (Ollama app)
         "window": "auto",              # auto | app (own window via Chrome/Edge/Brave) | browser (normal tab)
         "offline": "auto",             # auto: don't contact Hugging Face when all models are already downloaded
     },
