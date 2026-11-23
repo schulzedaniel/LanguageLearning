@@ -143,6 +143,7 @@ export default async function settings(main) {
       h('div', { class: 'full' }, check('workshop.thinking', 'Let the model think while preparing the workshop', 'Better grouping and explanations with reasoning models (Gemma 4, Muse Glimmer, Qwen 3); takes longer. Live conversation never uses thinking.')),
       range('vocab.min_zipf', 'Skip rare words below frequency', 0, 4, 0.5, (v) => (v === 0 ? 'off' : `Zipf ${v}`)),
       text('practice.round_length', 'Questions per practice game', 'Practice → Quick games.', { type: 'number' }),
+      text('history.archive_after_days', 'Archive sessions after … days without activity', '0 = never. Archived sessions stay complete and can be resumed (Sessions → Archive).', { type: 'number' }),
       h('div', {}, check('practice.lecture_thinking', 'Let the model think while writing grammar lectures', 'Deeper, more accurate explanations with reasoning models; takes a minute or two.'))));
 
   // --- anki ---

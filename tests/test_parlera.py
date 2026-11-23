@@ -598,7 +598,7 @@ def test_db_migration_from_v1(tmp_path):
     con.commit()
     con.close()
     db = DB(p)
-    assert db.scalar("PRAGMA user_version") == 3   # V2 (workshops) and V3 (practice) applied
+    assert db.scalar("PRAGMA user_version") == 4   # V2 (workshops), V3 (practice), V4 (archive) applied
     ev = db.all("SELECT * FROM error_events")
     assert len(ev) == 1 and ev[0]["wrong"] == "le maison"   # backfilled from existing mistakes
     assert db.all("SELECT * FROM errors")[0]["pattern"] == "Gender"
@@ -1041,3 +1041,35 @@ def test_edit_teacher_instructions_and_live_prompt_refresh(client):
     client.get("/api/directives?language=fr")
     assert core.context_version == v + 1                                 # reads don't count
     assert "Use lots of food vocabulary." in ts._system()                # rebuilt for the next reply
+
+
+def test_continue_offers_unfinished_session_and_archive(client):
+    from datetime import datetime, timedelta
+    core = client.core
+    assert client.get("/api/sessions/open?language=sv&mode=lesson").json()["session"] is None
+    s = client.post("/api/sessions", json={"language": "sv", "mode": "lesson"}).json()
+    # an empty session is not offered (it is deleted when you leave it)
+    assert client.get("/api/sessions/open?language=sv&mode=lesson").json()["session"] is None
+    core.db.add_message(s["id"], "user", "Hej!")
+    found = client.get("/api/sessions/open?language=sv&mode=lesson").json()["session"]
+    assert found["id"] == s["id"] and found["turns"] == 1
+    # other mode, other unit, a scenario, or a finished session → nothing to continue
+    assert client.get("/api/sessions/open?language=sv&mode=conversation").json()["session"] is None
+    assert client.get("/api/sessions/open?language=sv&mode=lesson&unit_id=sv-a1-02").json()["session"] is None
+    client.patch(f"/api/sessions/{s['id']}", json={"status": "completed"})
+    assert client.get("/api/sessions/open?language=sv&mode=lesson").json()["session"] is None
+
+    # archive: automatic after 7 days without activity, manual choice wins
+    old = client.post("/api/sessions", json={"language": "sv", "mode": "conversation"}).json()
+    core.db.update("sessions", old["id"], {"updated_at": (datetime.now() - timedelta(days=8)).isoformat(timespec="seconds")})
+    rows = {r["id"]: r for r in client.get("/api/sessions?language=sv").json()}
+    assert rows[old["id"]]["is_archived"] and not rows[s["id"]]["is_archived"]
+    assert old["id"] not in [r["id"] for r in client.get("/api/dashboard/sv").json()["recent_sessions"]]
+    client.patch(f"/api/sessions/{old['id']}", json={"archived": False})          # keep it out of the archive
+    client.patch(f"/api/sessions/{s['id']}", json={"archived": True})             # archive by hand
+    rows = {r["id"]: r for r in client.get("/api/sessions?language=sv").json()}
+    assert not rows[old["id"]]["is_archived"] and rows[s["id"]]["is_archived"]
+    client.patch(f"/api/sessions/{old['id']}", json={"archived": None})           # back to automatic
+    client.put("/api/settings", json={"history": {"archive_after_days": 0}})      # 0 = never archive automatically
+    rows = {r["id"]: r for r in client.get("/api/sessions?language=sv").json()}
+    assert not rows[old["id"]]["is_archived"] and rows[s["id"]]["is_archived"]

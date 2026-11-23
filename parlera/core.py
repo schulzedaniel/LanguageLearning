@@ -631,6 +631,35 @@ class Parlera:
             "created_at": ts, "updated_at": ts, "model": self.settings.get("llm.model")})
         return self.db.session(sid)
 
+    def is_archived(self, s: dict) -> bool:
+        """Manual choice wins; otherwise sessions without activity for history.archive_after_days are archived."""
+        if s.get("archived") is not None:
+            return bool(s["archived"])
+        days = int(self.settings.get("history.archive_after_days", 7) or 0)
+        if days <= 0:
+            return False
+        last = _parse_ts(s.get("updated_at") or s["created_at"])
+        return last < datetime.now() - timedelta(days=days)
+
+    def open_session(self, language: str, mode: str, unit_id: str | None = None) -> dict | None:
+        """The most recent unfinished session of this kind (same mode and unit) that has real messages,
+        so "Continue lesson" can resume it instead of starting a duplicate."""
+        if mode not in MODES or mode == "workshop":
+            return None
+        unit = self.curricula.unit(language, unit_id) if unit_id else self.current_unit(language)
+        uid = unit["id"] if unit and MODES[mode]["unit"] else None
+        rows = self.db.all(
+            "SELECT s.*, (SELECT COUNT(*) FROM messages m WHERE m.session_id=s.id AND m.hidden=0 AND m.role='user') "
+            "AS turns FROM sessions s WHERE s.language=? AND s.mode=? AND s.status='active' "
+            "AND COALESCE(s.scenario,'')='' AND COALESCE(s.focus,'')='' "
+            + ("AND s.unit_id=? " if uid else "") + "ORDER BY s.updated_at DESC LIMIT 5",
+            [language, mode, *([uid] if uid else [])])
+        for r in rows:
+            if r["turns"] > 0:
+                r.pop("analysis", None)
+                return r
+        return None
+
     def session_duration(self, sid: int) -> int:
         """Active seconds, estimated from message timestamps (gaps capped at 2 minutes)."""
         rows = self.db.all("SELECT created_at FROM messages WHERE session_id=? ORDER BY id", [sid])

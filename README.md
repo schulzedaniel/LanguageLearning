@@ -68,7 +68,8 @@ the next session. All prompts, curricula and your data live in plain files you c
 - Recurring mistakes and weak Anki cards flow into later sessions automatically.
 
 **Memory**
-- Every session is saved and can be **resumed later**; the tutor remembers the whole conversation.
+- Every session is saved and can be **resumed later**; the tutor remembers the whole conversation. *Continue lesson* (and other session buttons) offer to resume an unfinished session of the same kind instead of starting a duplicate.
+- **Archive:** sessions without activity for 7 days move to *Sessions → Archive* automatically (adjustable, or off). You can archive or restore any session by hand; archived sessions stay complete and resumable.
 - The tutor builds up long-term memories about you (job, plans, preferences), and you can edit, pin or switch off each one.
 - You can add personal notes that the tutor should always keep in mind.
 

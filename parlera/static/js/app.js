@@ -27,6 +27,7 @@ const ROUTES = [
   { path: 'practice/:tab', view: practice },
   { path: 'lecture/:id', view: lecture },
   { path: 'memory/:tab', view: memory },
+  { path: 'history/:tab', view: history },
   { path: 'session/:id', view: session },
   { path: 'review/:id', view: review },
 ];
@@ -66,7 +67,7 @@ function renderNav(active) {
   const nav = document.getElementById('nav');
   mount(nav, ROUTES.filter((r) => r.nav || r.sep).map((r) => r.sep
     ? h('div', { class: 'nav-sep' })
-    : h('a', { href: '#/' + r.path, class: active === r || (active.path.startsWith('session') && r.path === '') || ((active.path.startsWith('practice/') || active.path.startsWith('lecture')) && r.path === 'practice') || (active.path.startsWith('memory/') && r.path === 'memory') ? 'active' : '' }, icon(r.icon), r.nav)));
+    : h('a', { href: '#/' + r.path, class: active === r || (active.path.startsWith('session') && r.path === '') || ((active.path.startsWith('practice/') || active.path.startsWith('lecture')) && r.path === 'practice') || (active.path.startsWith('memory/') && r.path === 'memory') || (active.path.startsWith('history/') && r.path === 'history') ? 'active' : '' }, icon(r.icon), r.nav)));
 }
 
 function renderLangSwitch() {

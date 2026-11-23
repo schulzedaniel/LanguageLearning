@@ -1,12 +1,28 @@
 // "Start a session" dialog: pick mode, unit, scenario and an optional focus.
 import { api, state, LANGS } from '../api.js';
-import { h, icon, mount, modal, toast } from '../ui.js';
+import { h, icon, mount, modal, toast, fmtDate } from '../ui.js';
 import { navigate } from '../nav.js';
 
 const MODE_ORDER = ['lesson', 'conversation', 'roleplay', 'review', 'pronunciation', 'exam', 'writing', 'break', 'placement', 'free'];
 
-export async function startSession({ mode = 'lesson', unit_id = null, scenario = '', focus = '' } = {}) {
+export async function startSession({ mode = 'lesson', unit_id = null, scenario = '', focus = '', fresh = false } = {}) {
   const lang = state.language;
+  // An unfinished session of the same kind exists? Offer to continue it instead of starting a duplicate.
+  if (!fresh && !scenario && !focus) {
+    const { session: open } = await api.get(`/api/sessions/open?language=${lang}&mode=${mode}${unit_id ? `&unit_id=${encodeURIComponent(unit_id)}` : ''}`).catch(() => ({}));
+    if (open) {
+      const choice = await modal({
+        title: 'Continue where you left off?',
+        body: h('div', { class: 'col' },
+          h('p', {}, 'You have an unfinished session: ', h('b', {}, open.title), '.'),
+          h('div', { class: 'small muted' }, `Last activity ${fmtDate(open.updated_at, { time: true })} · ${open.turns} turn${open.turns === 1 ? '' : 's'} so far. Your teacher remembers the whole conversation.`),
+          h('div', { class: 'tiny faint' }, 'If you start fresh, the unfinished one stays under Sessions (and moves to the archive after a week without activity).')),
+        actions: [{ label: 'Start fresh', value: 'new' }, { label: 'Continue', class: 'primary', value: 'continue' }],
+      }).done;
+      if (!choice) return;
+      if (choice === 'continue') { navigate(`session/${open.id}`); return; }
+    }
+  }
   const s = await api.post('/api/sessions', { language: lang, mode, unit_id, scenario, focus });
   navigate(`session/${s.id}`);
 }

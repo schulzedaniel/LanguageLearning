@@ -180,6 +180,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "reinforce_count": 6,          # candidates offered to the tutor per session (it uses a few)
     },
     "curriculum": {"advance_threshold": 0.75, "auto_advance": False},
+    "history": {
+        "archive_after_days": 7,       # sessions without activity for this long move to Sessions → Archive (0 = never)
+    },
     "practice": {
         "round_length": 10,            # questions per game round
         "lecture_thinking": True,      # let reasoning models think while writing grammar lectures
