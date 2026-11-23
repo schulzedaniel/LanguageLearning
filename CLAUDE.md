@@ -37,6 +37,10 @@ The user-facing documentation is `README.md`.
 - Natural voices: Kokoro, selectable per language (English, French), alongside macOS/Piper.
 - A weekly mistake workshop (§6), situation presets (can't speak / can't listen), "Message your teacher" instructions, and a chat break (Fika / Pause café / Tea time).
 - A demo mode that leaves no lasting changes (§6, "Demo mode").
+- Configurable teachers: name + gender per language (Settings → Your teachers); the voice follows the gender (§6, "Teachers & voices").
+- Research-based teaching prompts (Nation's four strands, Lyster & Ranta feedback ladder, TBLT task cycle, retrieval practice) (§10).
+- A Practice page for short sessions without speaking: local quick games + grammar lectures written by the reasoning model (§6, "Practice").
+- Markdown must render properly wherever model/prompt text is shown (prompt preview, review, lectures).
 - Settings must survive updates; cache clearing; a dedicated app window; fully offline after setup; never two big models in RAM.
 - The user asked about `muse-glimmer:30b-mlx` (Meta, 30B, reasoning, agent-focused, ~21 GB). Recommended: keep Gemma 4 for conversation, and optionally try Muse Glimmer as the *analysis* model.
 
@@ -45,7 +49,7 @@ The user-facing documentation is `README.md`.
 ```bash
 ./setup.sh            # macOS: venv, deps, choose/pull Ollama model, Whisper prefetch, ~/Applications/Parlera.app
 ./run.sh              # starts Ollama if needed, serves http://127.0.0.1:8642, opens browser
-.venv/bin/python -m pytest -q          # 38 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
+.venv/bin/python -m pytest -q          # 46 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
 python3 tools/update_default_hashes.py # run BEFORE committing changes to parlera/defaults/{prompts,curricula}
 .venv/bin/python tools/mock_services.py [ollama_port] [anki_port]   # fake Ollama (:11434) + AnkiConnect (:8765)
 ```
@@ -78,7 +82,10 @@ parlera/
   __main__.py (38)      CLI: --host --port(8642) --no-browser --data
   config.py (174)       Paths (data dir layout), DEFAULT_SETTINGS (single source of truth for settings keys), Settings (JSON, deep-merged, thread-safe)
   db.py (252)           SQLite schema (PRAGMA user_version migrations list MIGRATIONS), DB helper (all/one/scalar/insert/update/backup_to), learner/session/message helpers
-  core.py (743)         class Parlera = app core. Wires everything; context building; analysis; progression; vocab pipeline; Anki push/sync; stats
+  core.py (1200)        class Parlera = app core. Wires everything; context building; analysis; progression; vocab pipeline; Anki push/sync; stats;
+                        teacher(); grammar lectures (create_lecture/ask_lecture, LECTURE_SCHEMA, clean_lecture)
+  practice.py (270)     Practice games data: build_pool (sources unit|vocab|mix|misses|errors), cloze/phrase_cloze/split_article,
+                        record_results (practice_log + practice_items), stats, grammar_topics
   main.py (660)         create_app(): all REST endpoints + WebSocket + static; exception→HTTP mapping; startup backup; shutdown unloads Ollama model
   tutor.py (262)        TutorSession: WebSocket conversation loop (STT → LLM stream → sentence TTS), interrupt handling, pronunciation hints
   llm.py (200)          OllamaClient (chat_stream, chat, chat_json w/ JSON-schema `format`, list_models, warm, unload), ThinkFilter, parse_json_loose
@@ -87,7 +94,8 @@ parlera/
   textproc.py (204)     strip_for_speech, SentenceStream (streaming splitter, never splits inside **bold**, flags ✏️ lines), language detection (lingua + stopword heuristic), segment_languages
   pronunciation.py (85) low-confidence words + repetition diff vs last tutor **bold** phrases → hint note
   stt.py (119)          STTManager: backend auto-select (mlx on Apple Silicon > faster), transcribe() returns {text, language, words:[{word,p}]}, hallucination filter
-  tts.py (226)          TTSManager: engines macos/piper/browser/off, voice listing & auto-pick (Premium > Enhanced > preferred names, locale fr_FR/sv_SE/en_US), disk cache, PIPER_CATALOG
+  tts.py (330)          TTSManager: engines macos/piper/kokoro/browser/off, voice listing & gender-aware auto-pick (pick_voice: teacher gender > Premium > Enhanced >
+                        locale > preferred names), MACOS_GENDER, voice_gender(), disk cache, PIPER_CATALOG (with gender)
   audio.py (71)         WAV decode/resample/concat (numpy, no ffmpeg)
   demo.py (110)         demo mode: prepare_demo_dir (temporary copy; sqlite backup API), spawn_demo (second server process)
   system.py (170)       app window (open_ui: Chrome/Edge/Brave --app with private profile <data>/browser), offline mode
@@ -100,13 +108,14 @@ parlera/
   static/logo.svg, icon-1024.png    app logo (macOS-style tile); favicon.svg is the cropped tile; setup builds the .icns from the PNG
   static/index.html, css/app.css (350), favicon.svg
   static/js/  app.js (shell, router, sidebar status, auto push-pending to Anki) · nav.js (navigate, applyTheme, refreshStatusSoon)
-              api.js (fetch wrapper, state, LANGS) · ui.js (h() DOM helper, icons, modal/toast/confirm, mount) · markdown.js (bold→.tl, ✏️ → .correction)
+              api.js (fetch wrapper, state, LANGS — `LANGS[x].tutor`/`tutorGender` are getters reading settings.teachers; teacher(lang))
+              speech.js (say(text, lang): server voice or browser fallback, outside sessions) · ui.js (h() DOM helper, icons, modal/toast/confirm, mount) · markdown.js (renderMarkdown: bold→.tl, ✏️ → .correction; renderDocument: full documents with headings/nested lists/tables, used by the prompt preview)
               audio.js (Recorder: AudioWorklet + energy VAD + PTT, WAV encode; Player: queue of WAV/speechSynthesis) · recorder-worklet.js
-  static/js/views/ dashboard · session (561, the live conversation) · review (post-session) · curriculum (+YAML editor) · vocab (+addWordDialog)
+  static/js/views/ dashboard · session (561, the live conversation) · practice (games picker + player + Grammar tab, explainGrammar) · lecture (lecture reader + quiz + follow-ups) · review (post-session) · curriculum (+YAML editor) · vocab (+addWordDialog)
                    history · memory (memories, recurring errors, notes) · prompts (editor + preview) · settings · start (new-session dialog)
 docs/architecture.svg   architecture/data-flow diagram embedded in README — regenerate with `python3 docs/make_architecture.py`
                         (hand-placed coordinates; update it when components/flows change, then render with Playwright to check)
-tests/test_parlera.py (372)  end-to-end against mock services (spins them up on free ports)
+tests/test_parlera.py (980)  end-to-end against mock services (spins them up on free ports)
 tools/mock_services.py (160) fake Ollama (canned streaming Swedish replies; JSON by schema shape) + fake AnkiConnect
                         (in-memory notes with fields/decks; a pre-existing "English Vocab" deck for import tests)
 tools/update_default_hashes.py  scans git history of the defaults and writes parlera/defaults/known_hashes.json
@@ -142,7 +151,7 @@ version being replaced is recorded. `test_known_hashes_cover_git_history` fails 
 - Whisper: the Hugging Face cache, `~/.cache/huggingface/hub`.
 - macOS voices: managed by the system.
 
-## 5. Database schema (db.py, `user_version` = 2)
+## 5. Database schema (db.py, `user_version` = 3)
 
 - `learner(language PK, current_unit_id, started_at, notes)`: `notes` holds the user's "notes for the tutor".
 - `unit_progress(language, unit_id, status active|completed, mastery 0–1, sessions, last_session_at)`
@@ -159,7 +168,12 @@ version being replaced is recorded. `test_known_hashes_cover_git_history` fails 
   - `workshops(id, language, created_at, period_start, period_end, digest JSON, session_id)`
   - `directives(id, language NULL=all, kind behaviour|focus|vocabulary|other, content, source_text, expires_at NULL=permanent, active, created_at)`
 
-**Schema changes:** append a new SQL script to `MIGRATIONS` in `db.py`. Never edit a shipped schema (V1, and V2 once merged), because users' databases are already at that version.
+- V3 adds (Practice):
+  - `practice_log(id, language, game, source, score, total, seconds, created_at)`: one row per finished game round (counts for the streak and minutes in `core.stats`).
+  - `practice_items(language, term_norm PK, term, meaning, vocab_id, seen, wrong, streak, last_seen, last_wrong)`: per-item stats; "My misses" = wrong > 0 and streak < 2.
+  - `lectures(id, language, topic, unit_id, level, content JSON (clean_lecture shape + followups[{q,a,at}]), model, created_at, updated_at)`
+
+**Schema changes:** append a new SQL script to `MIGRATIONS` in `db.py`. Never edit a shipped schema (V1, V2, and V3 once merged), because users' databases are already at that version.
 
 Timestamps are local, naive ISO strings (`db.now()`); streaks use local dates.
 
@@ -172,6 +186,7 @@ same context dict from `core.build_context()`:
 | Key(s) | Content |
 |---|---|
 | `language`, `language_name`, `native_language` | Language codes and names |
+| `teacher_name`, `teacher_gender` | From `settings.teachers[lang]` via `core.teacher()` (empty/invalid → defaults Astrid f / Élodie f / Oliver m) |
 | `learner_name`, `learner_goal`, `learner_notes` | From Settings and the Memory page |
 | `level`, `unit`, `unit_number`, `units_total` | `unit` is the normalized unit dict |
 | `unit_progress` | `{sessions, mastery, status}` |
@@ -255,6 +270,17 @@ same context dict from `core.build_context()`:
 - On exit, `__main__` closes the db and `rmtree`s the temp dir. A demo shutdown skips the model unload, the backup and the Ollama quit (`main.DEMO`).
 - `/api/status.demo` makes the UI show the striped banner and "End demo", and hides the "Demo mode" button.
 - The main server terminates its demo children on shutdown. The demo window reuses the real app-window browser profile (mic permission). The last demo's log is `$TMPDIR/parlera-demo.log`.
+
+**Teachers & voices** (`settings.teachers.{sv,fr,en}.{name,gender}`, `core.teacher`, `tts.pick_voice`):
+- Personas use `{{ teacher_name }}`/`teacher_gender` (French persona: self-agreement *contente/content*). The UI never hard-codes names: `LANGS[x].tutor` is a getter over settings.
+- `tts.synth(text, lang, rate, speaker)`: `speaker` = the session language (whose teacher is talking). For `lang == speaker` an explicit voice in Settings always wins; for the other language (English explanations in a Swedish lesson) the explicit voice is used only if its gender matches, else a matching voice is auto-picked. "" = auto by gender (macOS: MACOS_GENDER; Kokoro: 2nd letter f/m, default bm_george/bf_emma, French only ff_siwis; Piper: catalog `gender`, downloaded voices only). Browser voices: `audio.js voiceGender` name regex, same rule in `Player._voiceFor`.
+- Changing a teacher's gender in Settings resets that language's voices (all engines) to "" (auto). Voice defaults are "" since this change; older settings files may still hold `bm_george`/`ff_siwis`/piper names (treated as explicit).
+
+**Practice** (`practice.py`, `views/practice.js`, `views/lecture.js`; settings `practice.round_length` 10, `practice.lecture_thinking` true):
+- Games are pure client logic over `GET /api/practice/{lang}/items?source=&count=` (items + distractors). Question types: flash, choice (t2m/m2t), typing, cloze, scramble, gender, fix, match (boards of 5); `mix` picks a type per item. `checkAnswer` ignores case/punctuation/articles and tolerates accents (with a note). Results → `POST /api/practice/{lang}/results`.
+- Item sources: `unit` (current unit first, then the 3 before, from `vocab_pairs`/`phrase_pairs`), `vocab` (vocab table, cloze from `example`), `mix`, `misses`, `errors` (errors table example_wrong/right → "Fix my mistakes").
+- Grammar lectures: `core.create_lecture` renders `lecture_grammar.md`, `chat_json(LECTURE_SCHEMA, analysis_model, think=practice.lecture_thinking)` with a think=False retry, then `release_analysis_model()` (one big model rule). `clean_lecture` repairs quiz answers/options and table shape. Follow-ups (`lecture_followup.md`) use the conversation model and are stored in `content.followups`. "Practise with X" starts a `lesson` with `focus` (mode_lesson builds the lesson around a focus). `explainGrammar` opens an existing lecture with the same topic instead of writing a new one; the Curriculum drawer has *Explain* buttons.
+- Model-written Markdown is rendered everywhere (review feedback/strengths/explanations, memory, history summaries, workshop panel).
 
 **Situation presets** (`session.js` `SITUATIONS`, stored in localStorage `parlera.situation`): full / nospeak (text input, audio on) / nolisten (voice input, audio off, text shown) / silent. They map onto the existing `inputMode` + `audioOn`.
 
@@ -346,10 +372,12 @@ analysis prompt turns them into `pronunciation` errors.
 | `ui` | `language` (sv\|fr\|en, the currently studied language), `theme` (auto\|light\|dark) |
 | `app` | `auto_quit` (true), `idle_quit_minutes` (30), `quit_ollama` (if_started\|always\|never), `window` (auto\|app\|browser), `offline` (auto\|always) |
 | `workshop` | `interval_days` (7), `min_mistakes` (3), `thinking` (true) |
+| `teachers` | `{sv,fr,en}.{name, gender female\|male}` (defaults Astrid/f, Élodie/f, Oliver/m) |
 | `learner` | `name`, `native_language` ("English"), `goals.{sv,fr}` |
+| `practice` | `round_length` (10), `lecture_thinking` (true) |
 | `llm` | `base_url`, `model`, `analysis_model` ("" = same), `temperature`, `num_ctx` (16384), `keep_alive` ("30m"), `disable_thinking` (sends `think:false`, retried without it on a 400), `context_messages` (40), `exclusive_models` (true), `big_model_gb` (6) |
 | `stt` | `backend` (auto\|mlx\|faster\|off), `model` (mlx-community/whisper-large-v3-turbo), `models.{fr,sv}` overrides, `default_input_language` (target\|en\|auto), `pronunciation_hints`, `confidence_threshold` |
-| `tts` | `engine` (auto\|macos\|piper\|kokoro\|browser\|off; auto = macos > piper > browser), `engines.{fr,sv,en}` per-language override, `speed`, `beginner_slowdown`, `speak_corrections`, `voices.{macos,piper,kokoro,browser}.{fr,sv,en}` ("" = auto-pick; kokoro defaults en `bm_george`, fr `ff_siwis`) |
+| `tts` | `engine` (auto\|macos\|piper\|kokoro\|browser\|off; auto = macos > piper > browser), `engines.{fr,sv,en}` per-language override, `speed`, `beginner_slowdown`, `speak_corrections`, `voices.{macos,piper,kokoro,browser}.{fr,sv,en}` ("" = auto-pick matching the teacher's gender) |
 | `conversation` | `input_mode` (handsfree\|ptt\|text), `silence_ms` (1400), `barge_in`, `immersion`, `show_text` |
 | `anki` | `url`, `decks.{sv,fr,en}`, `auto_add`, `deck_per_unit`, `add_reverse`, `include_audio`, `auto_sync` (sync review data when a session is created) |
 | `vocab` | `max_cards_per_session` (15), `min_zipf` (2.0), `reinforce` (true), `reinforce_count` (6) |
@@ -408,6 +436,11 @@ analysis prompt turns them into `pronunciation` errors.
 
 **System:** `GET /api/system`, `POST /api/cache/clear`, `GET /api/settings/export`, `POST /api/settings/import`
 
+**Practice & lectures:**
+- `GET /api/practice/{lang}` (stats, grammar topics, lectures, counts, round_length), `GET /api/practice/{lang}/items?source=&count=`, `POST /api/practice/{lang}/results` with `{game, source, seconds, results:[{term, meaning, vocab_id, correct}]}`
+- `GET /api/lectures?language=`, `POST /api/lectures` with `{language, topic, unit_id?}`, `GET|DELETE /api/lectures/{id}`, `POST /api/lectures/{id}/ask` with `{question}`
+- `POST /api/tts/test` accepts `speaker`; `/api/speak` passes its `language` as speaker.
+
 **Workshop & teacher notes:**
 - `GET /api/workshops/status/{lang}`, `POST /api/workshops` with `{language}` (returns the new session)
 - `POST /api/teacher-note/parse` with `{language, text}`
@@ -424,8 +457,10 @@ analysis prompt turns them into `pronunciation` errors.
 - Language-specific branches use `{% if monolingual %}` (English course) or `language == "sv"/"fr"/"en"`. The English course gets no "Mixing languages" section, stricter corrections and "✏️ Upgrade:" lines; its analysis adds `upgrade` errors.
 - `context`: learner and unit block.
 
+**Teaching design (keep it when editing prompts):** Nation's four strands (input, output, language focus, fluency); learner talks most; chunks before rules for beginners; retrieval ("make them remember") and recycling 2–3 turns later; concept-check questions instead of "do you understand?"; a spoken activity toolbox; the **feedback ladder** — prompt/elicit first (repetition with rising tone, metalinguistic clue, clarification) for known forms, then ✏️ explicit correction, quiet recasts for off-focus slips, delayed feedback during tasks (Lyster & Ranta; Lyster & Saito meta-analysis: prompts > recasts). `mode_lesson`: A1/A2 = recall → input → chunks → noticing → controlled practice → task → feedback + 3-question exit quiz; B1+ and English = task first → teach the gaps → focused practice → task again with a twist → feedback + exit quiz (Willis TBLT). `mode_roleplay` = pre-task → task (no form focus) → post-task reformulations → replay. `mode_review` = scored quiz rounds, interleaved, missed items brought back.
+
 **Session modes** (`mode_*`): `lesson`, `conversation`, `roleplay`, `review`, `exam`, `writing`, `placement`, `free`, `pronunciation`, `workshop` (created via `POST /api/workshops`, not the start dialog), `break`.
-**Other prompts:** `analysis_workshop` (digest JSON, thinking), `teacher_note` (note → instructions JSON).
+**Other prompts:** `analysis_workshop` (digest JSON, thinking), `teacher_note` (note → instructions JSON), `lecture_grammar` (lecture JSON, thinking), `lecture_followup` (plain text).
 
 **Flow:** `opening` and `resume` are hidden user messages.
 
@@ -509,5 +544,6 @@ The `exam.format` text is inserted into `mode_exam`. The same caveat about user 
 - Phoneme-level pronunciation scoring (see §7).
 - Listening and reading exercises for the other DELF/Swedex skills.
 - Unit sub-deck renaming, a field mapping to the user's own Anki note types.
-- Per-unit grammar cheat-sheets, spaced review of past units, streak reminders.
+- Spaced review of past units, streak reminders.
+- AI-generated exercise sets in Practice (beyond the local games and lecture quizzes); listening dictation game using TTS.
 - Updating users' prompt/curriculum copies on upgrade (e.g. offer a diff/merge when defaults change).

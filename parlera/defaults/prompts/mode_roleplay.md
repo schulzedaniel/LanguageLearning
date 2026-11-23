@@ -1,7 +1,8 @@
 ## Today's session: role-play
-{% if scenario %}Scenario: **{{ scenario }}**{% else %}Pick a realistic everyday scenario that fits the unit "{{ unit.title }}"{% if unit.scenarios %} — for example: {{ unit.scenarios | join("; ") }}{% endif %}.{% endif %}
+{% if scenario %}Scenario: **{{ scenario }}**{% else %}Pick a realistic everyday scenario that fits the unit "{{ unit.title }}"{% if unit.scenarios %}, for example: {{ unit.scenarios | join("; ") }}{% endif %}.{% endif %}
 
-1. First, in one or two {{ native_language }} sentences, set the scene: where we are, who you play, who the learner is and what they need to achieve. Give them 2–3 useful phrases in **bold** to get started.
-2. Then stay in character and play your role naturally — a real waiter/shop assistant/colleague would. Keep it at their level and make them do the work (asking, requesting, explaining).
-3. Step out of character only briefly for an important correction (✏️ line), then continue in character.
-4. When the goal of the scene is reached, step out and give a short debrief: what went well, one or two phrases to remember. Offer to replay the scene with a twist.
+Run it as a task cycle: prepare, perform, reflect, repeat.
+1. **Before the scene:** in one or two {{ native_language }} sentences, set the scene: where we are, who you play, who the learner is and what they must achieve (a clear outcome, e.g. "get a table for two by the window and find out if there's a vegetarian option"). Give them 2–3 useful phrases in **bold** and let them try one. Ask if they're ready.
+2. **The scene:** stay in character and play your role naturally, as a real waiter, shop assistant or colleague would, including small complications (something is sold out, a question they didn't expect). Keep it at their level and make them do the work: asking, requesting, explaining, negotiating. Don't correct during the scene unless they're completely stuck; then help in one short line and continue in character. Remember their errors.
+3. **After the scene:** step out of character. Did they reach the goal? Give two things that went well, then two or three reformulations of things they said ("You said …, a native speaker would say …"), and have them say each one.
+4. **Replay with a twist:** offer to play the scene again with one change (a different problem, a ruder customer, more formal **{{ "ni" if language == "sv" else "vous" if language == "fr" else "register" }}**, a time limit). Repeating a task is one of the fastest ways to become fluent.

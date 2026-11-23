@@ -310,7 +310,7 @@ def test_voice_pipeline_with_fake_engines(client):
     core.tts.engine = lambda: "macos"
     synth_calls = []
 
-    def fake_synth(text, lang, rate=1.0):
+    def fake_synth(text, lang, rate=1.0, speaker=None):
         synth_calls.append((lang, text, rate))
         return _tone_wav(0.2, 22050)
     core.tts.synth = fake_synth
@@ -362,7 +362,7 @@ def test_pronunciation_hints_reach_the_tutor(client):
 
 def test_speak_endpoint_and_concat(client):
     client.core.tts.engine = lambda: "macos"
-    client.core.tts.synth = lambda text, lang, rate=1.0: _tone_wav(0.3, 22050 if lang == "sv" else 16000)
+    client.core.tts.synth = lambda text, lang, rate=1.0, speaker=None: _tone_wav(0.3, 22050 if lang == "sv" else 16000)
     r = client.post("/api/speak", json={"text": "Hello is **hej**.", "language": "sv"})
     assert r.status_code == 200 and r.content[:4] == b"RIFF"
     import io as _io
@@ -598,7 +598,7 @@ def test_db_migration_from_v1(tmp_path):
     con.commit()
     con.close()
     db = DB(p)
-    assert db.scalar("PRAGMA user_version") == 2
+    assert db.scalar("PRAGMA user_version") == 3   # V2 (workshops) and V3 (practice) applied
     ev = db.all("SELECT * FROM error_events")
     assert len(ev) == 1 and ev[0]["wrong"] == "le maison"   # backfilled from existing mistakes
     assert db.all("SELECT * FROM errors")[0]["pattern"] == "Gender"
@@ -796,3 +796,147 @@ def test_demo_server_runs_and_cleans_up(tmp_path):
     assert not Path(demo_root).exists()                                    # temporary copy deleted
     after = sorted(p.relative_to(real.root).as_posix() for p in real.root.rglob("*"))
     assert after == before                                                 # real folder untouched
+
+
+# ---------------------------------------------------------------------------
+# teachers, practice games, grammar lectures
+# ---------------------------------------------------------------------------
+def test_teacher_name_and_gender_flow_into_prompts(client):
+    core = client.core
+    ctx = core.build_context("en", "lesson")
+    assert ctx["teacher_name"] == "Oliver" and ctx["teacher_gender"] == "male"
+    client.put("/api/settings", json={"teachers": {"en": {"name": "Charlotte", "gender": "female"},
+                                                   "fr": {"name": "Julien", "gender": "male"}}})
+    en = core.render_system_prompt(core.build_context("en", "lesson"))
+    assert "You are Charlotte" in en and "Your name is **Charlotte** and you are a woman" in en
+    assert "Oliver" not in en
+    fr = core.render_system_prompt(core.build_context("fr", "lesson"))
+    assert "Julien" in fr and "je suis content**" in fr and "contente" not in fr
+    # an empty name falls back to the default instead of producing "Your name is ****"
+    client.put("/api/settings", json={"teachers": {"sv": {"name": "  ", "gender": "x"}}})
+    assert core.teacher("sv") == {"name": "Astrid", "gender": "female"}
+
+
+def test_lesson_prompt_shapes_by_level(client):
+    core = client.core
+    a1 = core.render_system_prompt(core.build_context("sv", "lesson"))
+    assert "Notice the grammar" in a1 and "exit quiz" in a1.lower() and "Task first" not in a1
+    assert "feedback ladder" in a1.lower() and "Make them remember" in a1
+    c1 = core.render_system_prompt(core.build_context("en", "lesson"))      # English course starts at C1
+    assert "Task first" in c1 and "Task again, with a twist" in c1
+    focused = core.render_system_prompt(core.build_context("sv", "lesson", focus="Grammar: V2"))
+    assert "The learner chose a focus for today: **Grammar: V2**" in focused
+
+
+def test_voice_follows_teacher_gender(client):
+    tts = client.core.tts
+    tts._macos_voices = [
+        {"name": "Ava (Premium)", "locale": "en_US", "quality": 2, "gender": "female"},
+        {"name": "Daniel (Enhanced)", "locale": "en_GB", "quality": 1, "gender": "male"},
+        {"name": "Alva (Premium)", "locale": "sv_SE", "quality": 2, "gender": "female"},
+        {"name": "Oskar", "locale": "sv_SE", "quality": 0, "gender": "male"},
+    ]
+    assert tts.pick_voice("macos", "en") == "Daniel (Enhanced)"            # Oliver is male → male voice beats premium female
+    assert tts.pick_voice("macos", "en", speaker="sv") == "Ava (Premium)"   # Astrid's English explanations: female
+    assert tts.pick_voice("macos", "sv") == "Alva (Premium)"
+    client.put("/api/settings", json={"teachers": {"sv": {"gender": "male"}}})
+    assert tts.pick_voice("macos", "sv") == "Oskar"
+    # an explicit choice always wins for the teacher's own language …
+    client.put("/api/settings", json={"tts": {"voices": {"macos": {"en": "Ava (Premium)"}}}})
+    assert tts.pick_voice("macos", "en") == "Ava (Premium)"
+    # … but the English voice of a male Swedish teacher stays male
+    assert tts.pick_voice("macos", "en", speaker="sv") == "Daniel (Enhanced)"
+    # Kokoro: automatic voice by gender, French has only a female voice
+    assert tts.pick_voice("kokoro", "en") == "bm_george"
+    assert tts.pick_voice("kokoro", "en", speaker="fr") == "bf_emma"
+    assert tts.pick_voice("kokoro", "fr") == "ff_siwis"
+    from parlera.tts import voice_gender
+    assert voice_gender("macos", "Thomas (Enhanced)") == "male" and voice_gender("piper", "en_GB-alba-medium") == "female"
+
+
+def test_practice_helpers():
+    from parlera import practice
+    assert practice.cloze("Jag springer varje dag.", "springa")["answer"] == "springer"
+    assert practice.cloze("Elle a une petite maison.", "maison") == {"before": "Elle a une petite ", "answer": "maison", "after": "."}
+    assert practice.cloze("Il fait beau aujourd'hui.", "beau temps") is None
+    assert practice.cloze("We need to take up a hobby.", "take up")["answer"] == "take up"
+    assert practice.split_article("ett hus", "sv") == ("ett", "hus", "ett")
+    assert practice.split_article("la maison", "fr") == ("la", "maison", "f")
+    assert practice.split_article("l'eau", "fr")[1] == "eau"
+    assert practice.phrase_cloze("Jag mår bra, tack.", "sv", {"tack", "jag"})["answer"] == "tack"
+    assert not practice.scramble_ok("Je m'appelle …")
+
+
+def test_practice_pool_results_and_misses(client):
+    core = client.core
+    client.post("/api/vocab", json={"language": "sv", "lemma": "en bil", "translation": "a car",
+                                    "example": "Bilen är röd.", "example_translation": "The car is red."})
+    client.post("/api/vocab", json={"language": "sv", "lemma": "springa", "translation": "to run",
+                                    "example": "Jag springer varje dag.", "example_translation": "I run every day."})
+    ov = client.get("/api/practice/sv").json()
+    assert ov["counts"]["vocab"] == 2 and ov["counts"]["unit"] > 10 and ov["round_length"] == 10
+    assert ov["topics"] and ov["topics"][0]["level"] == "A1" and any(t["current"] for t in ov["topics"][0]["topics"])
+    pool = client.get("/api/practice/sv/items?source=vocab").json()
+    car = next(i for i in pool["items"] if i["bare"] == "bil")
+    assert car["gender"] == "en" and car["term"] == "en bil" and car["cloze"]["answer"] == "Bilen"
+    run = next(i for i in pool["items"] if i["bare"] == "springa")
+    assert run["cloze"]["answer"] == "springer" and run["cloze"]["hint"] == "I run every day."
+    assert pool["distractors"]
+    unit = client.get("/api/practice/sv/items?source=unit&count=20").json()
+    assert unit["items"][0]["unit_id"] == unit["unit"]["id"]               # current unit first
+
+    r = client.post("/api/practice/sv/results", json={"game": "choice", "source": "vocab", "seconds": 95, "results": [
+        {"term": "en bil", "meaning": "a car", "correct": False}, {"term": "springa", "meaning": "to run", "correct": True}]}).json()
+    assert r["score"] == 1 and r["total"] == 2 and r["stats"]["today"] == 1 and r["stats"]["misses"] == 1
+    misses = client.get("/api/practice/sv/items?source=misses").json()["items"]
+    assert [m["term"] for m in misses] == ["en bil"] and misses[0]["cloze"]       # full item data comes back
+    # two correct answers in a row clear a miss
+    for _ in range(2):
+        client.post("/api/practice/sv/results", json={"game": "typing", "source": "misses",
+                                                      "results": [{"term": "en bil", "correct": True}]})
+    assert client.get("/api/practice/sv/items?source=misses").json()["items"] == []
+    # games count for the streak and practice minutes
+    stats = core.stats("sv")
+    assert stats["streak"] == 1 and stats["week_minutes"] >= 1
+
+
+def test_fix_my_mistakes_source(client):
+    sid = client.post("/api/sessions", json={"language": "sv", "mode": "lesson"}).json()["id"]
+    client.core.db.add_message(sid, "user", "Jag Sam heter")
+    client.core.db.add_message(sid, "assistant", "✏️ **Jag heter Sam**")
+    client.post(f"/api/sessions/{sid}/end")
+    pool = client.get("/api/practice/sv/items?source=errors").json()
+    assert pool["items"][0]["kind"] == "fix" and pool["items"][0]["wrong"] == "Jag Sam heter"
+    assert pool["items"][0]["term"] == "Jag heter Sam" and pool["counts"]["errors"] == 1
+
+
+def test_grammar_lecture_create_ask_delete(client):
+    client.put("/api/settings", json={"llm": {"analysis_model": "muse-glimmer:30b-mlx"}})
+    lec = client.post("/api/lectures", json={"language": "sv", "topic": "Verb second (V2)", "unit_id": "sv-a1-01"}).json()
+    c = lec["content"]
+    assert c["title"].startswith("Verb second") and c["steps"][1]["examples"][0]["target"].startswith("Idag")
+    assert c["table"]["columns"] == ["1", "2 (verb)", "3", "rest"] and len(c["table"]["rows"]) == 2
+    assert all(q["answer"] in q["options"] for q in c["quiz"]) and c["speaking_task"]
+    assert lec["level"] == "A1" and lec["unit_id"] == "sv-a1-01"
+    assert "muse-glimmer:30b-mlx" in mock_services.state["unloads"]          # big analysis model released afterwards
+    lst = client.get("/api/lectures?language=sv").json()
+    assert lst[0]["id"] == lec["id"] and lst[0]["title"] == c["title"]
+    assert client.get("/api/practice/sv").json()["lectures"][0]["id"] == lec["id"]
+    qa = client.post(f"/api/lectures/{lec['id']}/ask", json={"question": "Does V2 apply in questions?"}).json()
+    assert qa["q"] == "Does V2 apply in questions?" and qa["a"]
+    again = client.get(f"/api/lectures/{lec['id']}").json()
+    assert again["content"]["followups"][0]["q"] == qa["q"]
+    assert client.post("/api/lectures", json={"language": "sv", "topic": "  "}).status_code == 400
+    client.delete(f"/api/lectures/{lec['id']}")
+    assert client.get(f"/api/lectures/{lec['id']}").status_code == 404
+
+
+def test_clean_lecture_repairs_model_output():
+    from parlera.core import clean_lecture
+    c = clean_lecture({"title": "", "quiz": [
+        {"question": "Pick", "options": ["a", "b"], "answer": "B", "explanation": ""},      # case mismatch → matched
+        {"question": "Pick", "options": ["a", "b"], "answer": "c", "explanation": ""},      # missing → appended
+        {"question": "Bad", "options": ["only"], "answer": "only", "explanation": ""}],     # too few options → dropped
+        "table": {"caption": "x", "columns": [], "rows": [["1"]]}, "steps": "nonsense"}, "Fallback topic")
+    assert c["title"] == "Fallback topic" and c["steps"] == [] and c["table"]["rows"] == []
+    assert [q["answer"] for q in c["quiz"]] == ["b", "c"] and c["quiz"][1]["options"] == ["a", "b", "c"]

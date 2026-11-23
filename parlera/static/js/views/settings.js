@@ -1,5 +1,5 @@
 // Settings: learner profile, model, speech, voices, conversation, Anki, data.
-import { api, state, saveSettings, loadStatus, LANGS } from '../api.js';
+import { api, state, saveSettings, loadStatus, LANGS, teacher } from '../api.js';
 import { h, icon, mount, loading, toast, confirmDialog, download, spinner } from '../ui.js';
 import { applyTheme, refreshStatusSoon } from '../nav.js';
 
@@ -108,6 +108,26 @@ export default async function settings(main) {
       h('div', { class: 'full' }, text('learner.goals.en', '🇬🇧 English goal')),
       select('ui.theme', 'Appearance', [['auto', 'Match system'], ['light', 'Light'], ['dark', 'Dark']])));
 
+  // --- teachers ---
+  const teacherRow = (lang) => {
+    const t = teacher(lang);
+    const avatar = h('div', { class: 'avatar' }, t.name[0]);
+    return h('div', { class: 'teacher-row' },
+      avatar, h('div', { class: 'small', style: { minWidth: '90px' } }, `${LANGS[lang].flag} ${LANGS[lang].name}`),
+      h('input', { type: 'text', value: get(`teachers.${lang}.name`) || t.name, placeholder: t.name, 'aria-label': `${LANGS[lang].name} teacher's name`,
+        oninput: (e) => { set(`teachers.${lang}.name`, e.target.value.trim()); avatar.textContent = (e.target.value.trim() || '?')[0]; } }),
+      h('select', { 'aria-label': `${LANGS[lang].name} teacher's gender`, onchange: (e) => {
+        set(`teachers.${lang}.gender`, e.target.value);
+        // a new gender → let every engine pick a matching voice again
+        for (const eng of ['macos', 'piper', 'kokoro', 'browser']) set(`tts.voices.${eng}.${lang}`, '');
+        toast(`Voice for ${LANGS[lang].name} reset to automatic — it now picks a ${e.target.value} voice.`, 'info', 4000);
+        setTimeout(() => renderVoices(voicesBox, st, set, status), 500);
+      } }, [['female', 'Woman · female voice'], ['male', 'Man · male voice']].map(([v, l]) => h('option', { value: v, selected: t.gender === v }, l))));
+  };
+  const teachers = section('teachers', 'Your teachers',
+    h('div', { class: 'small muted' }, 'Name your teachers and choose who they are. The name is used everywhere (greeting, prompts, feedback), and the voice follows the gender automatically — unless you pick a specific voice under "Tutor voice". Their personality and teaching style live in Teacher prompts → Persona.'),
+    h('div', { class: 'col' }, ['sv', 'fr', 'en'].map(teacherRow)));
+
   // --- curriculum & vocab ---
   const prog = section('progress', 'Progress & flashcards',
     h('div', { class: 'form-grid' },
@@ -119,7 +139,9 @@ export default async function settings(main) {
       text('workshop.interval_days', 'Mistake workshop every … days', 'The dashboard suggests a workshop when it is due.', { type: 'number' }),
       text('workshop.min_mistakes', 'Only if at least … new mistakes', '', { type: 'number' }),
       h('div', { class: 'full' }, check('workshop.thinking', 'Let the model think while preparing the workshop', 'Better grouping and explanations with reasoning models (Gemma 4, Muse Glimmer, Qwen 3); takes longer. Live conversation never uses thinking.')),
-      range('vocab.min_zipf', 'Skip rare words below frequency', 0, 4, 0.5, (v) => (v === 0 ? 'off' : `Zipf ${v}`))));
+      range('vocab.min_zipf', 'Skip rare words below frequency', 0, 4, 0.5, (v) => (v === 0 ? 'off' : `Zipf ${v}`)),
+      text('practice.round_length', 'Questions per practice game', 'Practice → Quick games.', { type: 'number' }),
+      h('div', {}, check('practice.lecture_thinking', 'Let the model think while writing grammar lectures', 'Deeper, more accurate explanations with reasoning models; takes a minute or two.'))));
 
   // --- anki ---
   const deckList = h('datalist', { id: 'anki-decks' });
@@ -227,12 +249,12 @@ export default async function settings(main) {
     h('div', { class: 'small faint' }, `Parlera v${status?.version || ''} · everything stays on this computer.`));
   renderCache();
 
-  const navItems = [['learner', 'About you'], ['general', 'Starting & quitting'], ['llm', 'Language model'], ['stt', 'Speech recognition'], ['tts', 'Tutor voice'], ['conv', 'Conversation'], ['progress', 'Progress & cards'], ['anki', 'Anki'], ['data', 'Your data']];
+  const navItems = [['learner', 'About you'], ['teachers', 'Your teachers'], ['general', 'Starting & quitting'], ['llm', 'Language model'], ['stt', 'Speech recognition'], ['tts', 'Tutor voice'], ['conv', 'Conversation'], ['progress', 'Progress & cards'], ['anki', 'Anki'], ['data', 'Your data']];
   mount(main, h('div', { class: 'page' },
     h('div', { class: 'page-head' }, h('div', {}, h('h1', {}, 'Settings'), h('div', { class: 'sub' }, 'Changes save automatically.')), saved),
     h('div', { class: 'settings-grid' },
       h('nav', { class: 'settings-nav' }, navItems.map(([id, label]) => h('a', { href: '#', onclick: (e) => { e.preventDefault(); document.getElementById(`set-${id}`).scrollIntoView({ behavior: 'smooth', block: 'start' }); } }, label))),
-      h('div', {}, learner, general, llm, stt, tts, conv, prog, anki, data))));
+      h('div', {}, learner, teachers, general, llm, stt, tts, conv, prog, anki, data))));
   return () => clearTimeout(timer);
 }
 
@@ -266,23 +288,25 @@ async function renderVoices(box, st, set, status) {
     } catch (e) { toast(e.message, 'error', 7000); }
   };
 
+  const G = (g) => (g === 'female' ? ' · ♀' : g === 'male' ? ' · ♂' : '');
   const row = (lang, label) => {
     const eng = effective(lang);
+    const auto = `Automatic (${teacher(lang).gender} voice for ${teacher(lang).name})`;
     const engineOpts = [['', `Default (${ENGINE_LABEL[defaultEngine] || defaultEngine})`],
       ...['macos', 'kokoro', 'piper', 'browser'].filter((e) => e !== 'kokoro' || KOKORO_LANGS.has(lang))
         .map((e) => [e, `${ENGINE_LABEL[e]}${e === 'browser' || engines[e] ? '' : ' – not installed'}`])];
     let voiceSel;
     if (eng === 'macos') {
-      voiceSel = h('select', { onchange: (e) => set(`tts.voices.macos.${lang}`, e.target.value) }, h('option', { value: '' }, 'Best available (automatic)'),
-        (macVoices[lang] || []).map((v) => h('option', { value: v.name, selected: st.tts.voices.macos?.[lang] === v.name }, `${v.name} · ${v.locale}`)));
+      voiceSel = h('select', { onchange: (e) => set(`tts.voices.macos.${lang}`, e.target.value) }, h('option', { value: '' }, auto),
+        (macVoices[lang] || []).map((v) => h('option', { value: v.name, selected: st.tts.voices.macos?.[lang] === v.name }, `${v.name} · ${v.locale}${G(v.gender)}`)));
     } else if (eng === 'kokoro') {
-      voiceSel = h('select', { onchange: (e) => set(`tts.voices.kokoro.${lang}`, e.target.value) },
+      voiceSel = h('select', { onchange: (e) => set(`tts.voices.kokoro.${lang}`, e.target.value) }, h('option', { value: '' }, auto),
         (kokoroVoices[lang] || []).map((v) => h('option', { value: v.name, selected: (st.tts.voices.kokoro?.[lang] || '') === v.name }, `${v.name} – ${v.desc}`)));
     } else if (eng === 'piper') {
-      voiceSel = h('select', { onchange: (e) => set(`tts.voices.piper.${lang}`, e.target.value) },
+      voiceSel = h('select', { onchange: (e) => set(`tts.voices.piper.${lang}`, e.target.value) }, h('option', { value: '' }, auto),
         piperCat.voices.filter((v) => v.lang === lang).map((v) => h('option', { value: v.name, selected: st.tts.voices.piper?.[lang] === v.name }, `${v.name} – ${v.desc}${v.installed ? '' : ' (not downloaded)'}`)));
     } else if (eng === 'browser') {
-      voiceSel = h('select', { onchange: (e) => set(`tts.voices.browser.${lang}`, e.target.value) }, h('option', { value: '' }, 'Automatic'),
+      voiceSel = h('select', { onchange: (e) => set(`tts.voices.browser.${lang}`, e.target.value) }, h('option', { value: '' }, auto),
         browserVoices.filter((v) => v.lang.toLowerCase().startsWith(lang)).map((v) => h('option', { value: v.name, selected: st.tts.voices.browser?.[lang] === v.name }, `${v.name} (${v.lang})`)));
     } else voiceSel = h('select', { disabled: true }, h('option', {}, '—'));
     return h('div', { class: 'card flat', style: { padding: '12px 14px' } },

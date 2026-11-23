@@ -43,6 +43,7 @@ export default async function session(main, { id }) {
   // ---------------- audio ----------------
   const player = new Player({
     voices: state.settings.tts?.voices?.browser || {},
+    speaker: s.language, gender: LANGS[s.language]?.tutorGender,
     onStart: (meta) => { setPhase('speaking'); meta?.el?.classList.add('speaking'); updatePause(); },
     onIdle: () => { document.querySelectorAll('.msg.speaking').forEach((e) => e.classList.remove('speaking')); updatePause(); refreshPhase(); },
   });
@@ -488,13 +489,13 @@ export default async function session(main, { id }) {
     if (sess.workshop) {
       const w = sess.workshop;
       return { chips, count, el: h('aside', { class: 'panel' },
-        h('div', { class: 'card' }, h('h4', {}, 'Workshop'), h('div', { style: { fontWeight: 650 } }, w.title), h('div', { class: 'small muted mt' }, w.overview)),
+        h('div', { class: 'card' }, h('h4', {}, 'Workshop'), h('div', { style: { fontWeight: 650 } }, w.title), h('div', { class: 'small muted mt', html: renderMarkdown(w.overview || '') })),
         w.categories.map((c, i) => h('div', { class: 'card' },
           h('h4', {}, `${i + 1}. ${c.name}`),
           h('div', { class: 'small', html: renderMarkdown(c.rule) }),
           c.examples?.length ? h('div', { class: 'mt' }, c.examples.map((e) => h('div', { class: 'small', style: { margin: '4px 0' } },
             h('span', { class: 'wrong-inline' }, e.wrong), ' → ', h('b', { style: { color: 'var(--good)' } }, e.right)))) : null,
-          c.tip ? h('div', { class: 'goal mt' }, icon('lightbulb', 14), c.tip) : null))) };
+          c.tip ? h('div', { class: 'goal mt' }, icon('lightbulb', 14), h('span', { html: renderMarkdown(c.tip).replace(/<\/?p>/g, '') })) : null))) };
     }
     if (!u) {
       return { el: h('aside', { class: 'panel' }, h('div', { class: 'card' }, h('h4', {}, 'Session'), h('div', { class: 'small muted' }, sess.mode_info?.description || ''))), chips, count };

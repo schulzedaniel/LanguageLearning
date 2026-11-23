@@ -1,4 +1,5 @@
 // Session history: resume unfinished sessions, open reviews, export, delete.
+import { renderMarkdown } from '../markdown.js';
 import { api, state, LANGS } from '../api.js';
 import { h, icon, mount, loading, toast, confirmDialog, fmtDate, fmtDuration, empty, promptDialog } from '../ui.js';
 import { navigate } from '../nav.js';
@@ -33,7 +34,7 @@ export default async function history(main) {
       h('div', { class: 'grow' },
         h('div', { style: { fontWeight: 600 } }, r.title || 'Session'),
         h('div', { class: 'tiny faint' }, [fmtDate(r.created_at, { time: true }), fmtDuration(r.duration), `${r.turns} turns`, r.unit_level ? `${r.unit_level} · ${r.unit_title}` : null].filter(Boolean).join(' · ')),
-        r.summary ? h('div', { class: 'small muted', style: { marginTop: '3px' } }, r.summary) : null),
+        r.summary ? h('div', { class: 'small muted', style: { marginTop: '3px' }, html: renderMarkdown(r.summary).replace(/<\/?p>/g, ' ') }) : null),
       r.status === 'active' ? h('span', { class: 'badge warn' }, 'In progress') : h('span', { class: 'badge good' }, icon('check', 12), 'Reviewed'),
       h('div', { class: 'row', onclick: (e) => e.stopPropagation() },
         r.status === 'completed' ? h('button', { class: 'btn ghost icon sm', title: 'Continue this conversation', onclick: () => navigate(`session/${r.id}`) }, icon('chat', 15)) : null,

@@ -108,6 +108,11 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "window": "auto",              # auto | app (own window via Chrome/Edge/Brave) | browser (normal tab)
         "offline": "auto",             # auto: don't contact Hugging Face when all models are already downloaded
     },
+    "teachers": {                      # name and gender per language; the voice follows the gender
+        "sv": {"name": "Astrid", "gender": "female"},
+        "fr": {"name": "Élodie", "gender": "female"},
+        "en": {"name": "Oliver", "gender": "male"},
+    },
     "learner": {
         "name": "",
         "native_language": "English",
@@ -145,8 +150,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "speak_corrections": True,
         "voices": {
             "macos": {"fr": "", "sv": "", "en": ""},   # empty = best installed voice
-            "piper": {"fr": "fr_FR-siwis-medium", "sv": "sv_SE-nst-medium", "en": "en_US-lessac-medium"},
-            "kokoro": {"fr": "ff_siwis", "sv": "", "en": "bm_george"},
+            "piper": {"fr": "", "sv": "", "en": ""},     # empty = best downloaded voice of the teacher's gender
+            "kokoro": {"fr": "", "sv": "", "en": ""},    # empty = bm_george (male) / bf_emma (female); French: ff_siwis
             "browser": {"fr": "", "sv": "", "en": ""},
         },
     },
@@ -173,6 +178,10 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "reinforce_count": 6,          # candidates offered to the tutor per session (it uses a few)
     },
     "curriculum": {"advance_threshold": 0.75, "auto_advance": False},
+    "practice": {
+        "round_length": 10,            # questions per game round
+        "lecture_thinking": True,      # let reasoning models think while writing grammar lectures
+    },
     "workshop": {
         "interval_days": 7,            # suggest a mistake workshop this often
         "min_mistakes": 3,             # ...once at least this many new mistakes were collected

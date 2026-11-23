@@ -205,9 +205,16 @@ export class Recorder {
 // Playback queue: WAV buffers from the server or browser speechSynthesis segments
 // ---------------------------------------------------------------------------
 const BROWSER_LANG = { sv: 'sv-SE', fr: 'fr-FR', en: 'en-US' };
+// Browser/system voice names by gender (speechSynthesis doesn't report it) — to match the teacher.
+const FEMALE = /\b(alva|klara|sara|ava|zoe|samantha|allison|susan|serena|kate|stephanie|karen|moira|tessa|fiona|veena|victoria|isha|matilda|catherine|nicky|martha|am[ée]lie|audrey|aur[ée]lie|marie|chantal|hortense|julie|denise|eloise|sonia|libby|hazel|aria|jenny|michelle|emma|female|femme|kvinna)\b/i;
+const MALE = /\b(oskar|thomas|jacques|nicolas|daniel|tom|evan|alex|aaron|nathan|oliver|arthur|jamie|lee|gordon|rishi|malcolm|fred|paul|henri|claude|mattias|sten|guy|ryan|george|eric|brian|christopher|male|homme|man)\b/i;
+export function voiceGender(name = '') { return FEMALE.test(name) ? 'female' : MALE.test(name) ? 'male' : ''; }
 
 export class Player {
-  constructor({ onStart, onIdle, voices = {} } = {}) {
+  // speaker: language of the teacher who is talking; gender: that teacher's gender (voices are matched to it)
+  constructor({ onStart, onIdle, voices = {}, speaker = '', gender = '' } = {}) {
+    this.speaker = speaker;
+    this.gender = gender;
     this.queue = [];
     this.playing = false;
     this.streamOpen = false;
@@ -274,11 +281,18 @@ export class Player {
   _voiceFor(lang) {
     const all = speechSynthesis.getVoices();
     const pref = this.voicePrefs[lang];
-    if (pref) { const v = all.find((x) => x.name === pref); if (v) return v; }
+    const g = this.gender;
+    if (pref) {
+      const v = all.find((x) => x.name === pref);
+      // your choice always wins for the teacher's own language; for the other language only if the gender fits
+      if (v && (!g || !this.speaker || lang === this.speaker || ['', g].includes(voiceGender(v.name)))) return v;
+    }
     const code = BROWSER_LANG[lang] || lang;
-    const cands = all.filter((v) => v.lang.replace('_', '-').toLowerCase().startsWith(code.slice(0, 2).toLowerCase()));
-    return cands.find((v) => /premium|enhanced|natural|neural/i.test(v.name) && v.lang.replace('_', '-') === code)
-      || cands.find((v) => v.lang.replace('_', '-') === code) || cands[0] || null;
+    const norm = (v) => v.lang.replace('_', '-');
+    const cands = all.filter((v) => norm(v).toLowerCase().startsWith(code.slice(0, 2).toLowerCase()));
+    const score = (v) => (g ? (voiceGender(v.name) === g ? 0 : voiceGender(v.name) ? 20 : 10) : 0)
+      + (/premium|enhanced|natural|neural/i.test(v.name) ? 0 : 4) + (norm(v) === code ? 0 : 2);
+    return cands.sort((a, b) => score(a) - score(b))[0] || null;
   }
 
   async _speak(segments, rates) {

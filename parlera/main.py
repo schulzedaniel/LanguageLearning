@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Res
 from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
 
-from . import __version__
+from . import __version__, practice
 from .anki import AnkiError, display_word
 from .config import DEFAULTS_DIR, LANGUAGES, STATIC_DIR
 from .core import Parlera
@@ -424,6 +424,57 @@ def create_app(root: Path | None = None) -> FastAPI:
         core.db.execute("DELETE FROM directives WHERE id=?", [did])
         return {"ok": True}
 
+    # ------------------------------------------------------------------
+    # Practice: quick games (no LLM) + grammar lectures
+    # ------------------------------------------------------------------
+    @app.get("/api/practice/{language}")
+    async def practice_overview(language: str):
+        lang_ok(language)
+        unit = core.current_unit(language)
+        return {"stats": practice.stats(core.db, language),
+                "topics": practice.grammar_topics(core.curricula.get(language), unit),
+                "lectures": core.lectures(language),
+                "unit": {"id": unit["id"], "title": unit["title"], "level": unit["level"]} if unit else None,
+                "counts": practice.build_pool(core, language, "mix", 4)["counts"],
+                "round_length": int(core.settings.get("practice.round_length", 10) or 10)}
+
+    @app.get("/api/practice/{language}/items")
+    async def practice_items(language: str, source: str = "mix", count: int = 40):
+        lang_ok(language)
+        return practice.build_pool(core, language, source, max(4, min(count, 120)))
+
+    @app.post("/api/practice/{language}/results")
+    async def practice_results(language: str, body: dict = Body(...)):
+        lang_ok(language)
+        results = [r for r in (body.get("results") or []) if isinstance(r, dict)][:200]
+        return practice.record_results(core.db, language, str(body.get("game") or ""), str(body.get("source") or ""),
+                                       results, int(body.get("seconds") or 0))
+
+    @app.get("/api/lectures")
+    async def lectures_list(language: str = "sv"):
+        return core.lectures(lang_ok(language))
+
+    @app.post("/api/lectures")
+    async def lectures_create(body: dict = Body(...)):
+        return await core.create_lecture(lang_ok(body.get("language", "sv")), body.get("topic", ""),
+                                         body.get("unit_id") or None)
+
+    @app.get("/api/lectures/{lid}")
+    async def lecture_get(lid: int):
+        lec = core.lecture(lid)
+        if not lec:
+            raise HTTPException(404, "Lecture not found")
+        return lec
+
+    @app.post("/api/lectures/{lid}/ask")
+    async def lecture_ask(lid: int, body: dict = Body(...)):
+        return await core.ask_lecture(lid, body.get("question", ""))
+
+    @app.delete("/api/lectures/{lid}")
+    async def lecture_delete(lid: int):
+        core.db.execute("DELETE FROM lectures WHERE id=?", [lid])
+        return {"ok": True}
+
     @app.get("/api/workshops/status/{language}")
     async def workshop_status(language: str):
         return core.workshop_status(lang_ok(language))
@@ -716,7 +767,7 @@ def create_app(root: Path | None = None) -> FastAPI:
                                                                                     "text": text}]
         rate = float(body.get("rate", 1.0))
         rates = {"en": rate, language: rate * (0.75 if body.get("slow") else 1.0)}
-        wav = await asyncio.to_thread(core.tts.synth_segments, segs, rates)
+        wav = await asyncio.to_thread(core.tts.synth_segments, segs, rates, language)
         return Response(wav, media_type="audio/wav")
 
     @app.post("/api/segments")
@@ -769,10 +820,12 @@ def create_app(root: Path | None = None) -> FastAPI:
     @app.post("/api/tts/test")
     async def tts_test(body: dict = Body(...)):
         lang = body.get("lang", "sv")
-        samples = {"sv": "Hej! Jag heter Astrid. Välkommen till din svensklektion.",
-                   "fr": "Bonjour ! Je m'appelle Élodie. Bienvenue à ton cours de français.",
-                   "en": "Hi! I'm your language tutor. Let's practise together."}
-        wav = await asyncio.to_thread(core.tts.synth, body.get("text") or samples.get(lang, "Hello"), lang, 1.0)
+        name = core.teacher(lang_ok(lang))["name"]
+        samples = {"sv": f"Hej! Jag heter {name}. Välkommen till din svensklektion.",
+                   "fr": f"Bonjour ! Je m'appelle {name}. Bienvenue à ton cours de français.",
+                   "en": f"Hi, I'm {name}. Let's get your English to the next level."}
+        speaker = body.get("speaker") or lang
+        wav = await asyncio.to_thread(core.tts.synth, body.get("text") or samples.get(lang, "Hello"), lang, 1.0, speaker)
         return Response(wav, media_type="audio/wav")
 
     @app.post("/api/translate")

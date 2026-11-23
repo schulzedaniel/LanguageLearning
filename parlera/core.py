@@ -12,10 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from .anki import AnkiConnect, AnkiError, deck_name, display_word, note_fields, note_tags
-from .config import LANGUAGES, Paths, Settings
+from .config import DEFAULT_SETTINGS, LANGUAGES, Paths, Settings
 from .curriculum import LEVEL_ORDER, Curricula
 from .db import DB, norm, now
 from .llm import OllamaClient
+from .practice import split_article
 from .prompts import MODES, PromptStore
 from .stt import STTManager
 from .tts import TTSManager
@@ -99,6 +100,33 @@ AUTOFILL_SCHEMA = {
     "required": ["lemma", "translation", "pos", "gender", "forms", "example", "example_translation", "notes"],
 }
 
+_STR = {"type": "string"}
+LECTURE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "title": _STR, "summary": _STR, "mechanism": _STR,
+        "steps": {"type": "array", "items": {"type": "object", "properties": {
+            "heading": _STR, "explanation": _STR,
+            "examples": {"type": "array", "items": {"type": "object", "properties": {
+                "target": _STR, "native": _STR, "note": _STR}, "required": ["target", "native", "note"]}}},
+            "required": ["heading", "explanation", "examples"]}},
+        "table": {"type": "object", "properties": {
+            "caption": _STR, "columns": {"type": "array", "items": _STR},
+            "rows": {"type": "array", "items": {"type": "array", "items": _STR}}},
+            "required": ["caption", "columns", "rows"]},
+        "contrast": _STR,
+        "mistakes": {"type": "array", "items": {"type": "object", "properties": {
+            "wrong": _STR, "right": _STR, "why": _STR}, "required": ["wrong", "right", "why"]}},
+        "tips": {"type": "array", "items": _STR},
+        "quiz": {"type": "array", "items": {"type": "object", "properties": {
+            "question": _STR, "options": {"type": "array", "items": _STR}, "answer": _STR, "explanation": _STR},
+            "required": ["question", "options", "answer", "explanation"]}},
+        "speaking_task": _STR,
+    },
+    "required": ["title", "summary", "mechanism", "steps", "table", "contrast", "mistakes", "tips", "quiz",
+                 "speaking_task"],
+}
+
 REASON_PRIORITY = {"mistake": 0, "asked": 1, "unit": 2, "new": 3}
 BREAK_NAMES = {"sv": "fika", "fr": "pause café", "en": "tea time"}
 UNIT_MODES = {"lesson", "conversation", "roleplay", "review", "writing", "pronunciation"}
@@ -154,6 +182,14 @@ class Parlera:
         if analysis and analysis != self.settings.get("llm.model") and self.settings.get("llm.exclusive_models", True):
             await self.llm.unload(analysis)
             asyncio.create_task(self.llm.warm())
+
+    def teacher(self, language: str) -> dict:
+        """The teacher's name and gender for a language (Settings → Your teachers)."""
+        default = DEFAULT_SETTINGS["teachers"].get(language, {"name": "Alex", "gender": "female"})
+        t = (self.settings.get("teachers") or {}).get(language) or {}
+        name = str(t.get("name") or "").strip() or default["name"]
+        gender = t.get("gender") if t.get("gender") in ("female", "male") else default["gender"]
+        return {"name": name[:40], "gender": gender}
 
     def anki(self) -> AnkiConnect:
         return AnkiConnect(self.settings.get("anki.url"))
@@ -410,6 +446,72 @@ class Parlera:
                 "active": 1, "created_at": ts.isoformat(timespec="seconds")})
         return self.active_directives(language)
 
+    # ------------------------------------------------------------------
+    # Practice → Grammar lectures (reasoning model, stored for re-reading)
+    # ------------------------------------------------------------------
+    async def create_lecture(self, language: str, topic: str, unit_id: str | None = None) -> dict:
+        topic = (topic or "").strip()[:200]
+        if not topic:
+            raise ValueError("Choose or type a grammar topic.")
+        ctx = self.build_context(language, "free", unit_id)
+        unit = self.curricula.unit(language, unit_id) if unit_id else None
+        ctx.update(topic=topic, unit_title=unit["title"] if unit else "",
+                   unit_vocab="; ".join(p["term"] for p in (unit or {}).get("vocab_pairs", [])[:20]))
+        model = self.settings.get("llm.analysis_model") or None
+        messages = [{"role": "system", "content": self.prompts.render("lecture_grammar", **ctx)},
+                    {"role": "user", "content": f"Write the lecture on: {topic}"}]
+        think = bool(self.settings.get("practice.lecture_thinking", True))
+        try:
+            data = await self.llm.chat_json(messages, schema=LECTURE_SCHEMA, model=model, think=think or None,
+                                            temperature=0.3)
+        except Exception:
+            if not think:
+                raise
+            data = await self.llm.chat_json(messages, schema=LECTURE_SCHEMA, model=model, think=False,
+                                            temperature=0.3)
+        await self.release_analysis_model()
+        content = clean_lecture(data, topic)
+        ts = now()
+        lid = self.db.insert("lectures", {"language": language, "topic": topic, "unit_id": unit_id or None,
+                                          "level": ctx["level"], "content": json.dumps(content, ensure_ascii=False),
+                                          "model": model or self.settings.get("llm.model") or "",
+                                          "created_at": ts, "updated_at": ts})
+        return self.lecture(lid)
+
+    def lecture(self, lid: int) -> dict | None:
+        row = self.db.one("SELECT * FROM lectures WHERE id=?", [lid])
+        if not row:
+            return None
+        row["content"] = json.loads(row["content"])
+        return row
+
+    def lectures(self, language: str) -> list[dict]:
+        rows = self.db.all("SELECT id, language, topic, unit_id, level, content, created_at FROM lectures "
+                           "WHERE language=? ORDER BY created_at DESC", [language])
+        for r in rows:
+            c = json.loads(r.pop("content"))
+            r["title"], r["summary"] = c.get("title", r["topic"]), c.get("summary", "")
+        return rows
+
+    async def ask_lecture(self, lid: int, question: str) -> dict:
+        lec = self.lecture(lid)
+        if not lec:
+            raise ValueError("Lecture not found.")
+        question = (question or "").strip()[:500]
+        if not question:
+            raise ValueError("Type a question.")
+        ctx = self.build_context(lec["language"], "free", lec.get("unit_id"))
+        ctx["lecture"] = lec["content"]
+        msgs = [{"role": "system", "content": self.prompts.render("lecture_followup", **ctx)}]
+        for qa in lec["content"].get("followups", [])[-4:]:
+            msgs += [{"role": "user", "content": qa["q"]}, {"role": "assistant", "content": qa["a"]}]
+        msgs.append({"role": "user", "content": question})
+        answer = (await self.llm.chat(msgs, options={"temperature": 0.3})).strip()
+        lec["content"].setdefault("followups", []).append({"q": question, "a": answer, "at": now()})
+        self.db.update("lectures", lid, {"content": json.dumps(lec["content"], ensure_ascii=False),
+                                         "updated_at": now()})
+        return {"q": question, "a": answer}
+
     def recurring_errors(self, language: str, limit: int = 8) -> list[dict]:
         return self.db.all("SELECT * FROM errors WHERE language=? AND resolved=0 "
                            "ORDER BY count DESC, last_seen DESC LIMIT ?", [language, limit])
@@ -435,7 +537,10 @@ class Parlera:
         immersion = self.immersion(language, unit)
         level_units = [u for u in cur["units"] if u["level"] == level]
         weak = self.weak_vocab(language)
+        teacher = self.teacher(language)
         return {
+            "teacher_name": teacher["name"],
+            "teacher_gender": teacher["gender"],
             "language": language,
             "language_name": cur.get("name") or lang_info["name"],
             "native_language": settings["learner"].get("native_language") or "English",
@@ -780,7 +885,9 @@ class Parlera:
         ts = now()
         vid = self.db.insert("vocab", {
             "language": lang, "lemma": lemma, "lemma_norm": ln, "forms": fields.get("forms", ""),
-            "gender": normalize_gender(fields.get("gender", ""), lang), "pos": fields.get("pos", ""),
+            "gender": normalize_gender(fields.get("gender", ""), lang)
+            or split_article(fields.get("lemma", ""), lang)[2],   # "en bil" / "la maison" → gender from the article
+            "pos": fields.get("pos", ""),
             "translation": fields.get("translation", ""), "example": fields.get("example", ""),
             "example_translation": fields.get("example_translation", ""), "notes": fields.get("notes", ""),
             "unit_id": fields.get("unit_id") or self.learner(lang)["current_unit_id"],
@@ -942,7 +1049,9 @@ class Parlera:
     def stats(self, language: str) -> dict:
         sessions = self.db.all("SELECT id, created_at, status FROM sessions WHERE language=? ORDER BY created_at",
                                [language])
-        days = sorted({_parse_ts(s["created_at"]).date() for s in sessions})
+        games = self.db.all("SELECT created_at, seconds FROM practice_log WHERE language=?", [language])
+        days = sorted({_parse_ts(s["created_at"]).date() for s in sessions}
+                      | {_parse_ts(g["created_at"]).date() for g in games})   # quick games count for the streak
         streak, d = 0, date.today()
         dayset = set(days)
         if d not in dayset:
@@ -957,6 +1066,10 @@ class Parlera:
             total_sec += dur
             if _parse_ts(s["created_at"]) >= week_ago:
                 week_sec += dur
+        for g in games:
+            total_sec += g["seconds"]
+            if _parse_ts(g["created_at"]) >= week_ago:
+                week_sec += g["seconds"]
         counts = {r["status"]: r["n"] for r in self.db.all(
             "SELECT status, COUNT(*) n FROM vocab WHERE language=? GROUP BY status", [language])}
         cur = self.curricula.get(language)
@@ -989,6 +1102,48 @@ ARTICLES = {
     "sv": ("en ", "ett "),
     "fr": ("le ", "la ", "les ", "un ", "une ", "des ", "l'", "l’"),
 }
+
+
+def clean_lecture(d: Any, topic: str) -> dict:
+    """Normalise the model's lecture JSON so the UI can rely on its shape."""
+    d = d if isinstance(d, dict) else {}
+    txt = lambda v: str(v or "").strip()  # noqa: E731
+    lst = lambda v: v if isinstance(v, list) else []  # noqa: E731
+    steps = []
+    for st in lst(d.get("steps"))[:6]:
+        if isinstance(st, dict) and (txt(st.get("heading")) or txt(st.get("explanation"))):
+            steps.append({"heading": txt(st.get("heading")), "explanation": txt(st.get("explanation")),
+                          "examples": [{"target": txt(e.get("target")), "native": txt(e.get("native")),
+                                        "note": txt(e.get("note"))}
+                                       for e in lst(st.get("examples"))[:5] if isinstance(e, dict) and txt(e.get("target"))]})
+    table = d.get("table") if isinstance(d.get("table"), dict) else {}
+    cols = [txt(c) for c in lst(table.get("columns"))][:8]
+    rows = [[txt(c) for c in r][:len(cols) or 8] for r in lst(table.get("rows")) if isinstance(r, list)][:14]
+    quiz = []
+    for q in lst(d.get("quiz"))[:10]:
+        if not isinstance(q, dict):
+            continue
+        opts = [txt(o) for o in lst(q.get("options")) if txt(o)][:5]
+        ans = txt(q.get("answer"))
+        if not txt(q.get("question")) or len(opts) < 2:
+            continue
+        match = next((o for o in opts if o == ans), None) or next((o for o in opts if o.lower() == ans.lower()), None)
+        if match is None and ans:
+            opts.append(ans)
+            match = ans
+        if match is None:
+            continue
+        quiz.append({"question": txt(q.get("question")), "options": opts, "answer": match,
+                     "explanation": txt(q.get("explanation"))})
+    return {
+        "title": txt(d.get("title")) or topic, "summary": txt(d.get("summary")), "mechanism": txt(d.get("mechanism")),
+        "steps": steps, "table": {"caption": txt(table.get("caption")), "columns": cols, "rows": rows if cols else []},
+        "contrast": txt(d.get("contrast")),
+        "mistakes": [{"wrong": txt(m.get("wrong")), "right": txt(m.get("right")), "why": txt(m.get("why"))}
+                     for m in lst(d.get("mistakes"))[:6] if isinstance(m, dict) and txt(m.get("right"))],
+        "tips": [txt(t) for t in lst(d.get("tips")) if txt(t)][:5],
+        "quiz": quiz, "speaking_task": txt(d.get("speaking_task")), "followups": [],
+    }
 
 
 def clean_lemma(lemma: str, lang: str) -> str:

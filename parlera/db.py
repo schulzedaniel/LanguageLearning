@@ -166,7 +166,50 @@ INSERT INTO error_events (error_id, language, session_id, wrong, right, created_
 SELECT id, language, last_session, example_wrong, example_right, last_seen FROM errors;
 """
 
-MIGRATIONS = [SCHEMA_V1, SCHEMA_V2]
+# V3: Practice page (quick games + grammar lectures)
+SCHEMA_V3 = """
+CREATE TABLE IF NOT EXISTS practice_log (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    language    TEXT NOT NULL,
+    game        TEXT NOT NULL,              -- flashcards | match | choice | cloze | scramble | typing | gender | fix
+    source      TEXT DEFAULT '',            -- unit | vocab | mix | misses | errors
+    score       INTEGER NOT NULL DEFAULT 0,
+    total       INTEGER NOT NULL DEFAULT 0,
+    seconds     INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_practice_log_lang ON practice_log(language, created_at);
+
+-- one row per practised item (word, phrase or corrected mistake): drives the "Your misses" round
+CREATE TABLE IF NOT EXISTS practice_items (
+    language    TEXT NOT NULL,
+    term_norm   TEXT NOT NULL,
+    term        TEXT NOT NULL,
+    meaning     TEXT DEFAULT '',
+    vocab_id    INTEGER,
+    seen        INTEGER NOT NULL DEFAULT 0,
+    wrong       INTEGER NOT NULL DEFAULT 0,
+    streak      INTEGER NOT NULL DEFAULT 0, -- correct answers in a row
+    last_seen   TEXT,
+    last_wrong  TEXT,
+    PRIMARY KEY (language, term_norm)
+);
+
+CREATE TABLE IF NOT EXISTS lectures (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    language    TEXT NOT NULL,
+    topic       TEXT NOT NULL,
+    unit_id     TEXT,
+    level       TEXT,
+    content     TEXT NOT NULL,              -- JSON (LECTURE_SCHEMA + followups)
+    model       TEXT DEFAULT '',
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_lectures_lang ON lectures(language, created_at);
+"""
+
+MIGRATIONS = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3]
 
 
 def now() -> str:

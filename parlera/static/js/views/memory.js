@@ -1,4 +1,5 @@
 // What the tutor remembers about you + your recurring mistakes.
+import { renderMarkdown } from '../markdown.js';
 import { api, state, LANGS } from '../api.js';
 import { h, icon, mount, loading, toast, confirmDialog, modal, fmtDate, empty } from '../ui.js';
 import { startWorkshop } from './start.js';
@@ -68,7 +69,7 @@ export default async function memory(main) {
           h('label', { class: 'check small' }, h('input', { type: 'checkbox', checked: !!e.resolved, onchange: async (ev) => { await api.patch(`/api/errors/${e.id}`, { resolved: ev.target.checked ? 1 : 0 }); render(); } }), 'mastered'),
           h('button', { class: 'btn ghost icon sm', onclick: async () => { await api.del(`/api/errors/${e.id}`); render(); } }, icon('trash', 14))),
         e.example_wrong ? h('div', {}, h('span', { class: 'wrong' }, e.example_wrong), '  →  ', h('span', { class: 'right' }, e.example_right)) : null,
-        e.explanation ? h('div', { class: 'small muted' }, e.explanation) : null)))
+        e.explanation ? h('div', { class: 'small muted', html: renderMarkdown(e.explanation).replace(/<\/?p>/g, '') }) : null)))
         : empty('target', 'No recurring mistakes recorded yet.'));
   }
 

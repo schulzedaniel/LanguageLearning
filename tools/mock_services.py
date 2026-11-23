@@ -66,6 +66,26 @@ def fake_json(schema: dict):
              "example": "Astrid är lärare.", "example_translation": "Astrid is a teacher.", "reason": "new", "notes": ""},
             {"lemma": "xyzzyq", "translation": "nonsense", "pos": "noun", "gender": "ett", "forms": "", "example": "", "example_translation": "", "reason": "new", "notes": ""},
         ]}
+    if "mechanism" in props:  # grammar lecture
+        state["lectures"] = state.get("lectures", 0) + 1
+        return {
+            "title": "Verb second: the V2 rule", "summary": "In a Swedish main clause the finite verb always takes the second slot.",
+            "mechanism": "Swedish sentences have a fixed slot for the verb: position two. Whatever you put first (subject, time, place, object), the verb follows immediately.\n\nEnglish mostly keeps subject before verb, which is why **Idag jag dricker** feels natural to English speakers.",
+            "steps": [
+                {"heading": "Subject first", "explanation": "The simplest case: subject, then verb.", "examples": [
+                    {"target": "Jag dricker kaffe.", "native": "I drink coffee.", "note": ""}]},
+                {"heading": "Something else first", "explanation": "Put a time word first and the subject moves after the verb.", "examples": [
+                    {"target": "Idag dricker jag kaffe.", "native": "Today I drink coffee.", "note": "verb still second"},
+                    {"target": "På morgonen läser hon.", "native": "In the morning she reads.", "note": ""}]}],
+            "table": {"caption": "The slots", "columns": ["1", "2 (verb)", "3", "rest"],
+                      "rows": [["Jag", "dricker", "", "kaffe"], ["Idag", "dricker", "jag", "kaffe"]]},
+            "contrast": "English allows 'Today I drink'; Swedish never does in a main clause.",
+            "mistakes": [{"wrong": "Idag jag dricker kaffe.", "right": "Idag dricker jag kaffe.", "why": "The verb must be second."}],
+            "tips": ["Count to two: the verb is always number two."],
+            "quiz": [
+                {"question": "Idag ___ jag te.", "options": ["dricker", "jag dricker", "dricka"], "answer": "dricker", "explanation": "The verb comes second."},
+                {"question": "Which is correct?", "options": ["Nu jag äter.", "Nu äter jag."], "answer": "Nu äter jag.", "explanation": "Verb in slot two."}],
+            "speaking_task": "Tell the teacher three things you do on Mondays, starting each sentence with a time word."}
     if "categories" in props:
         return {"title": "Word order & verbs", "overview": "Most mistakes come from the verb-second rule.",
                 "categories": [{"name": "Verb second (V2)", "rule": "In main clauses the verb is always in position 2: **I dag dricker jag kaffe**.",

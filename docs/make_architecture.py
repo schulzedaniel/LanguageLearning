@@ -84,7 +84,7 @@ lines(320, 190, [("Recorder  (audio.js)", 650), "voice-activity detection → 16
 box(306, 252, 308, 52, "#ffffff", "#93c5fd", 10)
 lines(320, 274, [("Text box & buttons", 650), "replay · slow · translate · add card"], 12)
 box(306, 330, 308, 190, "#ffffff", "#93c5fd", 10)
-lines(320, 352, [("Pages  (views/*.js)", 650), "Home · Session · Review · Curriculum", "Vocabulary · Sessions · Memory", "Teacher prompts (editor + preview)", "Settings (model, voices, Anki decks…)", "", "talks to the server via", "REST /api/*  and  WebSocket"], 12)
+lines(320, 352, [("Pages  (views/*.js)", 650), "Home · Session · Review · Practice", "Curriculum · Vocabulary · Sessions · Memory", "Teacher prompts (editor + preview)", "Settings (model, voices, Anki decks…)", "", "talks to the server via", "REST /api/*  and  WebSocket"], 12)
 box(306, 612, 308, 92, "#ffffff", "#93c5fd", 10)
 lines(320, 634, [("Player  (audio.js)", 650), "plays the sentence audio in order", "(or browser voices as fallback)", "Esc / speaking interrupts the tutor"], 12)
 # review page (post band)

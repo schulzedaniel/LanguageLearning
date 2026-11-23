@@ -255,7 +255,7 @@ class TutorSession:
                 await self.send({"type": "speak", "segments": segments, "rates": rates})
                 continue
             try:
-                wav = await loop.run_in_executor(None, self.app.tts.synth_segments, segments, rates)
+                wav = await loop.run_in_executor(None, self.app.tts.synth_segments, segments, rates, self.target)
             except Exception as e:
                 log.warning("TTS failed: %s", e)
                 await self.send({"type": "speak", "segments": segments, "rates": rates, "fallback": str(e)})

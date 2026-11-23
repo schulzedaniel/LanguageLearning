@@ -1,6 +1,7 @@
 // Editor for the teacher's system prompts (Jinja2 Markdown templates in the data folder).
 import { api, state } from '../api.js';
 import { h, icon, mount, loading, toast, confirmDialog, modal, spinner } from '../ui.js';
+import { renderDocument } from '../markdown.js';
 
 const VARS = [
   ['language_name', 'Swedish / French'], ['native_language', 'your language'], ['learner_name', 'your name'],
@@ -76,14 +77,19 @@ export default async function prompts(main) {
   }
 
   async function preview() {
-    const mode = h('select', {}, ['lesson', 'conversation', 'roleplay', 'review', 'exam', 'writing', 'placement', 'free'].map((m) => h('option', { value: m }, m)));
+    const mode = h('select', {}, ['lesson', 'conversation', 'roleplay', 'review', 'exam', 'writing', 'pronunciation', 'break', 'placement', 'free'].map((m) => h('option', { value: m }, m)));
     const out = h('div', { class: 'mt' }, spinner());
+    let formatted = true;
     const run = async () => {
       mount(out, spinner());
       try {
         const r = await api.post('/api/prompts-preview', { language: state.language, mode: mode.value });
-        mount(out, h('div', { class: 'small faint mb' }, `${r.chars} characters ≈ ${r.approx_tokens} tokens · saved changes only`),
-          h('pre', { class: 'prompt-preview' }, r.system), h('div', { class: 'section-label' }, 'First (hidden) message'), h('pre', { class: 'prompt-preview' }, r.opening));
+        const view = (text) => (formatted ? h('div', { class: 'md-doc', html: renderDocument(text) }) : h('pre', { class: 'prompt-preview' }, text));
+        const sw = h('div', { class: 'segmented md-switch' },
+          h('button', { class: formatted ? 'active' : '', onclick: () => { formatted = true; run(); } }, 'Formatted'),
+          h('button', { class: formatted ? '' : 'active', onclick: () => { formatted = false; run(); } }, 'Source'));
+        mount(out, h('div', { class: 'row mb' }, h('div', { class: 'small faint' }, `${r.chars} characters ≈ ${r.approx_tokens} tokens · saved changes only`), sw),
+          view(r.system), h('div', { class: 'section-label' }, 'First (hidden) message'), view(r.opening));
       } catch (e) { mount(out, h('div', { class: 'callout bad' }, e.message)); }
     };
     mode.addEventListener('change', run);

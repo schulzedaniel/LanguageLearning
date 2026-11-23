@@ -82,6 +82,14 @@ export default async function dashboard(main) {
         d.workshop?.available ? h('button', { class: 'btn sm', onclick: () => startWorkshop() }, icon('target', 14), 'Mistake workshop') : null))
       : empty('target', 'Your mistakes and tricky words will show up here after your first sessions.'));
 
+  const quick = h('div', { class: 'card' },
+    h('div', { class: 'card-head' }, h('h3', {}, 'Practice in between'), h('a', { href: '#/practice', class: 'small' }, 'All games →')),
+    h('div', { class: 'small muted' }, 'Five minutes, no speaking: games for your words and phrases, or a grammar topic explained.'),
+    h('div', { class: 'row wrap mt' },
+      h('button', { class: 'btn sm primary', onclick: async () => { const { playGame } = await import('./practice.js'); playGame(main, { game: 'mix', source: 'mix', n: state.settings.practice?.round_length || 10, lang: state.language, onExit: () => navigate('practice') }); } }, icon('sparkle', 14), 'Quick mix'),
+      h('button', { class: 'btn sm', onclick: () => navigate('practice') }, icon('puzzle', 14), 'Choose a game'),
+      h('button', { class: 'btn sm', onclick: () => navigate('practice/grammar') }, icon('lightbulb', 14), 'Grammar explained')));
+
   mount(main, h('div', { class: 'page' },
     h('div', { class: 'page-head' },
       h('div', {}, h('h1', {}, `${L.hello}${name ? ', ' + name : ''}! ${L.flag}`),
@@ -94,7 +102,7 @@ export default async function dashboard(main) {
       h('button', { class: 'btn primary', onclick: () => startWorkshop() }, 'Start workshop')) : null,
     hero,
     h('div', { class: 'mt-lg' }, stats),
-    h('div', { class: 'grid c2 mt-lg' }, path, h('div', { class: 'col gap-lg' }, recent, focus))));
+    h('div', { class: 'grid c2 mt-lg' }, path, h('div', { class: 'col gap-lg' }, quick, recent, focus))));
 }
 
 function stat(ic, label, value, sub) {
