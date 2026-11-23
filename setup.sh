@@ -72,7 +72,7 @@ EXTRAS="mac,piper"
 [[ "$(uname -m)" != "arm64" ]] && EXTRAS="faster,piper"
 [[ $WANT_KOKORO == 1 ]] && EXTRAS="$EXTRAS,kokoro"
 if command -v uv >/dev/null 2>&1; then
-  uv venv --allow-existing --python "$PY" .venv </dev/null
+  uv venv --allow-existing --seed --python "$PY" .venv </dev/null
   uv pip install --python .venv/bin/python -e ".[$EXTRAS]" </dev/null
 else
   [[ -x .venv/bin/python ]] || "$PY" -m venv .venv
@@ -97,13 +97,19 @@ else
     (open -g -a Ollama 2>/dev/null || (ollama serve >/dev/null 2>&1 &)); sleep 3
   fi
   INSTALLED="$(ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -v -i embed || true)"
-  # If a Gemma 4 model is already installed, pressing Enter uses it (no download).
+  # Keep the model you already chose in Parlera (re-running setup must not reset your settings).
+  CURRENT_MODEL="$(PARLERA_DATA="$DATA_DIR" .venv/bin/python -c 'import json,sys
+from parlera.config import Paths
+p = Paths().settings
+print(json.loads(p.read_text()).get("llm", {}).get("model", "") if p.exists() else "")' 2>/dev/null || true)"
+  # Otherwise, if a Gemma 4 model is already installed, pressing Enter uses it (no download).
   PREFERRED="$(grep -m1 -i '^gemma4' <<< "$INSTALLED" || true)"
   [[ -n "$PREFERRED" ]] && DEFAULT_MODEL="$PREFERRED"
+  if [[ -n "$CURRENT_MODEL" ]] && grep -qx "$CURRENT_MODEL" <<< "$INSTALLED"; then DEFAULT_MODEL="$CURRENT_MODEL"; fi
   if [[ -n "$INSTALLED" ]]; then
     echo "Models you already have in Ollama (they're shared, not copied):"
     i=1; while read -r m; do echo "   $i) $m"; i=$((i+1)); done <<< "$INSTALLED"
-    pick="$(ask "Type a number to use one of them, or press Enter for $DEFAULT_MODEL:" "")"
+    pick="$(ask "Type a number to use one of them, or press Enter to keep $DEFAULT_MODEL:" "")"
     if [[ "$pick" =~ ^[0-9]+$ ]]; then MODEL="$(sed -n "${pick}p" <<< "$INSTALLED")"; fi
   fi
   MODEL="${MODEL:-$DEFAULT_MODEL}"
@@ -115,13 +121,17 @@ else
     ans="$(ask "Download $MODEL now (~17 GB)? [Y/n]" "Y")"
     if [[ ! "$ans" =~ ^[Nn] ]]; then ollama pull "$MODEL" </dev/null; else echo "Later run:  ollama pull $MODEL"; fi
   fi
-  PARLERA_DATA="$DATA_DIR" .venv/bin/python - "$MODEL" <<'PYEOF'
+  if [[ "$MODEL" != "$CURRENT_MODEL" ]]; then
+    PARLERA_DATA="$DATA_DIR" .venv/bin/python - "$MODEL" <<'PYEOF'
 import sys
 from parlera.config import Paths, Settings
 p = Paths(); p.ensure()
 Settings(p.settings).update({"llm": {"model": sys.argv[1]}})
 print(f"Parlera will use {sys.argv[1]} (change it any time in Settings).")
 PYEOF
+  else
+    echo "Keeping your model $MODEL. All your other settings are untouched as well."
+  fi
 fi
 
 bold "5/6  Speech recognition model (Whisper large-v3-turbo, ~1.6 GB)"
@@ -134,6 +144,17 @@ print("Whisper model ready.")
 PYEOF
 else
   echo "faster-whisper downloads its model on first use."
+fi
+if [[ $WANT_KOKORO == 1 ]]; then
+  echo "Downloading the Kokoro voice model and its English pronunciation dictionary (once, so it later works offline)…"
+  .venv/bin/python - <<'PYEOF' || echo "Could not prefetch Kokoro now — it will download on first use."
+from huggingface_hub import snapshot_download
+snapshot_download("hexgrad/Kokoro-82M")
+import spacy.util, spacy.cli
+if not spacy.util.is_package("en_core_web_sm"):
+    spacy.cli.download("en_core_web_sm")
+print("Kokoro ready.")
+PYEOF
 fi
 
 bold "6/6  App launcher"

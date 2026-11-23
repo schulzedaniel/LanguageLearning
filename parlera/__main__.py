@@ -5,7 +5,6 @@ import argparse
 import logging
 import threading
 import time
-import webbrowser
 
 
 def main() -> None:
@@ -22,15 +21,31 @@ def main() -> None:
 
     import uvicorn
 
+    from .config import Paths, Settings
+    from .system import configure_offline, open_ui
+
+    # Decide offline mode before any model library is imported.
+    paths = Paths()
+    paths.ensure()
+    settings = Settings(paths.settings).all()
+    offline = configure_offline(settings)
+
     from .main import create_app
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
     app = create_app()
+    app.state.offline = offline
     url = f"http://{args.host}:{args.port}"
     print(f"\n  Parlera is running at {url}\n  Data folder: {app.state.core.paths.root}\n  Press Ctrl+C to stop.\n")
     if not args.no_browser:
-        threading.Thread(target=lambda: (time.sleep(1.2), webbrowser.open(url)), daemon=True).start()
+        mode = settings.get("app", {}).get("window", "auto")
+        threading.Thread(target=lambda: (time.sleep(1.2), print("  Opened in:", open_ui(url, mode, paths.browser_profile))),
+                         daemon=True).start()
+    if offline["offline"]:
+        print("  Offline mode: all models are downloaded, no internet needed.")
+    elif offline["missing"]:
+        print("  Will download on first use (needs internet once):", ", ".join(offline["missing"]))
     server = uvicorn.Server(uvicorn.Config(app, host=args.host, port=args.port, log_level="warning"))
     app.state.server = server  # lets the Quit button and the auto-quit watchdog stop the server
     server.run()

@@ -21,7 +21,17 @@ REPLIES = [
 ]
 
 ollama = FastAPI()
-state = {"turn": 0}
+state = {"turn": 0, "running": {}, "unloads": []}   # running: model -> size in bytes
+SIZES = {"gemma4:26b": 17e9, "muse-glimmer:30b-mlx": 21e9, "tiny:1b": 1e9}
+
+
+def _touch(model: str) -> None:
+    state["running"][model] = SIZES.get(model, 10e9)
+
+
+@ollama.get("/api/ps")
+async def ps():
+    return {"models": [{"name": m, "size": s} for m, s in state["running"].items()]}
 
 
 @ollama.get("/api/tags")
@@ -30,7 +40,13 @@ async def tags():
 
 
 @ollama.post("/api/generate")
-async def generate():
+async def generate(req: Request):
+    body = await req.json()
+    if body.get("keep_alive") == 0:
+        state["running"].pop(body.get("model"), None)
+        state["unloads"].append(body.get("model"))
+    elif body.get("model"):
+        _touch(body["model"])
     return {"done": True}
 
 
@@ -78,6 +94,7 @@ def fake_json(schema: dict):
 @ollama.post("/api/chat")
 async def chat(req: Request):
     body = await req.json()
+    _touch(body.get("model", ""))
     if body.get("format") is not None:
         return {"message": {"role": "assistant", "content": json.dumps(fake_json(body["format"]), ensure_ascii=False)}, "done": True}
     if not body.get("stream", True):

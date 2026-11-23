@@ -158,6 +158,39 @@ def create_app(root: Path | None = None) -> FastAPI:
             "modes": MODES,
         }
 
+    @app.get("/api/settings/export")
+    async def settings_export():
+        return Response(json.dumps(core.settings.all(), indent=2, ensure_ascii=False), media_type="application/json",
+                        headers={"Content-Disposition": f'attachment; filename="parlera-settings-{date.today().isoformat()}.json"'})
+
+    @app.post("/api/settings/import")
+    async def settings_import(file: UploadFile = File(...)):
+        try:
+            data = json.loads((await file.read()).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            raise HTTPException(400, "Not a valid settings file.")
+        if not isinstance(data, dict) or not ({"llm", "tts", "ui"} & set(data)):
+            raise HTTPException(400, "This doesn't look like a Parlera settings file.")
+        return core.settings.update(data)
+
+    @app.get("/api/system")
+    async def system_info():
+        from .system import cache_info, find_app_browser, hf_hub_dir, needed_hf_models, hf_cached
+        needed = needed_hf_models(core.settings.all())
+        return {
+            "offline": getattr(app.state, "offline", None),
+            "models": [{"repo": r, "downloaded": hf_cached(r)} for r in needed],
+            "hf_cache": str(hf_hub_dir()),
+            "app_browser": find_app_browser(),
+            "cache": cache_info(core.paths, core.paths.browser_profile),
+        }
+
+    @app.post("/api/cache/clear")
+    async def cache_clear(body: dict = Body(...)):
+        from .system import clear_cache
+        targets = [t for t in body.get("targets", []) if t in ("tts", "media", "old_backups", "browser")]
+        return clear_cache(core.paths, core.paths.browser_profile, targets)
+
     @app.post("/api/heartbeat")
     async def heartbeat():
         import time
