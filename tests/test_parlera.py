@@ -940,3 +940,71 @@ def test_clean_lecture_repairs_model_output():
         "table": {"caption": "x", "columns": [], "rows": [["1"]]}, "steps": "nonsense"}, "Fallback topic")
     assert c["title"] == "Fallback topic" and c["steps"] == [] and c["table"]["rows"] == []
     assert [q["answer"] for q in c["quiz"]] == ["b", "c"] and c["quiz"][1]["options"] == ["a", "b", "c"]
+
+
+# ---------------------------------------------------------------------------
+# English corrections switch, recognition slips, translation with context
+# ---------------------------------------------------------------------------
+def test_native_corrections_can_be_switched_off(client):
+    core = client.core
+    on = core.render_system_prompt(core.build_context("fr", "conversation"))
+    assert "✏️ English:" in on and "Speech-recognition slips" in on
+    client.put("/api/settings", json={"conversation": {"correct_native": False}})
+    ctx = core.build_context("fr", "conversation")
+    off = core.render_system_prompt(ctx)
+    assert "✏️ English:" not in off and "Don't correct the learner's English" in off
+    assert "Speech-recognition slips" in off                           # the misrecognition guard stays
+    analysis = core.prompts.render("analysis_session", **ctx, transcript="", known_error_patterns=[], existing_memories=[])
+    assert "Do NOT include mistakes in their English" in analysis
+    # the English course is unaffected (it is all about English)
+    assert "Don't correct the learner's English" not in core.render_system_prompt(core.build_context("en", "conversation"))
+
+
+def test_translate_with_context_and_english_explain(client):
+    core = client.core
+    word = core.prompts.render("translate", language="sv", language_name="Swedish", native_language="English", level="A1",
+                               direction="to_native", text="springer", context="Jag springer varje dag.")
+    assert "selected a word or phrase" in word and "Jag springer varje dag." in word
+    whole = core.prompts.render("translate", language="sv", language_name="Swedish", native_language="English", level="A1",
+                                direction="to_native", text="Hej!", context="")
+    assert whole.strip().startswith("Translate the following Swedish text")
+    r = client.post("/api/translate", json={"text": "springer", "context": "Jag **springer** varje dag.", "language": "sv",
+                                           "direction": "to_native"})
+    assert r.status_code == 200 and r.json()["text"]
+    # the English course's "Explain" gets its own instructions (monolingual was missing before)
+    seen = {}
+    real_chat = core.llm.chat
+
+    async def spy(messages, **kw):
+        seen["system"] = messages[0]["content"]
+        return "explained"
+    core.llm.chat = spy
+    client.post("/api/translate", json={"text": "ubiquitous", "language": "en", "direction": "to_native"})
+    core.llm.chat = real_chat
+    assert seen["system"].strip().startswith("Explain the following English text")
+
+
+def test_auto_mode_rechecks_unsure_english(client):
+    import base64
+    core = client.core
+    calls = []
+
+    def fake_transcribe(wav, lang, prompt):
+        calls.append(lang)
+        if lang is None:   # auto: Whisper wrongly hears English, with low word confidence
+            return {"text": "Shut a pell Sam", "language": "en", "words": [{"word": "Shut", "p": 0.3}, {"word": "pell", "p": 0.4}]}
+        return {"text": "Je m'appelle Sam.", "language": "fr", "words": [{"word": "Je", "p": 0.9}, {"word": "m'appelle", "p": 0.85}]}
+
+    core.stt.backend = lambda: "fake"
+    core.stt.preload = lambda *a: None
+    core.stt.transcribe = fake_transcribe
+    s = client.post("/api/sessions", json={"language": "fr", "mode": "conversation"}).json()
+    with client.websocket_connect(f"/ws/sessions/{s['id']}") as ws:
+        ws.receive_json()
+        ws.send_json({"type": "user_audio", "data": base64.b64encode(_tone_wav()).decode(), "lang": "auto"})
+        events = _collect_turn(ws)
+    assert calls == [None, "fr"]
+    assert next(e for e in events if e["type"] == "transcript")["text"] == "Je m'appelle Sam."
+    # confident English stays English (no second pass)
+    from parlera.tutor import confidence
+    assert confidence({"words": [{"p": 0.9}, {"p": 0.8}]}) > 0.7 and confidence({}) == 1.0

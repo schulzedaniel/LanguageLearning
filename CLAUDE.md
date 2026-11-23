@@ -41,6 +41,7 @@ The user-facing documentation is `README.md`.
 - Research-based teaching prompts (Nation's four strands, Lyster & Ranta feedback ladder, TBLT task cycle, retrieval practice) (§10).
 - A Practice page for short sessions without speaking: local quick games + grammar lectures written by the reasoning model (§6, "Practice").
 - Markdown must render properly wherever model/prompt text is shown (prompt preview, review, lectures).
+- English corrections in Swedish/French sessions can be switched off (`conversation.correct_native`); misrecognised "English" must never be corrected. Translation of a whole message, a selection, or a clicked word (meaning in context), plus optional auto-translate.
 - Settings must survive updates; cache clearing; a dedicated app window; fully offline after setup; never two big models in RAM.
 - The user asked about `muse-glimmer:30b-mlx` (Meta, 30B, reasoning, agent-focused, ~21 GB). Recommended: keep Gemma 4 for conversation, and optionally try Muse Glimmer as the *analysis* model.
 
@@ -49,7 +50,7 @@ The user-facing documentation is `README.md`.
 ```bash
 ./setup.sh            # macOS: venv, deps, choose/pull Ollama model, Whisper prefetch, ~/Applications/Parlera.app
 ./run.sh              # starts Ollama if needed, serves http://127.0.0.1:8642, opens browser
-.venv/bin/python -m pytest -q          # 46 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
+.venv/bin/python -m pytest -q          # 49 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
 python3 tools/update_default_hashes.py # run BEFORE committing changes to parlera/defaults/{prompts,curricula}
 .venv/bin/python tools/mock_services.py [ollama_port] [anki_port]   # fake Ollama (:11434) + AnkiConnect (:8765)
 ```
@@ -199,6 +200,7 @@ same context dict from `core.build_context()`:
 | `recurring_errors` | Unresolved, most frequent first |
 | `exam` | The level's `exam` from the YAML |
 | `exams`, `today` | Exam list and today's date |
+| `correct_native` | `conversation.correct_native` and not monolingual: `tutor_base` adds "✏️ English:" corrections, `analysis_session` collects English errors; off → explicitly don't correct English |
 | `monolingual` | True when the studied language is the explanation language (English course): prompts switch to an English-only coach with "✏️ Upgrade:" suggestions |
 | `reinforce_vocab` | Recently learned words sampled for subtle reuse (see below) |
 | `directives` | Active, unexpired instructions from "Message your teacher" (rendered in `context.md`) |
@@ -310,7 +312,7 @@ in the level (A1 +20, A2 +15, B1 +10, B2 +5).
 5. `speak_corrections=false` skips sentences on ✏️ lines.
 6. On interrupt, the turn task is cancelled and the partial reply is saved with `meta.interrupted`.
 
-**Speech recognition details:** Whisper gets an initial prompt built from the unit's vocabulary
+**Speech recognition details:** in Auto mode (`lang: auto`) with a non-English target, an `en` result whose mean word probability (`tutor.confidence`) is below `AUTO_RETRY_CONFIDENCE` (0.7) is transcribed again in the target language, and the more confident version wins. `tutor_base` always tells the teacher to treat odd "English" as a recognition slip (ask to repeat, never correct). Whisper gets an initial prompt built from the unit's vocabulary
 terms, which biases it towards those words. This is skipped in `pronunciation` mode. Whisper runs
 in a thread executor.
 
@@ -378,7 +380,7 @@ analysis prompt turns them into `pronunciation` errors.
 | `llm` | `base_url`, `model`, `analysis_model` ("" = same), `temperature`, `num_ctx` (16384), `keep_alive` ("30m"), `disable_thinking` (sends `think:false`, retried without it on a 400), `context_messages` (40), `exclusive_models` (true), `big_model_gb` (6) |
 | `stt` | `backend` (auto\|mlx\|faster\|off), `model` (mlx-community/whisper-large-v3-turbo), `models.{fr,sv}` overrides, `default_input_language` (target\|en\|auto), `pronunciation_hints`, `confidence_threshold` |
 | `tts` | `engine` (auto\|macos\|piper\|kokoro\|browser\|off; auto = macos > piper > browser), `engines.{fr,sv,en}` per-language override, `speed`, `beginner_slowdown`, `speak_corrections`, `voices.{macos,piper,kokoro,browser}.{fr,sv,en}` ("" = auto-pick matching the teacher's gender) |
-| `conversation` | `input_mode` (handsfree\|ptt\|text), `silence_ms` (1400), `barge_in`, `immersion`, `show_text` |
+| `conversation` | `input_mode` (handsfree\|ptt\|text), `silence_ms` (1400), `barge_in`, `immersion`, `show_text`, `correct_native` (true), `auto_translate` (false) |
 | `anki` | `url`, `decks.{sv,fr,en}`, `auto_add`, `deck_per_unit`, `add_reverse`, `include_audio`, `auto_sync` (sync review data when a session is created) |
 | `vocab` | `max_cards_per_session` (15), `min_zipf` (2.0), `reinforce` (true), `reinforce_count` (6) |
 | `curriculum` | `advance_threshold` (0.75), `auto_advance` |
@@ -426,7 +428,7 @@ analysis prompt turns them into `pronunciation` errors.
 - `POST /api/speak` with `{text, language, slow, mixed, lang, rate}`; returns `audio/wav`
 - `POST /api/segments`
 - `GET /api/tts/voices?engine=`, `GET /api/tts/piper/catalog`, `POST /api/tts/piper/download`, `POST /api/tts/test`
-- `POST /api/translate` with `{text, language, direction: to_native|to_target}`
+- `POST /api/translate` with `{text, language, direction: to_native|to_target, context?}`: with `context` (the sentence the text was selected from) `translate.md` returns the meaning in context (word popover, selection translate); `monolingual` is passed so the English course gets "Explain".
 
 **Backup:** `GET /api/backup`, `POST /api/restore`
 
@@ -503,7 +505,8 @@ The `exam.format` text is inserted into `mode_exam`. The same caveat about user 
 - **Views:** each view is `export default async function view(main, params)` and may return a cleanup function. Routes are defined in `app.js` `ROUTES` (hash router, `#/session/12`).
 - **Imports:** put shared helpers in `nav.js`, not `app.js`, to avoid import cycles.
 - **Theming:** CSS custom properties on `:root`. `data-lang` (sv|fr|en) sets the accent colour (English uses a red accent), and `data-theme` covers dark mode alongside `prefers-color-scheme`. Classes:
-  - `.tl`: a target-language word (clickable, opens a popover to listen or add a card)
+  - `.tl`: a target-language word (clickable, opens a popover with its meaning in context, listen, add a card)
+  - Session translate UI: `.translate-btn` (always visible under tutor messages), `.sel-translate` (floating button for a text selection inside a tutor bubble → popover), `meaningOf()` caches per session
   - `.correction`: a ✏️ line
   - `.unsure`: a pronunciation flag
   - `.word-g-{en,ett,m,f}`: gender colours

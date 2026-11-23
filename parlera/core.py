@@ -545,6 +545,8 @@ class Parlera:
             "language_name": cur.get("name") or lang_info["name"],
             "native_language": settings["learner"].get("native_language") or "English",
             "monolingual": self.is_monolingual(language),
+            "correct_native": bool(settings.get("conversation", {}).get("correct_native", True))
+            and not self.is_monolingual(language),
             "learner_name": settings["learner"].get("name") or "",
             "learner_goal": (settings["learner"].get("goals") or {}).get(language, ""),
             "learner_notes": learner.get("notes") or "",

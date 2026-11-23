@@ -36,6 +36,15 @@ log = logging.getLogger("parlera.tutor")
 RESUME_AFTER_SECONDS = 20 * 60
 
 
+AUTO_RETRY_CONFIDENCE = 0.7   # mean word probability below which an "English" auto-detection is re-checked
+
+
+def confidence(res: dict) -> float:
+    """Mean Whisper word probability of a transcription (1.0 when unknown)."""
+    ps = [w.get("p") for w in (res.get("words") or []) if isinstance(w.get("p"), (int, float))]
+    return sum(ps) / len(ps) if ps else 1.0
+
+
 class TutorSession:
     def __init__(self, app: Parlera, ws: WebSocket, session_id: int):
         self.app = app
@@ -161,6 +170,17 @@ class TutorSession:
             await self.send({"type": "error", "message": f"Speech recognition failed: {e}"})
             await self.send({"type": "transcript", "text": "", "empty": True})
             return
+        # Auto mode: Whisper sometimes decides a French/Swedish attempt was English. If it is unsure
+        # about the words, try again in the target language and keep the more confident version.
+        if lang is None and self.target != "en" and res.get("language") == "en" and res.get("text", "").strip():
+            if confidence(res) < AUTO_RETRY_CONFIDENCE:
+                try:
+                    alt = await asyncio.get_running_loop().run_in_executor(
+                        None, self.app.stt.transcribe, wav, self.target, None)
+                    if alt.get("text", "").strip() and confidence(alt) > confidence(res):
+                        res = alt
+                except Exception:  # pragma: no cover - keep the first result
+                    log.warning("target-language retry failed", exc_info=True)
         text = res.get("text", "").strip()
         if not text:
             await self.send({"type": "transcript", "text": "", "empty": True})

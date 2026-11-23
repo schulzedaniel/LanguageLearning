@@ -96,7 +96,9 @@ export default async function settings(main) {
       select('conversation.immersion', 'How much the tutor speaks the target language', [['auto', 'Automatic: mostly target language, rising with your level (A1 ≈ 50–70%)'], ...[25, 40, 50, 60, 75, 85, 95, 100].map((n) => [String(n), `${n}%`])]),
       h('div', { class: 'col' },
         check('conversation.barge_in', 'Let me interrupt the tutor by speaking', 'Works best with headphones (otherwise the tutor may hear itself).'),
-        check('conversation.show_text', 'Show the tutor\'s text', 'Turn off for listening practice — reveal each message with a click.'))));
+        check('conversation.show_text', 'Show the tutor\'s text', 'Turn off for listening practice — reveal each message with a click.'),
+        check('conversation.correct_native', 'Correct my English in Swedish and French sessions', 'Off: the teacher only corrects your Swedish/French. Either way, if speech recognition turns your French into odd "English", the teacher asks you to repeat instead of correcting it.'),
+        check('conversation.auto_translate', 'Show a translation under every teacher message', 'Handy at the beginning. Each translation is one extra call to the language model. You can always press Translate, or select part of a message to translate just that.'))));
 
   // --- learner ---
   const learner = section('learner', 'About you',
