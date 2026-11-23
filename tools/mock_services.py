@@ -36,6 +36,10 @@ async def generate():
 
 def fake_json(schema: dict):
     props = (schema or {}).get("properties", {})
+    item_props = props.get("items", {}).get("items", {}).get("properties", {})
+    if "days" in item_props:  # teacher note
+        return {"items": [{"content": "Speak more slowly.", "kind": "behaviour", "days": 0, "all_languages": True},
+                          {"content": "This week, practise vocabulary for a job interview.", "kind": "focus", "days": 7, "all_languages": False}]}
     if "items" in props:
         return {"items": [
             {"lemma": "heta", "translation": "to be called", "pos": "verb", "gender": "", "forms": "heta – heter – hette – har hetat",
@@ -46,6 +50,12 @@ def fake_json(schema: dict):
              "example": "Astrid är lärare.", "example_translation": "Astrid is a teacher.", "reason": "new", "notes": ""},
             {"lemma": "xyzzyq", "translation": "nonsense", "pos": "noun", "gender": "ett", "forms": "", "example": "", "example_translation": "", "reason": "new", "notes": ""},
         ]}
+    if "categories" in props:
+        return {"title": "Word order & verbs", "overview": "Most mistakes come from the verb-second rule.",
+                "categories": [{"name": "Verb second (V2)", "rule": "In main clauses the verb is always in position 2: **I dag dricker jag kaffe**.",
+                                "why": "English keeps subject-verb order after adverbs.", "examples": [{"wrong": "I dag jag dricker kaffe", "right": "I dag dricker jag kaffe"}],
+                                "tip": "Count to two: the verb is always second.", "patterns": ["Verb placement after the subject"]}],
+                "plan": "Explain V2, then drill with time expressions."}
     if "unit_mastery" in props:
         return {
             "title": "First greetings in Swedish", "summary": "Practised hej, jag heter and vad heter du. Word order after jag needs work.",

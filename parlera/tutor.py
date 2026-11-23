@@ -73,8 +73,10 @@ class TutorSession:
     def _tts_mode(self) -> str:
         if not self.audio_enabled:
             return "off"
-        engine = self.app.tts.engine()
-        return engine if engine in ("off", "browser") else "server"
+        engine = self.app.tts.engine_for(self.target)
+        if engine in ("off", "browser"):
+            return engine
+        return "server" if self.app.tts.server_side((self.target, "en")) else "browser"
 
     # ------------------------------------------------------------------
     async def run(self) -> None:

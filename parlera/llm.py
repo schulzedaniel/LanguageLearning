@@ -91,7 +91,7 @@ class OllamaClient:
         return self.cfg["base_url"].rstrip("/") + path
 
     def _body(self, messages: list[dict], model: str | None, stream: bool,
-              fmt: Any = None, options: dict | None = None) -> dict:
+              fmt: Any = None, options: dict | None = None, think: bool | None = None) -> dict:
         cfg = self.cfg
         body: dict[str, Any] = {
             "model": model or cfg["model"],
@@ -103,7 +103,9 @@ class OllamaClient:
         }
         if fmt is not None:
             body["format"] = fmt
-        if cfg.get("disable_thinking"):
+        if think is not None:
+            body["think"] = think
+        elif cfg.get("disable_thinking"):
             body["think"] = False
         return body
 
@@ -150,8 +152,8 @@ class OllamaClient:
             raise LLMError(f"Cannot reach Ollama at {self.cfg['base_url']}. Is Ollama running? ({e})") from e
 
     async def chat(self, messages: list[dict], model: str | None = None, fmt: Any = None,
-                   options: dict | None = None, timeout: float = 600) -> str:
-        body = self._body(messages, model, False, fmt=fmt, options=options)
+                   options: dict | None = None, timeout: float = 600, think: bool | None = None) -> str:
+        body = self._body(messages, model, False, fmt=fmt, options=options, think=think)
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
                 r = await self._post_with_think_fallback(client, body)
@@ -163,9 +165,9 @@ class OllamaClient:
         return strip_think((data.get("message") or {}).get("content", ""))
 
     async def chat_json(self, messages: list[dict], schema: dict | None = None,
-                        model: str | None = None, temperature: float = 0.2) -> Any:
+                        model: str | None = None, temperature: float = 0.2, think: bool | None = None) -> Any:
         text = await self.chat(messages, model=model, fmt=schema or "json",
-                               options={"temperature": temperature})
+                               options={"temperature": temperature}, think=think, timeout=900 if think else 600)
         return parse_json_loose(text)
 
     async def list_models(self) -> list[str]:

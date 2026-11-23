@@ -33,6 +33,10 @@ if command -v ollama >/dev/null 2>&1 || [[ -d /Applications/Ollama.app ]]; then
 fi
 
 cleanup() {
+  # Settings → General → "Quit Ollama when Parlera stops": never | if_started | always ("always" is handled by the server)
+  local mode
+  mode="$(.venv/bin/python -c 'from parlera.config import Paths, Settings; print(Settings(Paths().settings).get("app.quit_ollama", "if_started"))' 2>/dev/null || echo if_started)"
+  [[ "$mode" == "never" ]] && return
   if [[ "${PARLERA_QUIT_OLLAMA:-1}" == "1" ]]; then
     case "$STARTED_OLLAMA" in
       app) osascript -e 'quit app "Ollama"' >/dev/null 2>&1 || true ;;

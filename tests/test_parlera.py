@@ -488,3 +488,126 @@ def test_known_hashes_cover_git_history():
             if current.exists() and file_hash(current.read_bytes()) == file_hash(data):
                 continue  # this is the current default
             assert file_hash(data) in known.get(rel, []), f"{rel}@{c[:7]} missing — run tools/update_default_hashes.py"
+
+
+# ---------------------------------------------------------------------------
+# quitting, voices per language, mistake workshop, DB migration
+# ---------------------------------------------------------------------------
+def test_heartbeat_bye_and_shutdown(client):
+    import time
+
+    class FakeServer:
+        should_exit = False
+    assert client.post("/api/heartbeat").json()["ok"]
+    assert client.app.state.last_seen is not None
+    before = client.app.state.last_seen
+    client.post("/api/bye")
+    assert client.app.state.last_seen < before            # quit soon unless another tab beats
+    assert client.post("/api/shutdown").json()["ok"] is False   # not started via run.sh
+    client.app.state.server = FakeServer()
+    assert client.post("/api/shutdown").json()["ok"] is True
+    assert client.app.state.server.should_exit is True
+    assert time.monotonic() > 0
+
+
+def test_per_language_voice_engines(client):
+    tts = client.core.tts
+    tts.available_engines = lambda: {"macos": True, "piper": False, "kokoro": True, "browser": True}
+    client.core.settings.update({"tts": {"engine": "macos", "engines": {"en": "kokoro", "fr": "", "sv": ""}}})
+    assert tts.engine_for("en") == "kokoro" and tts.engine_for("sv") == "macos"
+    assert tts.server_side(("sv", "en"))
+    client.core.settings.update({"tts": {"engines": {"fr": "browser"}}})
+    assert not tts.server_side(("fr", "en"))
+    assert [v["name"] for v in tts.voices("kokoro", "fr")] == ["ff_siwis"]
+    assert tts.voices("kokoro", "sv") == []                # Kokoro has no Swedish voice
+    # an override for an engine that isn't installed falls back to the default
+    tts.available_engines = lambda: {"macos": True, "piper": False, "kokoro": False, "browser": True}
+    assert tts.engine_for("en") == "macos"
+
+
+def test_mistake_workshop_flow(client):
+    core = client.core
+    s = client.post("/api/sessions", json={"language": "sv", "mode": "lesson"}).json()
+    core.db.add_message(s["id"], "assistant", "Hej! **Vad heter du?**")
+    core.db.add_message(s["id"], "user", "Jag Sam heter")
+    client.post(f"/api/sessions/{s['id']}/end")             # mock analysis records a mistake + event
+    events = core.db.all("SELECT * FROM error_events WHERE language='sv'")
+    assert events and events[0]["wrong"] == "Jag Sam heter"
+    st = client.get("/api/workshops/status/sv").json()
+    assert st["available"] and st["new_mistakes"] >= 1
+    seen = {}
+    orig = core.llm.chat_json
+
+    async def spy(messages, **kw):
+        seen.setdefault("think", kw.get("think"))
+        seen.setdefault("prompt", messages[0]["content"])
+        return await orig(messages, **kw)
+    core.llm.chat_json = spy
+    w = client.post("/api/workshops", json={"language": "sv"}).json()
+    core.llm.chat_json = orig
+    assert seen["think"] is True                            # thinking allowed for the summary
+    assert "Jag Sam heter" in seen["prompt"]
+    view = client.get(f"/api/sessions/{w['id']}").json()
+    assert view["mode"] == "workshop" and view["workshop"]["categories"][0]["name"] == "Verb second (V2)"
+    pv = core.render_system_prompt(core.build_context("sv", "workshop", session_id=w["id"]))
+    assert "mistake workshop" in pv and "Count to two" in pv
+    assert client.get("/api/workshops/status/sv").json()["new_mistakes"] == 0   # counter resets
+    # workshop analysis can mark patterns as mastered
+    core.db.add_message(w["id"], "user", "I dag dricker jag kaffe")
+    orig2 = core.llm.chat_json
+
+    async def mastered(messages, schema=None, **kw):
+        data = await orig2(messages, schema=schema, **kw)
+        if schema and "mastered_patterns" in schema.get("properties", {}):
+            data["mastered_patterns"] = ["Verb placement after the subject"]
+        return data
+    core.llm.chat_json = mastered
+    client.post(f"/api/sessions/{w['id']}/end")
+    core.llm.chat_json = orig2
+    err = client.get("/api/errors?language=sv").json()[0]
+    assert err["resolved"] == 1
+
+
+def test_db_migration_from_v1(tmp_path):
+    import sqlite3
+    from parlera.db import DB, SCHEMA_V1
+    p = tmp_path / "old.db"
+    con = sqlite3.connect(p)
+    con.executescript(SCHEMA_V1)
+    con.execute("PRAGMA user_version=1")
+    con.execute("INSERT INTO errors (language, pattern, pattern_norm, example_wrong, example_right, first_seen, last_seen) "
+                "VALUES ('fr', 'Gender', 'gender', 'le maison', 'la maison', '2026-01-01T10:00:00', '2026-01-02T10:00:00')")
+    con.commit()
+    con.close()
+    db = DB(p)
+    assert db.scalar("PRAGMA user_version") == 2
+    ev = db.all("SELECT * FROM error_events")
+    assert len(ev) == 1 and ev[0]["wrong"] == "le maison"   # backfilled from existing mistakes
+    assert db.all("SELECT * FROM errors")[0]["pattern"] == "Gender"
+
+
+def test_teacher_note_becomes_instructions(client):
+    items = client.post("/api/teacher-note/parse", json={"language": "en", "text": "Please speak slower. Job interview Friday!"}).json()["items"]
+    assert [i["days"] for i in items] == [None, 7]          # 0 from the model = permanent
+    saved = client.post("/api/directives", json={"language": "en", "text": "note", "items": items}).json()
+    assert len(saved) == 2
+    pv = client.post("/api/prompts-preview", json={"language": "en", "mode": "lesson"}).json()["system"]
+    assert "Speak more slowly." in pv and "job interview" in pv
+    # "all languages" instruction also reaches the Swedish teacher, the English-only one doesn't
+    sv = client.post("/api/prompts-preview", json={"language": "sv", "mode": "lesson"}).json()["system"]
+    assert "Speak more slowly." in sv and "job interview" not in sv
+    # expired instructions drop out
+    rows = client.get("/api/directives?language=en").json()
+    temp = next(r for r in rows if r["expires_at"])
+    client.patch(f"/api/directives/{temp['id']}", json={"expires_at": "2000-01-01T00:00:00"})
+    pv = client.post("/api/prompts-preview", json={"language": "en", "mode": "lesson"}).json()["system"]
+    assert "job interview" not in pv
+    assert any(r["expired"] for r in client.get("/api/directives?language=en").json())
+
+
+def test_chat_break_mode(client):
+    for lang, name in (("sv", "fika"), ("fr", "pause café"), ("en", "tea time")):
+        pv = client.post("/api/prompts-preview", json={"language": lang, "mode": "break"}).json()["system"]
+        assert f"relaxed {name}" in pv
+    s = client.post("/api/sessions", json={"language": "sv", "mode": "break"}).json()
+    assert s["mode"] == "break"

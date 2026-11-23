@@ -6,7 +6,7 @@ import { Recorder, Player, b64FromBuffer, bufferFromB64 } from '../audio.js';
 import { navigate } from '../nav.js';
 import { addWordDialog } from './vocab.js';
 
-const MODE_ICON = { lesson: 'school', conversation: 'chat', roleplay: 'theater', review: 'refresh', exam: 'award', writing: 'pen', placement: 'compass', free: 'sparkle', pronunciation: 'wave' };
+const MODE_ICON = { lesson: 'school', conversation: 'chat', roleplay: 'theater', review: 'refresh', exam: 'award', writing: 'pen', placement: 'compass', free: 'sparkle', pronunciation: 'wave', workshop: 'target', break: 'coffee' };
 
 export default async function session(main, { id }) {
   mount(main, loading('Opening session…'));
@@ -27,7 +27,8 @@ export default async function session(main, { id }) {
   let sttLang = state.settings.stt?.default_input_language || 'target';
   let audioOn = !isWriting;
   let showText = conv.show_text !== false;
-  let showPanel = localStorage.getItem('parlera.panel') !== '0';
+  let showPanel = localStorage.getItem('parlera.panel') !== '0' && s.mode !== 'break';
+  const BREAK_NAME = { sv: 'Fika', fr: 'Pause café', en: 'Tea time' }[lang] || 'Chat break';
   let ws = null;
   let started = false;
   let awaitingReply = false;
@@ -71,12 +72,34 @@ export default async function session(main, { id }) {
   const sendBtn = h('button', { class: 'btn primary icon', title: 'Send', onclick: () => sendText() }, icon('send', 18));
   const timerEl = h('span', { class: 'timer' });
 
+  // Situation presets: how you talk and how the tutor answers
+  const SITUATIONS = {
+    full: { label: '🗣 Talk & listen', input: null, audio: true },
+    nospeak: { label: '⌨️ Can\'t speak — I type, tutor talks', input: 'text', audio: true },
+    nolisten: { label: '🔇 Can\'t listen — I talk, tutor writes', input: 'voice', audio: false },
+    silent: { label: '🤫 Silent — type & read', input: 'text', audio: false },
+  };
+  const situationSel = h('select', { title: 'Your situation', style: { width: 'auto', padding: '6px 10px', fontSize: '13px', fontWeight: 600 },
+    onchange: (e) => applySituation(e.target.value) },
+  Object.entries(SITUATIONS).map(([k, v]) => h('option', { value: k }, v.label)));
+  function applySituation(key, initial = false) {
+    const sit = SITUATIONS[key] || SITUATIONS.full;
+    situationSel.value = key;
+    try { localStorage.setItem('parlera.situation', key); } catch { /* ignore */ }
+    if (sit.input === 'text') { if (initial) inputMode = 'text'; else setInputMode('text'); }
+    else if (inputMode === 'text') { const v = conv.input_mode && conv.input_mode !== 'text' ? conv.input_mode : 'handsfree'; if (initial) inputMode = v; else setInputMode(v); }
+    if (audioOn !== sit.audio) { if (initial) audioOn = sit.audio; else toggleAudio(); }
+    if (!sit.audio && !showText && !initial) toggleText();
+    if (!sit.audio && initial) showText = true;
+  }
+
   const modeSeg = seg([
     ['handsfree', 'Hands-free', 'wave'], ['ptt', 'Push to talk', 'hand'], ['text', 'Text', 'keyboard'],
   ], inputMode, (v) => setInputMode(v));
   const langSeg = seg([
     ['target', `I speak ${L.name}`], ['en', 'English'], ['auto', 'Auto'],
   ], sttLang, (v) => { sttLang = v; });
+  if (!isWriting) { let sk = 'full'; try { sk = localStorage.getItem('parlera.situation') || 'full'; } catch { /* ignore */ } applySituation(sk, true); modeSeg.set(inputMode); recorder.mode = inputMode === 'text' ? 'off' : inputMode; }
   const audioBtn = h('button', { class: 'btn ghost sm', title: 'Tutor voice on/off', onclick: () => toggleAudio() });
   const textBtn = h('button', { class: 'btn ghost sm', title: 'Show/hide tutor text (listening practice)', onclick: () => toggleText() });
   const helpBtn = h('button', { class: 'btn ghost sm', title: mono ? 'Say it better' : 'How do I say…?', onclick: () => helpSay() }, icon('translate', 16), mono ? 'Say it better…' : 'How do I say…?');
@@ -84,15 +107,15 @@ export default async function session(main, { id }) {
   const micRow = h('div', { class: 'mic-wrap' }, micBtn, micStatus);
   const textRow = h('div', { class: 'composer-row' }, textInput, sendBtn);
   const composer = h('div', { class: 'composer' }, h('div', { class: 'composer-inner' },
-    h('div', { class: 'composer-controls' }, h('div', { class: 'row wrap' }, isWriting ? null : modeSeg, isWriting || mono ? null : langSeg),
+    h('div', { class: 'composer-controls' }, h('div', { class: 'row wrap' }, isWriting ? null : situationSel, isWriting ? null : modeSeg, isWriting || mono ? null : langSeg),
       h('div', { class: 'row' }, helpBtn, audioBtn, textBtn)),
     micRow, textRow));
 
   const panel = buildPanel(s);
   const top = h('div', { class: 'session-top' },
     h('button', { class: 'btn ghost icon', title: 'Save & leave', onclick: () => leave() }, icon('arrowLeft')),
-    h('span', { class: 'badge accent' }, icon(MODE_ICON[s.mode] || 'chat', 13), s.mode_info?.title || s.mode),
-    h('div', { class: 'title grow' }, s.unit ? `${s.unit.level} · ${s.unit.title}` : s.title),
+    h('span', { class: 'badge accent' }, icon(MODE_ICON[s.mode] || 'chat', 13), s.mode === 'break' ? BREAK_NAME : (s.mode_info?.title || s.mode)),
+    h('div', { class: 'title grow' }, s.mode === 'break' ? `${BREAK_NAME} with ${L.tutor}` : s.mode === 'workshop' ? s.title : s.unit ? `${s.unit.level} · ${s.unit.title}` : s.title),
     timerEl,
     h('button', { class: 'btn ghost icon', title: 'Toggle side panel', onclick: () => { showPanel = !showPanel; localStorage.setItem('parlera.panel', showPanel ? '1' : '0'); layout.classList.toggle('no-panel', !showPanel); } }, icon('panel')),
     h('button', { class: 'btn sm', onclick: () => leave() }, 'Save & exit'),
@@ -458,6 +481,21 @@ export default async function session(main, { id }) {
     const u = sess.unit;
     const chips = [];
     const count = h('span', { class: 'tiny faint' });
+    if (sess.mode === 'break') {
+      return { chips, count, el: h('aside', { class: 'panel' }, h('div', { class: 'card' }, h('h4', {}, BREAK_NAME),
+        h('div', { class: 'small muted' }, 'A relaxed chat: no curriculum, only light corrections. Press "End & review" if you want feedback and flashcards from it; otherwise just leave.'))) };
+    }
+    if (sess.workshop) {
+      const w = sess.workshop;
+      return { chips, count, el: h('aside', { class: 'panel' },
+        h('div', { class: 'card' }, h('h4', {}, 'Workshop'), h('div', { style: { fontWeight: 650 } }, w.title), h('div', { class: 'small muted mt' }, w.overview)),
+        w.categories.map((c, i) => h('div', { class: 'card' },
+          h('h4', {}, `${i + 1}. ${c.name}`),
+          h('div', { class: 'small', html: renderMarkdown(c.rule) }),
+          c.examples?.length ? h('div', { class: 'mt' }, c.examples.map((e) => h('div', { class: 'small', style: { margin: '4px 0' } },
+            h('span', { class: 'wrong-inline' }, e.wrong), ' → ', h('b', { style: { color: 'var(--good)' } }, e.right)))) : null,
+          c.tip ? h('div', { class: 'goal mt' }, icon('lightbulb', 14), c.tip) : null))) };
+    }
     if (!u) {
       return { el: h('aside', { class: 'panel' }, h('div', { class: 'card' }, h('h4', {}, 'Session'), h('div', { class: 'small muted' }, sess.mode_info?.description || ''))), chips, count };
     }
@@ -504,12 +542,22 @@ export default async function session(main, { id }) {
     if (!chatInner.querySelector('.msg')) api.del(`/api/sessions/${s.id}`).catch(() => {});
   }
 
-  function leave() {
+  async function leave() {
+    const userTurns = chatInner.querySelectorAll('.msg.user').length;
+    if (userTurns >= 2) {
+      const choice = await modal({
+        title: 'Leave this session?',
+        body: h('p', { class: 'muted' }, 'Everything is saved. Review it now (feedback, mistakes, flashcards, progress), or keep it open to continue later from Sessions.'),
+        actions: [{ label: 'Cancel', value: 'cancel' }, { label: 'Keep for later', value: 'later' }, { label: 'End & review now', class: 'primary', value: 'review' }],
+      }).done;
+      if (!choice || choice === 'cancel') return;
+      if (choice === 'review') { await endSession(true); return; }
+    }
     toast('Session saved. Resume it any time from Sessions.', 'success');
     navigate('');
   }
 
-  async function endSession() {
+  async function endSession(skipConfirm = false) {
     const userTurns = chatInner.querySelectorAll('.msg.user').length;
     if (!userTurns) {
       if (await confirmDialog('You haven\'t said anything yet, so there is nothing to review. Delete this empty session?', { ok: 'Delete', danger: true })) {
@@ -518,7 +566,7 @@ export default async function session(main, { id }) {
       }
       return;
     }
-    if (!(await confirmDialog(`${L.tutor} will review the session: feedback, mistakes, progress on the unit, and flashcard suggestions. This takes up to a minute.`, { title: 'End session & review?', ok: 'End & review' }))) return;
+    if (!skipConfirm && !(await confirmDialog(`${L.tutor} will review the session: feedback, mistakes, progress on the unit, and flashcard suggestions. This takes up to a minute.`, { title: 'End session & review?', ok: 'End & review' }))) return;
     player.stop(); recorder.stop();
     const steps = h('div', { class: 'steps' },
       h('div', {}, '• Summarising the session'), h('div', {}, '• Collecting your mistakes'), h('div', {}, '• Updating your unit progress'), h('div', {}, '• Picking flashcards for Anki'));

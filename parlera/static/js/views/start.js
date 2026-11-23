@@ -3,12 +3,25 @@ import { api, state, LANGS } from '../api.js';
 import { h, icon, mount, modal, toast } from '../ui.js';
 import { navigate } from '../nav.js';
 
-const MODE_ORDER = ['lesson', 'conversation', 'roleplay', 'review', 'pronunciation', 'exam', 'writing', 'placement', 'free'];
+const MODE_ORDER = ['lesson', 'conversation', 'roleplay', 'review', 'pronunciation', 'exam', 'writing', 'break', 'placement', 'free'];
 
 export async function startSession({ mode = 'lesson', unit_id = null, scenario = '', focus = '' } = {}) {
   const lang = state.language;
   const s = await api.post('/api/sessions', { language: lang, mode, unit_id, scenario, focus });
   navigate(`session/${s.id}`);
+}
+
+export async function startWorkshop() {
+  const lang = state.language;
+  const overlay = h('div', { class: 'overlay' }, h('div', { class: 'overlay-box' }, h('span', { class: 'spinner lg' }),
+    h('h2', {}, 'Preparing your mistake workshop…'),
+    h('div', { class: 'muted' }, 'Your teacher is grouping your recent mistakes and working out the rules behind them. With "thinking" enabled this can take a few minutes.')));
+  document.body.append(overlay);
+  try {
+    const s = await api.post('/api/workshops', { language: lang });
+    overlay.remove();
+    navigate(`session/${s.id}`);
+  } catch (e) { overlay.remove(); toast(e.message, 'error', 8000); }
 }
 
 export async function openStartDialog(opts = {}) {

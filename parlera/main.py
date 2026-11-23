@@ -39,6 +39,29 @@ def create_app(root: Path | None = None) -> FastAPI:
     app = FastAPI(title="Parlera", version=__version__)
     app.state.core = core
 
+    app.state.server = None          # set by __main__ when run as a program
+    app.state.last_seen = None       # last heartbeat from a browser tab
+
+    def request_quit(reason: str) -> bool:
+        server = app.state.server
+        if server is None:
+            return False
+        log.info("Stopping Parlera (%s)", reason)
+        server.should_exit = True
+        return True
+
+    async def watchdog() -> None:
+        """Quit a few minutes after the last open tab stopped sending heartbeats."""
+        import time
+        while True:
+            await asyncio.sleep(10)
+            if not core.settings.get("app.auto_quit", True) or app.state.last_seen is None:
+                continue
+            timeout = 60 * float(core.settings.get("app.auto_quit_minutes", 3))
+            if time.monotonic() - app.state.last_seen > timeout:
+                request_quit("no open tabs")
+                return
+
     @app.on_event("startup")
     async def _startup() -> None:
         try:
@@ -46,12 +69,23 @@ def create_app(root: Path | None = None) -> FastAPI:
             core.tts.cleanup_cache()
         except Exception:  # pragma: no cover
             log.exception("startup housekeeping failed")
+        app.state.watchdog = asyncio.create_task(watchdog())
 
     @app.on_event("shutdown")
     async def _shutdown() -> None:
         # Free the RAM used by the model when Parlera quits.
         for model in {core.settings.get("llm.model"), core.settings.get("llm.analysis_model")} - {"", None}:
             await core.llm.unload(model)
+        try:
+            core.db.backup_to(core.paths.backups / "parlera-last-quit.db")  # extra safety copy
+        except Exception:  # pragma: no cover
+            pass
+        if core.settings.get("app.quit_ollama") == "always":
+            import subprocess
+            import sys
+            if sys.platform == "darwin":
+                subprocess.run(["osascript", "-e", 'quit app "Ollama"'], capture_output=True)
+            subprocess.run(["pkill", "-x", "ollama"], capture_output=True)
 
     @app.exception_handler(ValueError)
     async def _value_error(_: Request, exc: ValueError):
@@ -104,6 +138,26 @@ def create_app(root: Path | None = None) -> FastAPI:
             "modes": MODES,
         }
 
+    @app.post("/api/heartbeat")
+    async def heartbeat():
+        import time
+        app.state.last_seen = time.monotonic()
+        return {"ok": True}
+
+    @app.post("/api/bye")
+    async def bye():
+        """A tab was closed: quit soon unless another tab (or a reload) sends a heartbeat."""
+        import time
+        if app.state.last_seen is not None:
+            timeout = 60 * float(core.settings.get("app.auto_quit_minutes", 3))
+            app.state.last_seen = time.monotonic() - max(0, timeout - 20)
+        return {"ok": True}
+
+    @app.post("/api/shutdown")
+    async def shutdown():
+        ok = request_quit("Quit button")
+        return {"ok": ok, "detail": None if ok else "Parlera wasn't started by run.sh; stop it in its terminal."}
+
     @app.get("/api/settings")
     async def get_settings():
         return core.settings.all()
@@ -143,6 +197,7 @@ def create_app(root: Path | None = None) -> FastAPI:
             "errors": core.recurring_errors(language, 6),
             "weak_vocab": weak,
             "exam": core.exam_for_level(language, unit["level"]),
+            "workshop": core.workshop_status(language),
         }
 
     @app.put("/api/learner/{language}")
@@ -265,6 +320,42 @@ def create_app(root: Path | None = None) -> FastAPI:
         s = core.create_session(body.get("language"), body.get("mode", "lesson"), body.get("unit_id"),
                                 body.get("scenario", ""), body.get("focus", ""))
         return s
+
+    @app.post("/api/teacher-note/parse")
+    async def teacher_note_parse(body: dict = Body(...)):
+        return {"items": await core.parse_teacher_note(lang_ok(body.get("language", "")), body.get("text", ""))}
+
+    @app.post("/api/directives")
+    async def directives_save(body: dict = Body(...)):
+        return core.save_directives(lang_ok(body.get("language", "")), body.get("items", []), body.get("text", ""))
+
+    @app.get("/api/directives")
+    async def directives_list(language: str):
+        rows = core.db.all("SELECT * FROM directives WHERE language IS NULL OR language=? ORDER BY created_at DESC",
+                           [lang_ok(language)])
+        ts = now()
+        for r in rows:
+            r["expired"] = bool(r["expires_at"] and r["expires_at"] <= ts)
+        return rows
+
+    @app.patch("/api/directives/{did}")
+    async def directive_patch(did: int, body: dict = Body(...)):
+        patch = {k: v for k, v in body.items() if k in ("content", "active", "expires_at")}
+        core.db.update("directives", did, patch)
+        return core.db.one("SELECT * FROM directives WHERE id=?", [did])
+
+    @app.delete("/api/directives/{did}")
+    async def directive_delete(did: int):
+        core.db.execute("DELETE FROM directives WHERE id=?", [did])
+        return {"ok": True}
+
+    @app.get("/api/workshops/status/{language}")
+    async def workshop_status(language: str):
+        return core.workshop_status(lang_ok(language))
+
+    @app.post("/api/workshops")
+    async def workshop_create(body: dict = Body(...)):
+        return await core.create_workshop(lang_ok(body.get("language", "")))
 
     @app.get("/api/sessions")
     async def sessions_list(language: str | None = None, limit: int = 200):
@@ -568,6 +659,11 @@ def create_app(root: Path | None = None) -> FastAPI:
         if engine == "macos" and refresh:
             core.tts.macos_voices(refresh=True)
         return {lang: core.tts.voices(engine, lang) for lang in ("fr", "sv", "en")}
+
+    @app.get("/api/tts/engines")
+    async def tts_engines():
+        return {"available": core.tts.available_engines(), "default": core.tts.engine(),
+                "per_language": {lang: core.tts.engine_for(lang) for lang in ("fr", "sv", "en")}}
 
     @app.get("/api/tts/piper/catalog")
     async def piper_catalog():

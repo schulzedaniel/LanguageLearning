@@ -53,6 +53,11 @@ The learner added these to their flashcards recently. During the session, natura
 {% for e in recurring_errors %}- {{ e.pattern }}{% if e.example_wrong %} (e.g. "{{ e.example_wrong }}" → "{{ e.example_right }}"){% endif %} — seen {{ e.count }}×
 {% endfor %}
 {% endif %}
+{% if directives %}
+## The learner's own requests (follow these)
+{% for d in directives %}- {{ d }}
+{% endfor %}
+{% endif %}
 {% if focus %}
 ## The learner asked to focus on
 {{ focus }}

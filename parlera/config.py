@@ -100,6 +100,11 @@ def _known_default_hashes() -> dict[str, set[str]]:
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     "ui": {"language": "sv", "theme": "auto"},
+    "app": {
+        "auto_quit": True,             # stop Parlera a few minutes after the last browser tab is closed
+        "auto_quit_minutes": 3,
+        "quit_ollama": "if_started",   # on quit: if_started (only if Parlera started it) | always | never
+    },
     "learner": {
         "name": "",
         "native_language": "English",
@@ -128,13 +133,15 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "confidence_threshold": 0.55,  # words recognised below this probability are flagged
     },
     "tts": {
-        "engine": "auto",              # auto | macos | piper | browser | off
+        "engine": "auto",              # auto | macos | piper | kokoro | browser | off
+        "engines": {"fr": "", "sv": "", "en": ""},   # per-language override ("" = use "engine")
         "speed": 1.0,
         "beginner_slowdown": True,     # target language a bit slower at A1/A2
         "speak_corrections": True,
         "voices": {
             "macos": {"fr": "", "sv": "", "en": ""},   # empty = best installed voice
             "piper": {"fr": "fr_FR-siwis-medium", "sv": "sv_SE-nst-medium", "en": "en_US-lessac-medium"},
+            "kokoro": {"fr": "ff_siwis", "sv": "", "en": "bm_george"},
             "browser": {"fr": "", "sv": "", "en": ""},
         },
     },
@@ -161,6 +168,11 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "reinforce_count": 6,          # candidates offered to the tutor per session (it uses a few)
     },
     "curriculum": {"advance_threshold": 0.75, "auto_advance": False},
+    "workshop": {
+        "interval_days": 7,            # suggest a mistake workshop this often
+        "min_mistakes": 3,             # ...once at least this many new mistakes were collected
+        "thinking": True,              # let reasoning models think while summarising (slower, better)
+    },
 }
 
 
