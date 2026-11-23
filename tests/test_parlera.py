@@ -729,3 +729,70 @@ def test_manifest_for_add_to_dock(client):
     m = client.get("/static/manifest.json").json()
     assert m["display"] == "standalone" and m["name"] == "Parlera"
     assert client.get("/static/icon-512.png").status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# demo mode
+# ---------------------------------------------------------------------------
+def test_demo_copy_is_isolated(tmp_path):
+    import json as _json
+    from parlera.config import Paths
+    from parlera.db import DB
+    from parlera.demo import prepare_demo_dir
+    real = Paths(tmp_path / "real")
+    real.ensure()
+    db = DB(real.db)
+    db.insert("memories", {"content": "Real memory", "created_at": "2026-01-01", "updated_at": "2026-01-01"})
+    db.close()
+    real.settings.write_text(_json.dumps({"llm": {"model": "gemma4:26b-mlx"}, "anki": {"url": "http://127.0.0.1:8765"}}))
+    (real.prompts / "tutor_base.md").write_text("MY EDITED PROMPT")
+
+    demo = prepare_demo_dir(real, "copy")
+    s = _json.loads((demo / "settings.json").read_text())
+    assert s["llm"]["model"] == "gemma4:26b-mlx" and s["app"]["demo"] == "copy"
+    assert s["anki"]["url"] == "http://127.0.0.1:9" and s["anki"]["auto_add"] is False   # real Anki untouched
+    assert (demo / "prompts" / "tutor_base.md").read_text() == "MY EDITED PROMPT"
+    ddb = DB(demo / "parlera.db")
+    assert ddb.scalar("SELECT content FROM memories") == "Real memory"
+    ddb.insert("memories", {"content": "Demo memory", "created_at": "2026-01-02", "updated_at": "2026-01-02"})
+    ddb.close()
+    rdb = DB(real.db)
+    assert [r["content"] for r in rdb.all("SELECT content FROM memories")] == ["Real memory"]   # unchanged
+    rdb.close()
+
+    fresh = prepare_demo_dir(real, "fresh")
+    assert not (fresh / "parlera.db").exists() and not (fresh / "prompts").exists()
+    assert _json.loads((fresh / "settings.json").read_text())["llm"]["model"] == "gemma4:26b-mlx"
+    import shutil
+    shutil.rmtree(demo, ignore_errors=True)
+    shutil.rmtree(fresh, ignore_errors=True)
+
+
+def test_demo_server_runs_and_cleans_up(tmp_path):
+    """Start a real demo process from a real data folder, use it, end it, check nothing leaked."""
+    import json as _json
+    import httpx
+    from parlera.config import Paths
+    from parlera.demo import spawn_demo
+    real = Paths(tmp_path / "real")
+    real.ensure()
+    real.settings.write_text(_json.dumps({"stt": {"backend": "off"}, "tts": {"engine": "browser"},
+                                          "llm": {"base_url": "http://127.0.0.1:9"}}))
+    before = sorted(p.relative_to(real.root).as_posix() for p in real.root.rglob("*"))
+    d = spawn_demo(real.root, "copy", open_window=False)
+    try:
+        st = httpx.get(d["url"] + "/api/status", timeout=10).json()
+        assert st["demo"] == "copy"
+        demo_root = st["data_dir"]
+        assert demo_root != str(real.root) and "parlera-demo-" in demo_root
+        httpx.post(d["url"] + "/api/memories", json={"content": "only in the demo"}, timeout=10)
+        httpx.post(d["url"] + "/api/sessions", json={"language": "sv", "mode": "lesson"}, timeout=10)
+        sd = httpx.post(d["url"] + "/api/shutdown", timeout=10).json()
+        assert sd["ok"]
+        d["process"].wait(timeout=20)
+    finally:
+        if d["process"].poll() is None:
+            d["process"].kill()
+    assert not Path(demo_root).exists()                                    # temporary copy deleted
+    after = sorted(p.relative_to(real.root).as_posix() for p in real.root.rglob("*"))
+    assert after == before                                                 # real folder untouched

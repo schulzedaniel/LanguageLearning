@@ -98,7 +98,9 @@ export async function refreshStatus() {
   }
   mount(el, lines.map((l) => h('div', { class: 'status-line', title: 'Open settings', onclick: () => navigate('settings') },
     h('span', { class: `dot ${l.ok ? 'ok' : l.warn ? 'warn' : 'bad'}` }), l.label)),
-    h('button', { class: 'btn sm quit-btn', title: 'Stop Parlera and free the model\'s memory', onclick: quitApp }, icon('x', 14), 'Quit Parlera'));
+    s.demo ? null : h('button', { class: 'btn sm quit-btn', title: 'Show Parlera to others on a temporary copy — nothing is saved', onclick: openDemoDialog }, icon('play', 14), 'Demo mode'),
+    h('button', { class: 'btn sm quit-btn', title: s.demo ? 'End the demo and delete its temporary copy' : 'Stop Parlera and free the model\'s memory', onclick: quitApp }, icon('x', 14), s.demo ? 'End demo' : 'Quit Parlera'));
+  if (s.demo && !document.getElementById('demo-banner')) showDemoBanner(s.demo);
   return s;
 }
 
@@ -130,15 +132,42 @@ function showServerGone() {
     h('div', { class: 'muted' }, 'It was stopped (Quit button, closed tab or Terminal window). Your progress is saved. Start it again with the Parlera app or ./run.sh — this page reconnects by itself.'))));
 }
 
+function showDemoBanner(mode) {
+  document.body.classList.add('is-demo');
+  document.body.prepend(h('div', { id: 'demo-banner', class: 'demo-banner' },
+    h('b', {}, 'DEMO MODE'), ` · ${mode === 'fresh' ? 'fresh start' : 'copy of your data'} · nothing you do here is saved — your real progress is untouched`,
+    h('button', { class: 'btn sm', onclick: quitApp }, 'End demo')));
+}
+
+async function openDemoDialog() {
+  const { modal } = await import('./ui.js');
+  const choice = await modal({
+    title: 'Demo mode',
+    body: h('div', { class: 'col' },
+      h('p', { class: 'muted' }, 'Opens a second Parlera in its own window that works on a temporary copy. Show it to others, try any feature, change settings or prompts — when the demo ends, the copy is deleted and your real progress, sessions, prompts and settings are exactly as before.'),
+      h('div', { class: 'callout' }, icon('info'), h('div', {}, 'Anki is switched off in the demo, so no cards land in your decks. The same language model is used, so the first reply may take a moment.'))),
+    actions: [{ label: 'Cancel' }, { label: 'Fresh start', value: 'fresh' }, { label: 'Copy of my data', class: 'primary', value: 'copy' }],
+  }).done;
+  if (!choice) return;
+  toast('Starting the demo…', 'info', 3000);
+  try {
+    const r = await api.post('/api/demo/start', { mode: choice });
+    toast(h('span', {}, 'Demo opened in a new window. If it didn\'t appear: ', h('a', { href: r.url, target: '_blank', style: { color: 'inherit', textDecoration: 'underline' } }, r.url)), 'success', 9000);
+  } catch (e) { toast(e.message, 'error', 7000); }
+}
+
 async function quitApp() {
   const { confirmDialog } = await import('./ui.js');
-  if (!(await confirmDialog('Stop Parlera? Everything is already saved, and unfinished sessions can be resumed next time. The language model is unloaded from memory.', { title: 'Quit Parlera', ok: 'Quit' }))) return;
+  const demo = state.status?.demo;
+  const msg = demo ? 'End the demo? Its temporary copy is deleted. Your real data was never changed.'
+    : 'Stop Parlera? Everything is already saved, and unfinished sessions can be resumed next time. The language model is unloaded from memory.';
+  if (!(await confirmDialog(msg, { title: demo ? 'End demo' : 'Quit Parlera', ok: demo ? 'End demo' : 'Quit' }))) return;
   let r = { ok: false };
   try { r = await api.post('/api/shutdown'); } catch { r = { ok: true }; }
   if (!r.ok) { toast(r.detail || 'Could not stop the server.', 'error', 6000); return; }
   document.body.innerHTML = `<div style="height:100vh;display:grid;place-items:center;font-family:-apple-system,sans-serif;background:var(--bg);color:var(--ink)">
-    <div style="text-align:center"><img src="/static/favicon.svg" width="64" height="64" alt=""><h2>Parlera has stopped</h2>
-    <p style="color:var(--ink-2)">Your progress is saved. You can close this tab.</p></div></div>`;
+    <div style="text-align:center"><img src="/static/favicon.svg" width="64" height="64" alt=""><h2>${demo ? 'Demo ended' : 'Parlera has stopped'}</h2>
+    <p style="color:var(--ink-2)">${demo ? 'The temporary copy was deleted. You can close this window.' : 'Your progress is saved. You can close this tab.'}</p></div></div>`;
 }
 
 function updateBreakLabel() {
