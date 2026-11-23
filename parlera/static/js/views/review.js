@@ -2,6 +2,8 @@
 import { api, state, LANGS, GENDERS } from '../api.js';
 import { h, icon, mount, loading, toast, fmtDate, fmtDuration, progressBar, download, empty, spinner } from '../ui.js';
 import { renderMarkdown } from '../markdown.js';
+
+const inlineMd = (x) => renderMarkdown(x).replace(/<\/?p>/g, '');
 import { navigate, refreshStatusSoon } from '../nav.js';
 import { startSession } from './start.js';
 
@@ -31,12 +33,12 @@ export default async function review(main, { id }) {
   // --- feedback ---
   const feedback = h('div', { class: 'card' },
     h('h3', {}, `Feedback from ${L.tutor}`),
-    h('p', {}, a.feedback),
+    h('div', { class: 'prose', html: renderMarkdown(a.feedback) }),
     h('div', { class: 'grid c2 mt' },
       h('div', {}, h('div', { class: 'section-label', style: { marginTop: 0 } }, 'What went well'),
-        h('div', { class: 'col', style: { gap: '6px' } }, (a.strengths || []).map((x) => h('div', { class: 'goal' }, icon('checkCircle', 15), x)))),
+        h('div', { class: 'col', style: { gap: '6px' } }, (a.strengths || []).map((x) => h('div', { class: 'goal' }, icon('checkCircle', 15), h('span', { html: inlineMd(x) }))))),
       h('div', {}, h('div', { class: 'section-label', style: { marginTop: 0 } }, 'Practise next'),
-        h('div', { class: 'col', style: { gap: '6px' } }, (a.focus_next || []).map((x) => h('div', { class: 'goal' }, icon('target', 15), x))))));
+        h('div', { class: 'col', style: { gap: '6px' } }, (a.focus_next || []).map((x) => h('div', { class: 'goal' }, icon('target', 15), h('span', { html: inlineMd(x) })))))));
 
   // --- progress ---
   const progressCards = [];
@@ -78,7 +80,7 @@ export default async function review(main, { id }) {
     a.errors?.length ? a.errors.map((e) => h('div', { class: 'err' },
       h('div', { class: 'row wrap small' }, h('span', { class: 'badge' }, e.category), h('b', {}, e.pattern)),
       h('div', {}, h('span', { class: 'wrong' }, e.wrong), '  →  ', h('span', { class: 'right' }, e.right)),
-      h('div', { class: 'small muted' }, e.explanation)))
+      h('div', { class: 'small muted', html: inlineMd(e.explanation || '') })))
       : h('div', { class: 'muted' }, 'No significant mistakes — great job!'));
 
   // --- vocab candidates ---

@@ -10,6 +10,8 @@ turns each session's most useful vocabulary into **Anki flashcards** automatical
 | 🇫🇷 French | Élodie | A1 → B2 (refresh school French) | DELF |
 | 🇬🇧 English | Oliver (former IELTS examiner) | B2 → C2, starts at C1 | IELTS Academic, TOEFL iBT, Duolingo English Test |
 
+You can rename the teachers and choose whether each one is a woman or a man in *Settings → Your teachers*. The voice follows automatically.
+
 *"Parlera" means "will speak" in French and "to chat" in Swedish.*
 
 Nothing leaves your computer: the language model runs in [Ollama](https://ollama.com), speech
@@ -40,6 +42,18 @@ the next session. All prompts, curricula and your data live in plain files you c
 
 **Pronunciation feedback.** Whisper's per-word confidence, plus a comparison when you repeat a modelled phrase, flags words that didn't sound right. They're underlined in your message and the tutor gives you a targeted tip. There's a dedicated *Pronunciation* session type too. See [How pronunciation feedback works](#how-pronunciation-feedback-works).
 
+**Teaching grounded in language-learning research**
+- Lessons follow a proven arc. At A1/A2 it runs: recall from last time → a short model situation → useful phrases in small chunks → notice the grammar yourself → quick drills → a real mini task → feedback and a 3-question exit quiz. From B1 (and in the English course) it's *task first*: try the task, learn what was missing, then do it again with a twist.
+- The teacher balances Paul Nation's four strands (input, speaking, language focus, fluency), makes you *recall* rather than re-hear, and recycles missed items a few turns later and again at the end.
+- Corrections follow a ladder: first a hint so you can fix it yourself (self-repair sticks better), then the correct form if you're stuck. Small slips are recast quietly, and during role-plays and tasks the feedback waits until afterwards.
+- Role-plays run as prepare → play → feedback → replay with a twist. *Review & quiz* sessions are spoken quiz rounds with a score, mixed and spaced.
+
+**Practice: short sessions without speaking** (sidebar → *Practice*)
+- **Quick games** run on your computer without the language model, so they start instantly: *Quick mix*, *Flashcards*, *Match pairs*, *Multiple choice*, *Fill the gap* (real sentences), *Build the sentence*, *Type it*, *Gender sprint* (en/ett, le/la) and *Fix my mistakes* (sentences you got wrong in sessions).
+- Practise your current unit, your own words, a mix, or **My misses**: items you got wrong come back until you get them right twice in a row. Missed unit words can be added to your vocabulary (and Anki) with one click.
+- **Grammar explained**: pick a grammar point from your curriculum (or the *Explain* button in a unit) or ask about anything. The analysis model, which can *think*, writes a short lecture: the idea, how and why it works, step-by-step examples you can listen to, a table, a comparison with English, typical mistakes, memory tips and an interactive quiz. Ask follow-up questions, then press *Practise with Astrid* to use it in a spoken lesson. Lectures are saved.
+- Games count towards your streak and practice minutes.
+
 **Mistake workshop**
 - Every mistake from your session reviews is stored with its real examples.
 - Once a week (adjustable), the dashboard offers a workshop. The model can *think* while it groups your recent mistakes by underlying principle and works out why you make them, explaining each rule with your own examples.
@@ -48,7 +62,7 @@ the next session. All prompts, curricula and your data live in plain files you c
 
 **Curriculum and progress**
 - Swedish and French: 31 units each, A1 to B2. English: 19 units, B2 to C2. Every unit has can-do goals, grammar, vocabulary, phrases, pronunciation and culture notes. Aimed at **DELF** (French), **Swedex / TISUS** (Swedish) and **IELTS / TOEFL / Duolingo English Test** (English).
-- Session types: guided lesson, conversation, role-play, review, pronunciation, exam simulation (scored), writing practice, placement check and free talk.
+- Session types: guided lesson, conversation, role-play, review & quiz, pronunciation, exam simulation (scored), writing practice, placement check and free talk.
 - After each session: feedback, a list of your mistakes, unit mastery, level estimate, exam score, and a suggestion to move on when you're ready.
 - Recurring mistakes and weak Anki cards flow into later sessions automatically.
 
@@ -66,7 +80,8 @@ the next session. All prompts, curricula and your data live in plain files you c
 - If you don't want to use AnkiConnect, you can export an `.apkg` or CSV instead.
 
 **Everything is editable**
-- **Teacher prompts:** an editor in the app with a live preview of the full system prompt.
+- **Your teachers:** name and gender per language (the voice is matched to the gender).
+- **Teacher prompts:** an editor in the app with a live preview of the full system prompt (formatted or as source).
 - **Curriculum:** a YAML editor with validation.
 - **Settings:** models, voices, speed, how much target language the tutor uses, Anki decks and more.
 - **Backup and restore:** one zip file, plus automatic daily database backups.
@@ -297,10 +312,15 @@ it again, e.g. on a new Mac.
 
 Open **Teacher prompts** in the app. The system prompt for a session is built from:
 
-1. `tutor_base`: teaching rules (turn length, language mix, corrections, bold marking)
-2. `persona_sv` / `persona_fr`: who the teacher is and what to emphasise for that language
+1. `tutor_base`: teaching rules (turn length, language mix, teaching principles, spoken activities, the correction ladder, bold marking)
+2. `persona_sv` / `persona_fr` / `persona_en`: who the teacher is (personality, background) and what to emphasise for that language
 3. `context`: your profile, memories, current unit, recent sessions, weak words and mistakes
 4. `mode_*`: the session type (lesson, exam, role-play…)
+
+The teacher's **name and gender** come from *Settings → Your teachers* (the prompts use
+`{{ teacher_name }}` and `{{ teacher_gender }}`), so you don't need to edit a prompt to rename them.
+If you edited a prompt before an update, your version is kept; press **Reset** on that prompt to get
+the new default.
 
 Use **Preview** to see the final prompt for any session type. Keep the rule that target-language
 text goes in `**bold**`: the voice engine uses it to choose the right voice.

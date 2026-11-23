@@ -47,10 +47,25 @@ export async function loadStatus() {
   return state.status;
 }
 
+// Teachers are configurable (Settings → Your teachers); these are only the defaults.
+export const DEFAULT_TEACHERS = {
+  sv: { name: 'Astrid', gender: 'female' },
+  fr: { name: 'Élodie', gender: 'female' },
+  en: { name: 'Oliver', gender: 'male' },
+};
+
+export function teacher(lang = state.language) {
+  const t = state.settings?.teachers?.[lang] || {};
+  const d = DEFAULT_TEACHERS[lang] || { name: 'Teacher', gender: 'female' };
+  return { name: (t.name || '').trim() || d.name, gender: ['female', 'male'].includes(t.gender) ? t.gender : d.gender };
+}
+
+const lang = (code, info) => ({ ...info, get tutor() { return teacher(code).name; }, get tutorGender() { return teacher(code).gender; } });
+
 export const LANGS = {
-  sv: { name: 'Swedish', native: 'Svenska', flag: '🇸🇪', hello: 'Hej', tutor: 'Astrid' },
-  fr: { name: 'French', native: 'Français', flag: '🇫🇷', hello: 'Bonjour', tutor: 'Élodie' },
-  en: { name: 'English', native: 'English', flag: '🇬🇧', hello: 'Hello', tutor: 'Oliver' },
+  sv: lang('sv', { name: 'Swedish', native: 'Svenska', flag: '🇸🇪', hello: 'Hej' }),
+  fr: lang('fr', { name: 'French', native: 'Français', flag: '🇫🇷', hello: 'Bonjour' }),
+  en: lang('en', { name: 'English', native: 'English', flag: '🇬🇧', hello: 'Hello' }),
 };
 
 // gender options per language (English nouns have none)

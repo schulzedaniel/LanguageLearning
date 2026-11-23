@@ -11,9 +11,12 @@ import history from './views/history.js';
 import memory from './views/memory.js';
 import prompts from './views/prompts.js';
 import settings from './views/settings.js';
+import practice from './views/practice.js';
+import lecture from './views/lecture.js';
 
 const ROUTES = [
   { path: '', view: dashboard, nav: 'Home', icon: 'home' },
+  { path: 'practice', view: practice, nav: 'Practice', icon: 'puzzle' },
   { path: 'curriculum', view: curriculum, nav: 'Curriculum', icon: 'book' },
   { path: 'vocab', view: vocab, nav: 'Vocabulary', icon: 'cards' },
   { path: 'history', view: history, nav: 'Sessions', icon: 'clock' },
@@ -21,6 +24,8 @@ const ROUTES = [
   { sep: true },
   { path: 'prompts', view: prompts, nav: 'Teacher prompts', icon: 'pen' },
   { path: 'settings', view: settings, nav: 'Settings', icon: 'gear' },
+  { path: 'practice/:tab', view: practice },
+  { path: 'lecture/:id', view: lecture },
   { path: 'session/:id', view: session },
   { path: 'review/:id', view: review },
 ];
@@ -60,7 +65,7 @@ function renderNav(active) {
   const nav = document.getElementById('nav');
   mount(nav, ROUTES.filter((r) => r.nav || r.sep).map((r) => r.sep
     ? h('div', { class: 'nav-sep' })
-    : h('a', { href: '#/' + r.path, class: active === r || (active.path.startsWith('session') && r.path === '') ? 'active' : '' }, icon(r.icon), r.nav)));
+    : h('a', { href: '#/' + r.path, class: active === r || (active.path.startsWith('session') && r.path === '') || ((active.path.startsWith('practice/') || active.path.startsWith('lecture')) && r.path === 'practice') ? 'active' : '' }, icon(r.icon), r.nav)));
 }
 
 function renderLangSwitch() {

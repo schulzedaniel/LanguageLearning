@@ -33,20 +33,33 @@ PREFERRED_LOCALE = {"fr": "fr_FR", "sv": "sv_SE", "en": "en_US"}
 MACOS_GOOD_VOICES = {
     "sv": ["Alva", "Klara", "Oskar"],
     "fr": ["Thomas", "Audrey", "Aurélie", "Amélie", "Marie", "Jacques"],
-    "en": ["Ava", "Zoe", "Samantha", "Allison", "Evan", "Tom", "Daniel", "Serena"],
+    "en": ["Ava", "Zoe", "Jamie", "Serena", "Samantha", "Allison", "Evan", "Nathan", "Tom", "Daniel", "Oliver", "Kate"],
+}
+# macOS system voices by gender (``say -v ?`` doesn't report it). Used to match the teacher's voice.
+MACOS_GENDER = {
+    **{n: "female" for n in (
+        "Alva", "Klara", "Sara", "Ava", "Zoe", "Samantha", "Allison", "Susan", "Serena", "Kate", "Stephanie",
+        "Karen", "Moira", "Tessa", "Fiona", "Veena", "Victoria", "Isha", "Matilda", "Catherine", "Nicky",
+        "Joelle", "Noelle", "Martha", "Lekha", "Amélie", "Audrey", "Aurélie", "Marie", "Chantal", "Kathy",
+        "Shelley", "Sandy", "Flo", "Grandma")},
+    **{n: "male" for n in (
+        "Oskar", "Thomas", "Jacques", "Nicolas", "Daniel", "Tom", "Evan", "Alex", "Aaron", "Nathan", "Oliver",
+        "Arthur", "Jamie", "Lee", "Gordon", "Rishi", "Malcolm", "Fred", "Reed", "Rocko", "Eddy", "Ralph",
+        "Grandpa")},
 }
 MACOS_NOVELTY = {"Albert", "Bad News", "Bahh", "Bells", "Boing", "Bubbles", "Cellos", "Good News", "Jester",
                  "Organ", "Superstar", "Trinoids", "Whisper", "Wobble", "Zarvox", "Fred", "Junior", "Kathy",
                  "Ralph", "Grandma", "Grandpa", "Rocko", "Shelley", "Sandy", "Flo", "Eddy", "Reed"}
 
 PIPER_CATALOG = [
-    {"name": "fr_FR-siwis-medium", "lang": "fr", "path": "fr/fr_FR/siwis/medium", "desc": "French, female"},
-    {"name": "fr_FR-tom-medium", "lang": "fr", "path": "fr/fr_FR/tom/medium", "desc": "French, male"},
-    {"name": "fr_FR-upmc-medium", "lang": "fr", "path": "fr/fr_FR/upmc/medium", "desc": "French, 2 speakers"},
-    {"name": "sv_SE-nst-medium", "lang": "sv", "path": "sv/sv_SE/nst/medium", "desc": "Swedish, male"},
-    {"name": "en_US-lessac-medium", "lang": "en", "path": "en/en_US/lessac/medium", "desc": "English (US), female"},
-    {"name": "en_GB-alba-medium", "lang": "en", "path": "en/en_GB/alba/medium", "desc": "English (UK), female"},
-    {"name": "en_US-ryan-medium", "lang": "en", "path": "en/en_US/ryan/medium", "desc": "English (US), male"},
+    {"name": "fr_FR-siwis-medium", "lang": "fr", "path": "fr/fr_FR/siwis/medium", "desc": "French, female", "gender": "female"},
+    {"name": "fr_FR-tom-medium", "lang": "fr", "path": "fr/fr_FR/tom/medium", "desc": "French, male", "gender": "male"},
+    {"name": "fr_FR-upmc-medium", "lang": "fr", "path": "fr/fr_FR/upmc/medium", "desc": "French, 2 speakers", "gender": ""},
+    {"name": "sv_SE-nst-medium", "lang": "sv", "path": "sv/sv_SE/nst/medium", "desc": "Swedish, male", "gender": "male"},
+    {"name": "en_US-lessac-medium", "lang": "en", "path": "en/en_US/lessac/medium", "desc": "English (US), female", "gender": "female"},
+    {"name": "en_GB-alba-medium", "lang": "en", "path": "en/en_GB/alba/medium", "desc": "English (UK), female", "gender": "female"},
+    {"name": "en_GB-alan-medium", "lang": "en", "path": "en/en_GB/alan/medium", "desc": "English (UK), male", "gender": "male"},
+    {"name": "en_US-ryan-medium", "lang": "en", "path": "en/en_US/ryan/medium", "desc": "English (US), male", "gender": "male"},
 ]
 PIPER_BASE = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
 
@@ -63,7 +76,21 @@ KOKORO_VOICES = [
     {"name": "am_fenrir", "lang": "en", "desc": "American English, male"},
     {"name": "ff_siwis", "lang": "fr", "desc": "French, female"},
 ]
+for _v in KOKORO_VOICES:
+    _v["gender"] = "female" if _v["name"][1] == "f" else "male"
 SERVER_ENGINES = ("macos", "piper", "kokoro")
+
+
+def voice_gender(engine: str, name: str) -> str:
+    """'female', 'male' or '' (unknown) for a voice name of the given engine."""
+    if not name:
+        return ""
+    if engine == "kokoro":
+        return {"f": "female", "m": "male"}.get(name[1:2], "")
+    if engine == "piper":
+        entry = next((v for v in PIPER_CATALOG if v["name"] == name), None)
+        return entry.get("gender", "") if entry else ""
+    return MACOS_GENDER.get(name.split(" (")[0].strip(), "")
 
 
 class TTSError(RuntimeError):
@@ -140,7 +167,7 @@ class TTSManager:
                     base = name.split(" (")[0]
                     if base in MACOS_NOVELTY:
                         continue
-                    voices.append({"name": name, "locale": m.group("loc"),
+                    voices.append({"name": name, "locale": m.group("loc"), "gender": MACOS_GENDER.get(base, ""),
                                    "quality": 2 if "Premium" in name else 1 if "Enhanced" in name else 0})
         self._macos_voices = voices
         return voices
@@ -149,7 +176,8 @@ class TTSManager:
         out = []
         for f in sorted(self.voices_dir.glob("*.onnx")):
             lang = f.stem.split("_")[0]
-            out.append({"name": f.stem, "locale": f.stem.split("-")[0], "lang": lang})
+            out.append({"name": f.stem, "locale": f.stem.split("-")[0], "lang": lang,
+                        "gender": voice_gender("piper", f.stem)})
         return out
 
     def voices(self, engine: str, lang: str) -> list[dict]:
@@ -162,45 +190,75 @@ class TTSManager:
             return [v for v in KOKORO_VOICES if v["lang"] == lang]
         return []
 
-    def _macos_voice(self, lang: str) -> str | None:
-        chosen = (self.cfg["voices"].get("macos") or {}).get(lang)
-        if chosen:
+    def teacher_gender(self, speaker: str | None) -> str:
+        """Gender of the teacher who is speaking (Settings → Your teachers)."""
+        if not speaker:
+            return ""
+        t = (self._settings().get("teachers") or {}).get(speaker) or {}
+        return t.get("gender") if t.get("gender") in ("female", "male") else ""
+
+    def pick_voice(self, engine: str, lang: str, speaker: str | None = None) -> str:
+        """The voice for `lang`, spoken by the teacher of language `speaker` (default: lang's own teacher).
+
+        - A voice chosen in Settings always wins for the teacher's own language.
+        - For the other language (e.g. the English explanations in a Swedish lesson) it is only used
+          when its gender matches the teacher; otherwise a matching voice is picked automatically.
+        - "Auto" picks the best installed voice of the teacher's gender.
+        """
+        speaker = speaker or lang
+        gender = self.teacher_gender(speaker)
+        chosen = ((self.cfg.get("voices") or {}).get(engine) or {}).get(lang) or ""
+        if chosen and (speaker == lang or not gender or voice_gender(engine, chosen) in ("", gender)):
             return chosen
-        vs = self.voices("macos", lang)
+        vs = self.voices(engine, lang)
+        if engine == "piper":
+            installed = {v["name"] for v in vs}
+            if chosen and chosen in installed and not any(v["gender"] == gender for v in vs):
+                return chosen
         if not vs:
-            return None
+            return chosen
         good = MACOS_GOOD_VOICES.get(lang, [])
 
         def rank(v: dict) -> tuple:
+            g = v.get("gender") or voice_gender(engine, v["name"])
             base = v["name"].split(" (")[0]
-            return (-v["quality"], v["locale"] != PREFERRED_LOCALE[lang],
+            return (0 if not gender or g == gender else 1 if not g else 2,
+                    -v.get("quality", 0), v.get("locale", PREFERRED_LOCALE[lang]) != PREFERRED_LOCALE[lang],
                     good.index(base) if base in good else 99)
-        return sorted(vs, key=rank)[0]["name"]
+        best = sorted(vs, key=rank)[0]
+        if chosen and gender and (best.get("gender") or voice_gender(engine, best["name"])) != gender:
+            return chosen  # nothing better available
+        return best["name"]
+
+    def _macos_voice(self, lang: str, speaker: str | None = None) -> str | None:
+        return self.pick_voice("macos", lang, speaker) or None
 
     # -- synthesis ----------------------------------------------------------
-    def synth(self, text: str, lang: str, rate: float = 1.0) -> bytes:
+    def synth(self, text: str, lang: str, rate: float = 1.0, speaker: str | None = None) -> bytes:
+        """Speak `text` in `lang`; `speaker` is the language whose teacher is talking (matches the voice's gender)."""
         text = (text or "").strip()
         if not text:
             return b""
         engine = self.engine_for(lang)
         speed = float(self.cfg.get("speed", 1.0)) * rate
         if engine == "macos":
-            voice = self._macos_voice(lang)
+            voice = self._macos_voice(lang, speaker)
             key = f"macos|{voice}|{speed:.2f}|{text}"
             return self._cached(key, lambda: self._say(text, voice, speed))
         if engine == "piper":
-            voice = (self.cfg["voices"].get("piper") or {}).get(lang) or ""
+            voice = self.pick_voice("piper", lang, speaker)
             key = f"piper|{voice}|{speed:.2f}|{text}"
             return self._cached(key, lambda: self._piper_synth(text, voice, speed))
         if engine == "kokoro":
-            voice = (self.cfg["voices"].get("kokoro") or {}).get(lang) or ""
+            voice = self.pick_voice("kokoro", lang, speaker)
             key = f"kokoro|{voice}|{speed:.2f}|{text}"
             return self._cached(key, lambda: self._kokoro_synth(text, voice, speed))
         raise TTSError(f"TTS engine '{engine}' does not produce audio on the server.")
 
-    def synth_segments(self, segments: list[dict], rates: dict[str, float] | None = None) -> bytes:
+    def synth_segments(self, segments: list[dict], rates: dict[str, float] | None = None,
+                       speaker: str | None = None) -> bytes:
         rates = rates or {}
-        return concat_wavs([self.synth(s["text"], s["lang"], rates.get(s["lang"], 1.0)) for s in segments])
+        return concat_wavs([self.synth(s["text"], s["lang"], rates.get(s["lang"], 1.0), speaker) for s in segments])
 
     def _cached(self, key: str, fn: Callable[[], bytes]) -> bytes:
         h = hashlib.sha1(key.encode("utf-8")).hexdigest()

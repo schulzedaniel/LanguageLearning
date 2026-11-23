@@ -10,15 +10,23 @@
  ],
  "prompts/analysis_session.md": [
   "4308f6e21cd27d25ea3adfa2b60180f16af3648a3b0bc7d484194a979671fd8f",
+  "4ddcb8f8f50ccb81fafc2316ab95950b18e9bf0cd84243bd38f144db5f32f857",
   "879d821c946adc839375fc9e5223c76e8c298b411e9cad4829ea59a143ad3dad"
  ],
  "prompts/analysis_vocab.md": [
   "5196fe17a8b668ce98221944db4f557e63ca34499f7341a2f0db876e310e7704",
   "b4ddc106415315c88f4e1e3611c07114c52a6302d42c14630697167cf3214b68"
  ],
+ "prompts/analysis_workshop.md": [
+  "118beedb4fbf99628b920b0404ebac66b31ad1837db4706557bb2fe5b665c4d3"
+ ],
  "prompts/context.md": [
   "1e9e18cb1b2be956b9e9a252238ca358aaae8452083d2794d6aa2a4d7b6da6cd",
-  "656bc29296a6c84a940847c4d3bd662beeb786544263812adeee43571b936e30"
+  "656bc29296a6c84a940847c4d3bd662beeb786544263812adeee43571b936e30",
+  "7006b189d0240fd65e145b5a46b5c6be0086f481336485178dc74194d33afa44"
+ ],
+ "prompts/mode_break.md": [
+  "54c31eb0325139fc0351add994e716722e5cf7eb8a9d4621d684171131971036"
  ],
  "prompts/mode_conversation.md": [
   "7edad66ff577264c8554c5b72783779b59d1f2a3e11554c0d072688638226eac"
@@ -46,6 +54,9 @@
  "prompts/mode_roleplay.md": [
   "022ed8025ebd9312745a989b3aa3f9ea56e6eff6be4f89a58081c86d6c2a8269"
  ],
+ "prompts/mode_workshop.md": [
+  "dada94bdafa5b4feda521506cb8af7ea3350a83dfb8aa79abeff42690045a966"
+ ],
  "prompts/mode_writing.md": [
   "9a80c10b92574fb247768dd28bb8f51f10bedddff9d616a820c14e894cf5e243"
  ],
@@ -63,6 +74,9 @@
  ],
  "prompts/resume.md": [
   "d7c6cc12f1c36ed51961cd306a72b46327e26da9fe09677f4382647ca381ad51"
+ ],
+ "prompts/teacher_note.md": [
+  "e721a19ceb78d2dea1babe39d4e0306a5225b52b2c4ab82566ece9d7272e1c1c"
  ],
  "prompts/translate.md": [
   "5d47690d8d6363bb636aa5f5ca666fbcb70873f09062da29dba4714e929bd32a",
