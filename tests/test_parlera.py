@@ -484,4 +484,7 @@ def test_known_hashes_cover_git_history():
         for f in files:
             data = subprocess.run(["git", "show", f"{c}:{f}"], cwd=ROOT, capture_output=True).stdout
             rel = f[len("parlera/defaults/"):]
+            current = DEFAULTS_DIR / rel
+            if current.exists() and file_hash(current.read_bytes()) == file_hash(data):
+                continue  # this is the current default
             assert file_hash(data) in known.get(rel, []), f"{rel}@{c[:7]} missing — run tools/update_default_hashes.py"
