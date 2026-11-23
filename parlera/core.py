@@ -631,6 +631,33 @@ class Parlera:
             "created_at": ts, "updated_at": ts, "model": self.settings.get("llm.model")})
         return self.db.session(sid)
 
+    def unit_status(self, language: str, unit_id: str | None = None) -> dict:
+        """Where a unit stands, in plain numbers: position in its level and the course, and the two
+        conditions for completing it (enough reviewed sessions, enough mastery)."""
+        cur = self.curricula.get(language)
+        unit = (self.curricula.unit(language, unit_id) if unit_id else None) or self.current_unit(language)
+        prog = self.db.ensure_unit(language, unit["id"])
+        pmap = self.db.unit_progress_map(language)
+        level_units = [u for u in cur["units"] if u["level"] == unit["level"]]
+        threshold = float(self.settings.get("curriculum.advance_threshold", 0.75))
+        min_sessions = int(unit.get("min_sessions", 1))
+        open_sessions = [s for s in self.db.all(
+            "SELECT * FROM sessions WHERE language=? AND unit_id=? AND status='active' AND mode IN (%s)"
+            % ",".join("?" * len(UNIT_MODES)), [language, unit["id"], *sorted(UNIT_MODES)]) if not self.is_archived(s)]
+        return {
+            "unit_id": unit["id"], "title": unit["title"], "level": unit["level"],
+            "number_in_level": level_units.index(unit) + 1 if unit in level_units else 0,
+            "level_total": len(level_units),
+            "level_done": sum(1 for u in level_units if pmap.get(u["id"], {}).get("status") == "completed"),
+            "number_in_course": unit["index"] + 1, "course_total": len(cur["units"]),
+            "status": prog.get("status", "active"),
+            "sessions_reviewed": prog.get("sessions", 0), "min_sessions": min_sessions,
+            "sessions_ok": prog.get("sessions", 0) >= min_sessions,
+            "mastery": prog.get("mastery", 0.0), "threshold": threshold,
+            "mastery_ok": prog.get("mastery", 0.0) >= threshold,
+            "open_sessions": len(open_sessions),
+        }
+
     def is_archived(self, s: dict) -> bool:
         """Manual choice wins; otherwise sessions without activity for history.archive_after_days are archived."""
         if s.get("archived") is not None:

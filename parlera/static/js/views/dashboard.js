@@ -2,6 +2,7 @@ import { api, state, LANGS } from '../api.js';
 import { h, icon, mount, loading, progressBar, fmtDate, fmtDuration, empty } from '../ui.js';
 import { navigate } from '../nav.js';
 import { openStartDialog, startSession, startWorkshop } from './start.js';
+import { unitChecklist } from './progress.js';
 
 const MODE_LABEL = { lesson: 'Lesson', conversation: 'Conversation', roleplay: 'Role-play', review: 'Review', exam: 'Exam', writing: 'Writing', placement: 'Placement', free: 'Free talk', pronunciation: 'Pronunciation', workshop: 'Workshop', break: 'Chat break' };
 
@@ -12,6 +13,7 @@ export default async function dashboard(main) {
   const [d, status] = await Promise.all([api.get(`/api/dashboard/${lang}`), api.get('/api/status').catch(() => null)]);
   const unit = d.unit;
   const prog = d.unit_progress || {};
+  const us = d.unit_status;
   const name = state.settings.learner?.name;
   const firstTime = d.stats.sessions === 0;
 
@@ -19,11 +21,14 @@ export default async function dashboard(main) {
 
   const hero = h('div', { class: 'card hero' },
     h('div', { class: 'hero-main' },
-      h('div', { class: 'row' }, h('span', { class: 'level-pill' }, unit.level), h('span', { class: 'faint small' }, `Unit ${unit.index + 1} of ${d.stats.levels.reduce((a, l) => a + l.total, 0)}`)),
+      h('div', { class: 'row' }, h('span', { class: 'level-pill' }, unit.level),
+        h('span', { class: 'small muted' }, `Unit ${us.number_in_level} of ${us.level_total} in ${unit.level}`),
+        h('span', { class: 'tiny faint' }, `· ${us.level_done} of ${us.level_total} done`)),
       h('h2', {}, unit.title),
       h('div', { class: 'muted' }, unit.topic),
-      h('div', { class: 'row mt', style: { maxWidth: '420px' } }, h('div', { class: 'grow' }, progressBar(prog.mastery || 0)),
-        h('span', { class: 'small muted' }, `${Math.round((prog.mastery || 0) * 100)}% · ${prog.sessions || 0} session${prog.sessions === 1 ? '' : 's'}`)),
+      h('div', { class: 'mt', style: { maxWidth: '460px' } },
+        h('div', { class: 'section-label', style: { margin: '0 0 6px' } }, 'To complete this unit'), unitChecklist(us)),
+      d.open_lesson ? h('div', { class: 'small mt', style: { color: 'var(--ink-2)' } }, icon('clock', 13), ` You have an unfinished lesson from ${fmtDate(d.open_lesson.created_at)} (${d.open_lesson.turns} turn${d.open_lesson.turns === 1 ? '' : 's'}). "Continue lesson" picks it up.`) : null,
       h('div', { class: 'modes' },
         h('button', { class: 'btn primary lg', onclick: () => startSession({ mode: 'lesson' }) }, icon('play', 16), d.open_lesson || prog.sessions ? 'Continue lesson' : 'Start lesson'),
         h('button', { class: 'btn', onclick: () => startSession({ mode: 'conversation' }) }, icon('chat', 16), 'Conversation'),

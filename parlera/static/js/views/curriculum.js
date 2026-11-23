@@ -2,6 +2,7 @@
 import { api, state, LANGS } from '../api.js';
 import { h, icon, mount, loading, toast, confirmDialog, progressBar } from '../ui.js';
 import { startSession, openStartDialog } from './start.js';
+import { unitChecklist, statusFromProgress } from './progress.js';
 
 export default async function curriculum(main) {
   const lang = state.language;
@@ -15,7 +16,8 @@ export default async function curriculum(main) {
       const done = lv.units.filter((u) => data.progress[u.id]?.status === 'completed').length;
       return h('section', {},
         h('div', { class: 'level-head' }, h('span', { class: 'level-pill' }, lv.code), h('h2', {}, lv.title),
-          h('span', { class: 'small faint' }, `${done}/${lv.units.length} units`),
+          h('span', { class: 'small muted' }, `${done} of ${lv.units.length} units done`),
+          h('div', { style: { width: '120px' } }, progressBar(lv.units.length ? done / lv.units.length : 0, 'thin good')),
           lv.exam?.name ? h('span', { class: 'badge', title: lv.exam.format || '' }, icon('award', 12), lv.exam.name) : null),
         lv.description ? h('p', { class: 'muted small', style: { marginTop: '-6px' } }, lv.description) : null,
         h('div', { class: 'units' }, lv.units.map((u) => unitCard(u))));
@@ -38,7 +40,8 @@ export default async function curriculum(main) {
         completed ? h('span', { class: 'badge good' }, icon('check', 12), 'done') : isCurrent ? h('span', { class: 'badge accent' }, 'current') : null),
       h('div', { class: 't' }, u.title),
       h('div', { class: 'small faint', style: { flex: 1 } }, u.topic),
-      p ? h('div', { class: 'row' }, h('div', { class: 'grow' }, progressBar(p.mastery, 'thin')), h('span', { class: 'tiny faint' }, `${Math.round(p.mastery * 100)}%`)) : null);
+      p && (p.sessions || p.status === 'completed') ? unitChecklist(statusFromProgress(u, p, data.threshold ?? 0.75), { compact: true })
+        : isCurrent ? h('div', { class: 'tiny faint' }, 'Not started yet') : null);
   }
 
   function openUnit(u) {
@@ -59,7 +62,8 @@ export default async function curriculum(main) {
           h('h2', { class: 'mt' }, u.title), h('div', { class: 'muted small' }, u.topic)),
         h('button', { class: 'btn ghost icon', onclick: () => { drawer.remove(); drawer = null; } }, icon('x'))),
       h('div', { class: 'drawer-body' },
-        p.sessions ? h('div', { class: 'row' }, h('div', { class: 'grow' }, progressBar(p.mastery)), h('span', { class: 'small' }, `${Math.round(p.mastery * 100)}% · ${p.sessions} sessions`)) : h('div', { class: 'small faint' }, 'Not started yet.'),
+        h('div', { class: 'section-label', style: { marginTop: '4px' } }, 'To complete this unit'),
+        unitChecklist(statusFromProgress(u, p, data.threshold ?? 0.75)),
         ...list('Can-do goals', u.can_do, (g) => h('span', { class: 'goal' }, icon('target', 14), g)),
         ...list('Grammar', u.grammar, (g) => h('span', { class: 'row between', style: { width: '100%' } }, h('span', {}, g),
           h('button', { class: 'btn ghost sm', title: 'A short lecture on this grammar point (Practice → Grammar explained)', onclick: async () => { const { explainGrammar } = await import('./practice.js'); explainGrammar(lang, g, u.id); } }, icon('lightbulb', 13), 'Explain'))),

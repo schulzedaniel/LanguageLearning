@@ -23,7 +23,7 @@ from starlette.background import BackgroundTask
 from . import __version__, practice
 from .anki import AnkiError, display_word
 from .config import DEFAULTS_DIR, LANGUAGES, STATIC_DIR
-from .core import Parlera
+from .core import UNIT_MODES, Parlera
 from .curriculum import CurriculumError
 from .db import norm, now
 from .llm import LLMError
@@ -275,6 +275,7 @@ def create_app(root: Path | None = None) -> FastAPI:
             "exam": core.exam_for_level(language, unit["level"]),
             "workshop": core.workshop_status(language),
             "open_lesson": core.open_session(language, "lesson"),
+            "unit_status": core.unit_status(language),
         }
 
     @app.put("/api/learner/{language}")
@@ -299,7 +300,8 @@ def create_app(root: Path | None = None) -> FastAPI:
         data = core.curricula.get(language)
         learner = core.learner(language)
         return {"curriculum": data, "progress": core.db.unit_progress_map(language),
-                "current_unit_id": learner["current_unit_id"]}
+                "current_unit_id": learner["current_unit_id"],
+                "threshold": float(core.settings.get("curriculum.advance_threshold", 0.75))}
 
     @app.get("/api/curriculum/{language}/raw", response_class=PlainTextResponse)
     async def curriculum_raw(language: str):
@@ -524,6 +526,13 @@ def create_app(root: Path | None = None) -> FastAPI:
             unit = core.curricula.unit(r["language"], r["unit_id"]) if r.get("unit_id") else None
             r["unit_title"] = unit["title"] if unit else ""
             r["unit_level"] = unit["level"] if unit else ""
+            r["unit_index"] = unit["index"] if unit else None
+            r["unit_mode"] = r["mode"] in UNIT_MODES          # counts towards the unit's progress
+            # every time you come back, a hidden "resume" note is added (the first hidden one is the opening)
+            hidden = core.db.scalar("SELECT COUNT(*) FROM messages WHERE session_id=? AND hidden=1", [r["id"]]) or 0
+            r["resumes"] = max(0, hidden - 1)
+            r["last_activity"] = r.get("updated_at") or r["created_at"]
+            r["reviewed_before"] = r["status"] == "active" and bool(r.get("ended_at"))
         return rows
 
     @app.post("/api/sessions/{sid}/pick")

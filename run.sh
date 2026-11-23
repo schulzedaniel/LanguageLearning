@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Start Parlera and open it in your browser.   ./run.sh [--port 8642] [--no-browser]
 #
-# - Starts Ollama if it isn't running yet.
+# - Starts Ollama if it isn't running yet: headless (`ollama serve`, no window) unless
+#   Settings → Starting & quitting → Start Ollama is set to "the Ollama app".
 # - When you quit Parlera (Ctrl+C or close the Terminal window) the model is unloaded from
 #   memory, and Ollama is quit again if Parlera started it. If Ollama was already running
 #   before, it is left running. Set PARLERA_QUIT_OLLAMA=0 to never quit Ollama.
@@ -18,24 +19,36 @@ fi
 OLLAMA_URL="http://127.0.0.1:11434/api/tags"
 STARTED_OLLAMA=""
 OLLAMA_PID=""
-if command -v ollama >/dev/null 2>&1 || [[ -d /Applications/Ollama.app ]]; then
+setting() {  # read a Parlera setting (falls back to $2)
+  .venv/bin/python -c "from parlera.config import Paths, Settings; print(Settings(Paths().settings).get('$1', '$2'))" 2>/dev/null || echo "$2"
+}
+# The Ollama server binary: the CLI if installed, otherwise the one inside the Ollama app
+OLLAMA_BIN="$(command -v ollama 2>/dev/null || true)"
+for cand in /Applications/Ollama.app/Contents/Resources/ollama "$HOME/Applications/Ollama.app/Contents/Resources/ollama"; do
+  [[ -z "$OLLAMA_BIN" && -x "$cand" ]] && OLLAMA_BIN="$cand"
+done
+if [[ -n "$OLLAMA_BIN" || -d /Applications/Ollama.app ]]; then
   if ! curl -s -o /dev/null "$OLLAMA_URL"; then
-    echo "Starting Ollama…"
-    if open -g -a Ollama 2>/dev/null; then
-      STARTED_OLLAMA="app"
-    else
-      ollama serve >/dev/null 2>&1 &
+    # Settings → Starting & quitting → "Start Ollama": headless (no window, default) | app (the Ollama app)
+    mode="$(setting app.ollama_start headless)"
+    if [[ "$mode" != "app" && -n "$OLLAMA_BIN" ]]; then
+      echo "Starting Ollama in the background (no window)…"
+      LOGDIR="${PARLERA_DATA:-$HOME/Parlera}/logs"; mkdir -p "$LOGDIR"
+      "$OLLAMA_BIN" serve >"$LOGDIR/ollama.log" 2>&1 &
       OLLAMA_PID=$!
       STARTED_OLLAMA="serve"
+    elif open -g -j -a Ollama 2>/dev/null; then   # -g: don't bring it to the front, -j: launch hidden
+      echo "Starting the Ollama app…"
+      STARTED_OLLAMA="app"
     fi
-    for _ in $(seq 1 30); do curl -s -o /dev/null "$OLLAMA_URL" && break; sleep 0.5; done
+    for _ in $(seq 1 40); do curl -s -o /dev/null "$OLLAMA_URL" && break; sleep 0.5; done
   fi
 fi
 
 cleanup() {
   # Settings → General → "Quit Ollama when Parlera stops": never | if_started | always ("always" is handled by the server)
   local mode
-  mode="$(.venv/bin/python -c 'from parlera.config import Paths, Settings; print(Settings(Paths().settings).get("app.quit_ollama", "if_started"))' 2>/dev/null || echo if_started)"
+  mode="$(setting app.quit_ollama if_started)"
   [[ "$mode" == "never" ]] && return
   if [[ "${PARLERA_QUIT_OLLAMA:-1}" == "1" ]]; then
     case "$STARTED_OLLAMA" in

@@ -1097,3 +1097,24 @@ def test_pick_words_from_transcript(client):
     again = client.post(f"/api/sessions/{sid}/pick", json={"words": [{"text": "heter"}]}).json()
     assert again["added"][0]["id"] == hid and again["added"][0]["status"] == "candidate"
     assert client.post(f"/api/sessions/{sid}/pick", json={"words": [{"text": "  "}]}).status_code == 400
+
+
+def test_unit_status_and_session_continuation_info(client):
+    core = client.core
+    st = client.get("/api/dashboard/sv").json()["unit_status"]
+    assert st["number_in_level"] == 1 and st["level_total"] == 12 and st["level"] == "A1"
+    assert st["min_sessions"] == 2 and st["sessions_reviewed"] == 0 and not st["sessions_ok"] and st["threshold"] == 0.75
+    s = client.post("/api/sessions", json={"language": "sv", "mode": "lesson"}).json()
+    core.db.add_message(s["id"], "user", "(opening)", hidden=True)
+    core.db.add_message(s["id"], "user", "Hej!")
+    core.db.add_message(s["id"], "user", "(resume)", hidden=True)      # came back once
+    assert client.get("/api/dashboard/sv").json()["unit_status"]["open_sessions"] == 1
+    row = next(r for r in client.get("/api/sessions?language=sv").json() if r["id"] == s["id"])
+    assert row["resumes"] == 1 and row["unit_mode"] and row["unit_index"] == 0 and not row["reviewed_before"]
+    client.post(f"/api/sessions/{s['id']}/end")
+    st = core.unit_status("sv")
+    assert st["sessions_reviewed"] == 1 and st["mastery"] > 0 and st["open_sessions"] == 0
+    core.db.update("sessions", s["id"], {"status": "active"})        # reopened after review
+    row = next(r for r in client.get("/api/sessions?language=sv").json() if r["id"] == s["id"])
+    assert row["reviewed_before"]
+    assert client.get("/api/curriculum/sv").json()["threshold"] == 0.75

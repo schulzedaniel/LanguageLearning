@@ -164,11 +164,10 @@ if command -v osacompile >/dev/null 2>&1; then
     mkdir -p "$HOME/Applications"
     rm -rf "$HOME/Applications/Parlera.app"
     ESCAPED="${HERE//\"/\\\"}"
+    # No Terminal window: launch.sh starts Parlera in the background (log in <data>/logs/parlera.log)
+    # and only opens Parlera's own window. Use ./run.sh or Parlera.command to see the log live.
     osacompile -o "$HOME/Applications/Parlera.app" \
-      -e 'tell application "Terminal"' \
-      -e 'activate' \
-      -e "do script \"cd \" & quoted form of \"$ESCAPED\" & \" && ./run.sh; exit\"" \
-      -e 'end tell'
+      -e "do shell script \"cd \" & quoted form of \"$ESCAPED\" & \" && nohup ./launch.sh >/dev/null 2>&1 &\""
     # Give the launcher a proper name/identifier so macOS prompts say "Parlera" (not "applet").
     # Editing Info.plist invalidates the ad-hoc signature, so re-sign it; if that fails, keep the
     # unmodified app (it still works, the prompt just says "applet").
@@ -203,8 +202,8 @@ if command -v osacompile >/dev/null 2>&1; then
       codesign --force --sign - "$APP" >/dev/null 2>&1 || true
     fi
     echo "Created ~/Applications/Parlera.app — find it with Spotlight (⌘ Space → Parlera) and drag it to your Dock."
-    echo "The first time you open it, macOS asks whether \"Parlera\" may control Terminal: click OK."
-    echo "(It only opens a Terminal window and runs ./run.sh in this folder.)"
+    echo "It starts Parlera in the background, without a Terminal window, and opens Parlera's own window."
+    echo "Ollama is started without its window too. Logs: <data folder>/logs/parlera.log"
   fi
 fi
 
