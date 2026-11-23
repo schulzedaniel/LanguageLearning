@@ -136,7 +136,7 @@ separate from the program:
 ### Starting and stopping
 
 - **Start:** the Parlera app, `./run.sh` or `Parlera.command`. Ollama is started automatically if needed.
-- **Stop:** click **Quit Parlera** at the bottom of the sidebar. Or just close the browser tab: Parlera stops by itself after 3 minutes (adjustable; reloading the page is fine).
+- **Stop:** click **Quit Parlera** at the bottom of the sidebar. Or just close the browser tab: Parlera stops by itself about 45 seconds later (reloading the page is fine).
 - **Saving:** everything is saved continuously, so there's nothing to "save" before quitting. Unfinished sessions stay *in progress* and can be resumed, or reviewed with *End & review*. A safety copy of the database is written on every quit.
 - **Ollama on quit:** the model is always unloaded, which frees its memory. Ollama itself is quit if Parlera started it. Under *Settings → Starting & quitting* you can choose **always** (also quits an Ollama that was already running, e.g. the menu-bar app) or **never**.
 
@@ -285,6 +285,8 @@ text goes in `**bold**`: the voice engine uses it to choose the right voice.
 - **It cuts me off / waits too long**: adjust *Settings → Conversation → Pause before I answer*.
 - **The tutor hears itself**: use headphones, or switch to push-to-talk.
 - **Anki not connected**: open Anki and check the AnkiConnect add-on is installed. Cards are queued until then.
+- **Blank or half-empty page after an update**: fixed in the current version, which gives every update its own file addresses so the browser can't mix old cached files with new ones. If the app ever fails to start, it now shows a message with the error. Try ⌥⌘R (Safari) to reload without the cache.
+- **"Parlera is not running"**: it was stopped (Quit button, closed tab or Terminal). Start it again; the page reconnects by itself.
 - **Slow first reply**: the model is loading. *Keep model loaded for* (default 30 min) keeps it warm.
 
 ## Development

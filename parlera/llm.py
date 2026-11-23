@@ -171,7 +171,7 @@ class OllamaClient:
         return parse_json_loose(text)
 
     async def list_models(self) -> list[str]:
-        async with httpx.AsyncClient(timeout=5) as client:
+        async with httpx.AsyncClient(timeout=3) as client:
             r = await client.get(self._url("/api/tags"))
             r.raise_for_status()
             return sorted(m.get("name") or m.get("model") for m in r.json().get("models", []))

@@ -43,7 +43,7 @@ The user-facing documentation is `README.md`.
 ```bash
 ./setup.sh            # macOS: venv, deps, choose/pull Ollama model, Whisper prefetch, ~/Applications/Parlera.app
 ./run.sh              # starts Ollama if needed, serves http://127.0.0.1:8642, opens browser
-.venv/bin/python -m pytest -q          # 29 tests, ~8 s, no GPU/Ollama/Anki needed
+.venv/bin/python -m pytest -q          # 30 tests, ~9 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
 python3 tools/update_default_hashes.py # run BEFORE committing changes to parlera/defaults/{prompts,curricula}
 .venv/bin/python tools/mock_services.py [ollama_port] [anki_port]   # fake Ollama (:11434) + AnkiConnect (:8765)
 ```
@@ -216,9 +216,12 @@ same context dict from `core.build_context()`:
 
 **Chat break** (mode `break`): `mode_break.md` makes it relaxed, with recast corrections and no curriculum. The session view hides the unit panel and titles it "Fika with Astrid" etc. The sidebar has a button labelled per language.
 
-**Quitting** (`main.py`, `__main__.py`, `run.sh`; settings `app.auto_quit`, `app.auto_quit_minutes` 3, `app.quit_ollama` if_started|always|never):
+**Quitting** (`main.py`, `__main__.py`, `run.sh`; settings `app.auto_quit`, `app.idle_quit_minutes` 30, `app.quit_ollama` if_started|always|never):
 - `__main__` runs `uvicorn.Server` and stores it in `app.state.server`; `request_quit()` sets `should_exit`.
-- The frontend sends `POST /api/heartbeat` every 20 s and `sendBeacon('/api/bye')` on pagehide (bye shortens the remaining time to about 20 s, so a reload still survives). A watchdog quits after the timeout.
+- The frontend sends `POST /api/heartbeat` every 20 s, plus on `visibilitychange` and `pageshow`, and `sendBeacon('/api/bye')` on pagehide.
+- The watchdog quits when a bye arrived and no heartbeat followed within 45 s (a reload survives), or after `idle_quit_minutes` without any heartbeat.
+- **Never quit quickly on silence alone:** Safari pauses timers in hidden tabs.
+- If heartbeats fail twice, the page shows a "Parlera is not running" overlay. If the heartbeat returns a different `build`, the page reloads itself.
 - `POST /api/shutdown` is the sidebar's Quit button; the page then shows "Parlera has stopped".
 - On shutdown: unload the model(s), write `backups/parlera-last-quit.db`, and if `quit_ollama == always`, `osascript quit app "Ollama"` + `pkill -x ollama`. `run.sh` quits an Ollama it started unless the setting is `never`.
 - The launcher's Terminal command ends with `; exit`, so the window closes.
@@ -311,7 +314,7 @@ analysis prompt turns them into `pronunciation` errors.
 | Section | Keys |
 |---|---|
 | `ui` | `language` (sv\|fr\|en, the currently studied language), `theme` (auto\|light\|dark) |
-| `app` | `auto_quit` (true), `auto_quit_minutes` (3), `quit_ollama` (if_started\|always\|never) |
+| `app` | `auto_quit` (true), `idle_quit_minutes` (30), `quit_ollama` (if_started\|always\|never) |
 | `workshop` | `interval_days` (7), `min_mistakes` (3), `thinking` (true) |
 | `learner` | `name`, `native_language` ("English"), `goals.{sv,fr}` |
 | `llm` | `base_url`, `model`, `analysis_model` ("" = same), `temperature`, `num_ctx` (16384), `keep_alive` ("30m"), `disable_thinking` (sends `think:false`, retried without it on a 400), `context_messages` (40) |
@@ -458,7 +461,12 @@ The `exam.format` text is inserted into `mode_exam`. The same caveat about user 
 - **Analysis cost:** two non-streamed LLM calls; with a 27B model this takes 30–90 s. The UI shows an overlay.
 - **Reasoning models:** `<think>` blocks are stripped from both streamed and JSON output.
 - **Memory on quit:** on server shutdown the model is unloaded (`keep_alive: 0`), and `run.sh` quits Ollama only if it started it.
-- **Settings** is a single JSON file; the frontend patches nested keys.
+- **Settings** is a single JSON file; the frontend patches nested keys. Because `Settings.update` writes the whole merged dict, **changing a default doesn't reach existing users**; rename the key instead (as done with `app.auto_quit_minutes` → `app.idle_quit_minutes`).
+- **Browser cache / blank screen (fixed):** Safari reused stale cached JS after updates and mixed it with new modules, which left the app blank.
+  - `GET /` now rewrites `index.html` to load `/static/v-<build>/js/app.js` and `/static/v-<build>/css/app.css`. `build` is a SHA-1 over the static files (`main.static_build_id`), and relative module imports stay inside that folder.
+  - Responses are `immutable` for the current build and `no-cache` otherwise; unversioned `/static/*` is always `no-cache`; `/` is `no-store`.
+  - An inline classic script in `index.html` shows a "didn't start properly" box with the collected errors if `window.__parleraBooted` isn't set within 12 s.
+  - Use absolute `/static/...` URLs only for non-module assets (favicon, worklet).
 - **Kokoro** (`tts._kokoro_synth`): `KPipeline(lang_code=voice[0])` (a/b English, f French via espeak-ng), output 24 kHz, and torch tensors are moved to the CPU. **Kokoro/misaki require Python < 3.13**, so `setup.sh` prefers 3.12, uses `uv` to fetch 3.12 when Kokoro is chosen, rebuilds `.venv` if its Python version differs, and installs `espeak-ng` via brew. The extra is `kokoro`. The model downloads from HF on first use (blocked in cloud sessions, so it's untested here). The tutor uses server audio only if both the target language and English are on server engines (`tts.server_side((target, "en"))`).
 - **Licensing:** piper-tts ≥ 1.3 is GPL (fine for personal use). Everything else is MIT/BSD/Apache.
 

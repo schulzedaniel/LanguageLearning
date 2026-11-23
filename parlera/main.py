@@ -34,6 +34,17 @@ from .tutor import TutorSession
 log = logging.getLogger("parlera")
 
 
+def static_build_id() -> str:
+    """Short hash of the web UI's files (changes whenever any of them changes)."""
+    import hashlib
+    h = hashlib.sha1(__version__.encode())
+    for f in sorted(STATIC_DIR.rglob("*")):
+        if f.is_file() and f.suffix in (".js", ".css", ".html", ".svg"):
+            h.update(f.relative_to(STATIC_DIR).as_posix().encode())
+            h.update(f.read_bytes())
+    return h.hexdigest()[:10]
+
+
 def create_app(root: Path | None = None) -> FastAPI:
     core = Parlera(root)
     app = FastAPI(title="Parlera", version=__version__)
@@ -41,6 +52,7 @@ def create_app(root: Path | None = None) -> FastAPI:
 
     app.state.server = None          # set by __main__ when run as a program
     app.state.last_seen = None       # last heartbeat from a browser tab
+    app.state.bye_at = None          # when a tab reported it was closed
 
     def request_quit(reason: str) -> bool:
         server = app.state.server
@@ -51,15 +63,23 @@ def create_app(root: Path | None = None) -> FastAPI:
         return True
 
     async def watchdog() -> None:
-        """Quit a few minutes after the last open tab stopped sending heartbeats."""
+        """Quit when the last tab was closed (bye + no heartbeat for 45 s), or after a long silence.
+
+        A silence alone isn't enough for a quick quit: Safari pauses timers in hidden tabs, so a
+        tab in the background may not send heartbeats for a long time while still being open.
+        """
         import time
         while True:
-            await asyncio.sleep(10)
+            await asyncio.sleep(5)
             if not core.settings.get("app.auto_quit", True) or app.state.last_seen is None:
                 continue
-            timeout = 60 * float(core.settings.get("app.auto_quit_minutes", 3))
-            if time.monotonic() - app.state.last_seen > timeout:
-                request_quit("no open tabs")
+            t = time.monotonic()
+            bye = app.state.bye_at
+            if bye is not None and app.state.last_seen <= bye and t - bye > 45:
+                request_quit("last tab closed")
+                return
+            if t - app.state.last_seen > 60 * float(core.settings.get("app.idle_quit_minutes", 30)):
+                request_quit("no tab seen for a long time")
                 return
 
     @app.on_event("startup")
@@ -142,15 +162,15 @@ def create_app(root: Path | None = None) -> FastAPI:
     async def heartbeat():
         import time
         app.state.last_seen = time.monotonic()
-        return {"ok": True}
+        app.state.bye_at = None
+        return {"ok": True, "build": app.state.build}
 
     @app.post("/api/bye")
     async def bye():
-        """A tab was closed: quit soon unless another tab (or a reload) sends a heartbeat."""
+        """A tab was closed: quit in ~45 s unless another tab (or a reload) sends a heartbeat."""
         import time
         if app.state.last_seen is not None:
-            timeout = 60 * float(core.settings.get("app.auto_quit_minutes", 3))
-            app.state.last_seen = time.monotonic() - max(0, timeout - 20)
+            app.state.bye_at = time.monotonic()
         return {"ok": True}
 
     @app.post("/api/shutdown")
@@ -771,10 +791,34 @@ def create_app(root: Path | None = None) -> FastAPI:
     # ------------------------------------------------------------------
     # static GUI
     # ------------------------------------------------------------------
+    # Versioned asset URLs: every code change gets a new /static/v-<build>/ prefix, so a browser can
+    # never mix cached files from an older version with new ones (that left Safari with a blank page).
+    build = static_build_id()
+    app.state.build = build
+
+    @app.get("/static/v-{build_id}/{path:path}")
+    async def versioned_static(build_id: str, path: str):
+        target = (STATIC_DIR / path).resolve()
+        if STATIC_DIR.resolve() not in target.parents or not target.is_file():
+            raise HTTPException(404)
+        cache = "public, max-age=31536000, immutable" if build_id == build else "no-cache"
+        return FileResponse(target, headers={"Cache-Control": cache})
+
+    @app.middleware("http")
+    async def no_stale_static(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/static/") and not request.url.path.startswith("/static/v-"):
+            response.headers["Cache-Control"] = "no-cache"   # always revalidate unversioned files
+        return response
+
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     @app.get("/")
     async def index():
-        return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-cache"})
+        html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+        html = (html.replace('/static/js/', f'/static/v-{build}/js/')
+                    .replace('/static/css/', f'/static/v-{build}/css/')
+                    .replace("__BUILD__", build))
+        return Response(html, media_type="text/html", headers={"Cache-Control": "no-cache, no-store"})
 
     return app

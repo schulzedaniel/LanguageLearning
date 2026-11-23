@@ -21,6 +21,27 @@
   </div>
   <div id="toasts"></div>
   <div id="modal-root"></div>
+  <script>
+    // If the app fails to start (e.g. a script couldn't load), show why instead of a blank page.
+    (function () {
+      var errors = [];
+      window.addEventListener('error', function (e) {
+        errors.push((e.message || (e.target && e.target.src ? 'Could not load ' + e.target.src : 'Script error')));
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) { errors.push(String(e.reason && e.reason.message || e.reason)); });
+      setTimeout(function () {
+        if (window.__parleraBooted) return;
+        var box = document.createElement('div');
+        box.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;background:#f6f4ef;font:15px -apple-system,sans-serif;color:#1f1d1a;z-index:999;padding:20px';
+        box.innerHTML = '<div style="max-width:560px"><h2>Parlera didn\'t start properly</h2>' +
+          '<p>Try a hard reload: <b>⌥⌘R</b> in Safari (or <b>⇧⌘R</b> in Chrome). If that doesn\'t help, check the Terminal window for errors.</p>' +
+          '<pre style="white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:12px">' +
+          (errors.length ? errors.join('\n').replace(/</g, '&lt;') : 'No error message — the server may be busy or stopped.') +
+          '\nBuild: __BUILD__</pre><button onclick="location.reload()" style="padding:8px 14px;border-radius:8px;border:1px solid #ccc;background:#fff">Reload</button></div>';
+        document.body.appendChild(box);
+      }, 12000);
+    })();
+  </script>
   <script type="module" src="/static/js/app.js"></script>
 </body>
 </html>
