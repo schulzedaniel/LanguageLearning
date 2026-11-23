@@ -254,7 +254,8 @@ def create_app(root: Path | None = None) -> FastAPI:
         learner = core.learner(language)
         unit = core.current_unit(language)
         prog = core.db.ensure_unit(language, unit["id"])
-        recent = core.db.all("SELECT * FROM sessions WHERE language=? ORDER BY updated_at DESC LIMIT 6", [language])
+        recent = [s for s in core.db.all("SELECT * FROM sessions WHERE language=? ORDER BY updated_at DESC LIMIT 30",
+                                         [language]) if not core.is_archived(s)][:6]
         for s in recent:
             s.pop("analysis", None)
             s["duration"] = core.session_duration(s["id"])
@@ -273,6 +274,7 @@ def create_app(root: Path | None = None) -> FastAPI:
             "weak_vocab": weak,
             "exam": core.exam_for_level(language, unit["level"]),
             "workshop": core.workshop_status(language),
+            "open_lesson": core.open_session(language, "lesson"),
         }
 
     @app.put("/api/learner/{language}")
@@ -500,6 +502,11 @@ def create_app(root: Path | None = None) -> FastAPI:
     async def workshop_create(body: dict = Body(...)):
         return await core.create_workshop(lang_ok(body.get("language", "")))
 
+    @app.get("/api/sessions/open")
+    async def session_open(language: str, mode: str = "lesson", unit_id: str | None = None):
+        """An unfinished session that "Continue" should resume (or null)."""
+        return {"session": core.open_session(lang_ok(language), mode, unit_id or None)}
+
     @app.get("/api/sessions")
     async def sessions_list(language: str | None = None, limit: int = 200):
         sql = "SELECT * FROM sessions"
@@ -510,6 +517,7 @@ def create_app(root: Path | None = None) -> FastAPI:
         rows = core.db.all(sql + " ORDER BY created_at DESC LIMIT ?", [*params, limit])
         for r in rows:
             r.pop("analysis", None)
+            r["is_archived"] = core.is_archived(r)
             r["duration"] = core.session_duration(r["id"])
             r["turns"] = core.db.scalar(
                 "SELECT COUNT(*) FROM messages WHERE session_id=? AND hidden=0 AND role='user'", [r["id"]])
@@ -517,6 +525,11 @@ def create_app(root: Path | None = None) -> FastAPI:
             r["unit_title"] = unit["title"] if unit else ""
             r["unit_level"] = unit["level"] if unit else ""
         return rows
+
+    @app.post("/api/sessions/{sid}/pick")
+    async def session_pick(sid: int, body: dict = Body(...)):
+        """Words picked in the transcript → flashcard candidates (fields filled in by the model)."""
+        return await core.pick_words(sid, [w for w in (body.get("words") or []) if isinstance(w, dict)])
 
     @app.get("/api/sessions/{sid}")
     async def session_get(sid: int):
@@ -528,6 +541,8 @@ def create_app(root: Path | None = None) -> FastAPI:
     @app.patch("/api/sessions/{sid}")
     async def session_patch(sid: int, body: dict = Body(...)):
         allowed = {k: v for k, v in body.items() if k in ("title", "status")}
+        if "archived" in body:   # true = archive, false = keep out of the archive, null = automatic
+            allowed["archived"] = None if body["archived"] is None else int(bool(body["archived"]))
         core.db.update("sessions", sid, allowed)
         return core.db.session(sid)
 

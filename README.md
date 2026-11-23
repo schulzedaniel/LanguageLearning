@@ -68,13 +68,15 @@ the next session. All prompts, curricula and your data live in plain files you c
 - Recurring mistakes and weak Anki cards flow into later sessions automatically.
 
 **Memory**
-- Every session is saved and can be **resumed later**; the tutor remembers the whole conversation.
+- Every session is saved and can be **resumed later**; the tutor remembers the whole conversation. *Continue lesson* (and other session buttons) offer to resume an unfinished session of the same kind instead of starting a duplicate.
+- **Archive:** sessions without activity for 7 days move to *Sessions → Archive* automatically (adjustable, or off). You can archive or restore any session by hand; archived sessions stay complete and resumable.
 - The tutor builds up long-term memories about you (job, plans, preferences), and you can edit, pin or switch off each one.
 - You can add personal notes that the tutor should always keep in mind.
 
 **Anki**
 - **Recently learned words come back in conversation.** Each session, the tutor gets a few words you added in the last weeks and weaves two or three of them in naturally, without quizzing you. Young cards (added 1–21 days ago, short Anki interval) come up most often; mature cards (interval of 21 days or more) rarely; words older than 90 days not at all. Words you keep failing are practised more directly instead. Review data is synced from Anki when a session starts.
 - **Import existing decks.** *Vocabulary → Import from Anki* links cards you made elsewhere (e.g. your English deck), keeping their real creation dates and review history. Nothing in Anki is changed.
+- Flashcards are made when you press **End & review** (not with *Save & exit*). Pick your own too: on the review page every word of the **transcript is clickable** (select several words for a phrase); suggested and unit words are highlighted, words you already have are marked. The model fills in meaning, en/ett or le/la, forms and an example from your conversation, and you check them before they go to Anki.
 - New words are added to your **chosen deck** automatically after each session, with audio, an example sentence from your conversation, en/ett or le/la colour coding, and reverse cards.
 - If Anki is closed, words are queued and sent the next time it's open. You can remove single cards on the review page.
 - Review data (intervals, lapses) is synced back so the tutor practises the words you keep forgetting.

@@ -25,7 +25,7 @@ export default async function dashboard(main) {
       h('div', { class: 'row mt', style: { maxWidth: '420px' } }, h('div', { class: 'grow' }, progressBar(prog.mastery || 0)),
         h('span', { class: 'small muted' }, `${Math.round((prog.mastery || 0) * 100)}% · ${prog.sessions || 0} session${prog.sessions === 1 ? '' : 's'}`)),
       h('div', { class: 'modes' },
-        h('button', { class: 'btn primary lg', onclick: () => startSession({ mode: 'lesson' }) }, icon('play', 16), prog.sessions ? 'Continue lesson' : 'Start lesson'),
+        h('button', { class: 'btn primary lg', onclick: () => startSession({ mode: 'lesson' }) }, icon('play', 16), d.open_lesson || prog.sessions ? 'Continue lesson' : 'Start lesson'),
         h('button', { class: 'btn', onclick: () => startSession({ mode: 'conversation' }) }, icon('chat', 16), 'Conversation'),
         h('button', { class: 'btn', onclick: () => openStartDialog({ mode: 'roleplay' }) }, icon('theater', 16), 'Role-play'),
         h('button', { class: 'btn', onclick: () => startSession({ mode: 'review' }) }, icon('refresh', 16), 'Review'),

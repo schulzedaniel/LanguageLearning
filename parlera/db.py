@@ -209,7 +209,13 @@ CREATE TABLE IF NOT EXISTS lectures (
 CREATE INDEX IF NOT EXISTS idx_lectures_lang ON lectures(language, created_at);
 """
 
-MIGRATIONS = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3]
+# V4: session archive. NULL = automatic (archived after settings history.archive_after_days without
+# activity), 1 = archived by hand, 0 = kept out of the archive by hand.
+SCHEMA_V4 = """
+ALTER TABLE sessions ADD COLUMN archived INTEGER;
+"""
+
+MIGRATIONS = [SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4]
 
 
 def now() -> str:

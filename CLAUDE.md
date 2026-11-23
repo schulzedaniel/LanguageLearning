@@ -50,7 +50,7 @@ The user-facing documentation is `README.md`.
 ```bash
 ./setup.sh            # macOS: venv, deps, choose/pull Ollama model, Whisper prefetch, ~/Applications/Parlera.app
 ./run.sh              # starts Ollama if needed, serves http://127.0.0.1:8642, opens browser
-.venv/bin/python -m pytest -q          # 50 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
+.venv/bin/python -m pytest -q          # 52 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
 python3 tools/update_default_hashes.py # run BEFORE committing changes to parlera/defaults/{prompts,curricula}
 .venv/bin/python tools/mock_services.py [ollama_port] [anki_port]   # fake Ollama (:11434) + AnkiConnect (:8765)
 ```
@@ -152,7 +152,7 @@ version being replaced is recorded. `test_known_hashes_cover_git_history` fails 
 - Whisper: the Hugging Face cache, `~/.cache/huggingface/hub`.
 - macOS voices: managed by the system.
 
-## 5. Database schema (db.py, `user_version` = 3)
+## 5. Database schema (db.py, `user_version` = 4)
 
 - `learner(language PK, current_unit_id, started_at, notes)`: `notes` holds the user's "notes for the tutor".
 - `unit_progress(language, unit_id, status active|completed, mastery 0–1, sessions, last_session_at)`
@@ -174,7 +174,9 @@ version being replaced is recorded. `test_known_hashes_cover_git_history` fails 
   - `practice_items(language, term_norm PK, term, meaning, vocab_id, seen, wrong, streak, last_seen, last_wrong)`: per-item stats; "My misses" = wrong > 0 and streak < 2.
   - `lectures(id, language, topic, unit_id, level, content JSON (clean_lecture shape + followups[{q,a,at}]), model, created_at, updated_at)`
 
-**Schema changes:** append a new SQL script to `MIGRATIONS` in `db.py`. Never edit a shipped schema (V1, V2, and V3 once merged), because users' databases are already at that version.
+- V4 adds `sessions.archived` (NULL = automatic via `core.is_archived`: no activity (`updated_at`) for `history.archive_after_days`; 1 = archived by hand; 0 = kept out by hand).
+
+**Schema changes:** append a new SQL script to `MIGRATIONS` in `db.py`. Never edit a shipped schema (V1–V3, and V4 once merged), because users' databases are already at that version.
 
 Timestamps are local, naive ISO strings (`db.now()`); streaks use local dates.
 
@@ -287,6 +289,10 @@ same context dict from `core.build_context()`:
 - Grammar lectures: `core.create_lecture` renders `lecture_grammar.md`, `chat_json(LECTURE_SCHEMA, analysis_model, think=practice.lecture_thinking)` with a think=False retry, then `release_analysis_model()` (one big model rule). `clean_lecture` repairs quiz answers/options and table shape. Follow-ups (`lecture_followup.md`) use the conversation model and are stored in `content.followups`. "Practise with X" starts a `lesson` with `focus` (mode_lesson builds the lesson around a focus). `explainGrammar` opens an existing lecture with the same topic instead of writing a new one; the Curriculum drawer has *Explain* buttons.
 - Model-written Markdown is rendered everywhere (review feedback/strengths/explanations, memory, history summaries, workshop panel).
 
+**Resume instead of duplicating** (`core.open_session`, `GET /api/sessions/open?language&mode&unit_id`): the latest `active` session with the same language, mode and unit (for unit modes), no scenario/focus and at least one visible user turn. `start.js startSession` asks "Continue where you left off?" (Continue / Start fresh) before creating a session; `fresh: true` skips it. The dashboard payload includes `open_lesson` (button label "Continue lesson").
+
+**Archive** (`history.archive_after_days` 7, 0 = never): `/api/sessions` rows carry `is_archived`; the Sessions page has Recent / Archive tabs (route `#/history/archive`), per-row archive/restore via `PATCH /api/sessions/{id} {archived: true|false|null}`. The dashboard's recent list hides archived sessions.
+
 **Situation presets** (`session.js` `SITUATIONS`, stored in localStorage `parlera.situation`): full / nospeak (text input, audio on) / nolisten (voice input, audio off, text shown) / silent. They map onto the existing `inputMode` + `audioOn`.
 
 **Immersion** (`core.immersion`): the setting `conversation.immersion` is `"auto"` or a number 0–100.
@@ -337,7 +343,8 @@ in a thread executor.
    - caps the list at `vocab.max_cards_per_session`
    - inserts the words as `candidate`.
 5. If `anki.auto_add` is on and AnkiConnect is reachable, the candidates become `learning` and go through `push_to_anki`, and the result is stored as `analysis.anki_auto`. Otherwise `anki_auto={queued:n}`.
-6. The frontend calls `/api/anki/push-pending` once per page load when Anki is up and `auto_add` is on. `push_pending` sends `learning` words without a note id, plus `candidate` extracted words if `auto_add` is on.
+6. **Picking your own** (review page, `views/wordpicker.js transcriptPicker`): every transcript word is clickable (select 2–6 words for a phrase); highlights `.w.sugg` (this session's candidates + unit words, via a stem matcher) and `.w.saved` (`session_view.saved_lemmas`). `POST /api/sessions/{id}/pick {words:[{text, context}]}` → `core.pick_words`: one `vocab_pick.md` call (`VOCAB_SCHEMA`, per-word `autofill_vocab` fallback), stored as `candidate` with `reason=picked` (an `ignored` word is revived); already-saved words are returned as `existing`. They then appear in the review table to check and send.
+7. The frontend calls `/api/anki/push-pending` once per page load when Anki is up and `auto_add` is on. `push_pending` sends `learning` words without a note id, plus `candidate` extracted words if `auto_add` is on.
 
 ### Anki (`anki.py`, `core.push_to_anki`, `core.sync_anki`)
 - **Cards:** the "Parlera Vocab" note type has fields `Word, Translation, Forms, Gender, POS, Example, ExampleTranslation, WordAudio, ExampleAudio, Notes, Language, Reverse, ParleraID`. `ensure_model` adds missing fields to an existing note type. There are two templates: Recognition, and Production (only generated when `Reverse` is non-empty). Gender colour classes are `g-en`, `g-ett`, `g-m`, `g-f`.
@@ -387,6 +394,7 @@ analysis prompt turns them into `pronunciation` errors.
 | `anki` | `url`, `decks.{sv,fr,en}`, `auto_add`, `deck_per_unit`, `add_reverse`, `include_audio`, `auto_sync` (sync review data when a session is created) |
 | `vocab` | `max_cards_per_session` (15), `min_zipf` (2.0), `reinforce` (true), `reinforce_count` (6) |
 | `curriculum` | `advance_threshold` (0.75), `auto_advance` |
+| `history` | `archive_after_days` (7; 0 = never) |
 
 **Adding a setting:**
 1. Add it to `DEFAULT_SETTINGS`. The deep merge means existing users get it automatically.
@@ -411,8 +419,10 @@ analysis prompt turns them into `pronunciation` errors.
 
 **Sessions**
 - `POST|GET /api/sessions`
-- `GET|PATCH|DELETE /api/sessions/{id}`
+- `GET /api/sessions/open?language=&mode=&unit_id=` → `{session | null}` (unfinished session to continue)
+- `GET|PATCH|DELETE /api/sessions/{id}` (PATCH: `title`, `status`, `archived` true|false|null)
 - `POST /api/sessions/{id}/end`
+- `POST /api/sessions/{id}/pick` with `{words:[{text, context}]}` → `{added, existing}`
 - `GET /api/sessions/{id}/export.md`
 - `DELETE /api/messages/{id}`
 
@@ -469,7 +479,7 @@ analysis prompt turns them into `pronunciation` errors.
 
 **Flow:** `opening` and `resume` are hidden user messages.
 
-**Analysis:** `analysis_session` and `analysis_vocab` return JSON constrained by the schemas in `core.py`. `translate` and `vocab_autofill` are utilities.
+**Analysis:** `analysis_session`, `analysis_vocab` and `vocab_pick` return JSON constrained by the schemas in `core.py`. `translate` and `vocab_autofill` are utilities.
 
 **Adding a mode:**
 1. Add it to `MODES` in `prompts.py`, with `unit: bool` and an `icon` name from `ui.js` `P`.

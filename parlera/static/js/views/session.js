@@ -596,7 +596,8 @@ export default async function session(main, { id }) {
     if (userTurns >= 2) {
       const choice = await modal({
         title: 'Leave this session?',
-        body: h('p', { class: 'muted' }, 'Everything is saved. Review it now (feedback, mistakes, flashcards, progress), or keep it open to continue later from Sessions.'),
+        body: h('div', {}, h('p', { class: 'muted' }, 'Everything is saved. Review it now (feedback, mistakes, flashcards, progress), or keep it open to continue later from Sessions.'),
+          h('p', { class: 'small faint' }, 'Flashcards and feedback are only created when you press End & review.')),
         actions: [{ label: 'Cancel', value: 'cancel' }, { label: 'Keep for later', value: 'later' }, { label: 'End & review now', class: 'primary', value: 'review' }],
       }).done;
       if (!choice || choice === 'cancel') return;
