@@ -6,10 +6,10 @@ import { startWorkshop } from './start.js';
 
 const CATS = { personal: 'Personal', preference: 'Lesson preference', goal: 'Goal', other: 'Other' };
 
-export default async function memory(main) {
+export default async function memory(main, params = {}) {
   const lang = state.language;
   const L = LANGS[lang];
-  let tab = 'memories';
+  let tab = { instructions: 'directives' }[params.tab] || (['memories', 'errors', 'directives', 'notes'].includes(params.tab) ? params.tab : 'memories');
   mount(main, loading());
 
   const body = h('div');
@@ -75,14 +75,16 @@ export default async function memory(main) {
 
   function dirList(rows) {
     return h('div', { class: 'col' },
-      h('div', { class: 'row between' }, h('div', { class: 'small muted' }, `Instructions from your messages to ${L.tutor}. Active ones are added to every session until they expire.`),
+      h('div', { class: 'row between' }, h('div', { class: 'small muted' }, `Instructions from your messages to ${L.tutor}. Active ones are part of every ${L.name} session (and "all languages" ones of every session) until they expire. Changes apply right away, even in an open session.`),
         h('button', { class: 'btn primary sm', onclick: async () => { const { openTeacherNote } = await import('./teachernote.js'); await openTeacherNote(); render(); } }, icon('mail', 14), 'Message your teacher')),
-      rows.length ? h('div', { class: 'card', style: { padding: '6px 14px' } }, h('div', { class: 'list' }, rows.map((d) => h('div', { class: 'list-item', style: { opacity: d.active && !d.expired ? 1 : 0.5 } },
+      rows.length ? h('div', { class: 'card', style: { padding: '6px 14px' } }, h('div', { class: 'list' }, rows.map((d) => h('div', { class: 'list-item', style: { opacity: d.active && !d.expired ? 1 : 0.55 } },
+        h('span', { class: `badge ${d.expired ? '' : d.active ? 'good' : 'warn'}` }, d.expired ? 'expired' : d.active ? 'active' : 'paused'),
         h('span', { class: 'badge' }, d.kind),
         h('div', { class: 'grow' }, h('div', {}, d.content),
           h('div', { class: 'tiny faint' }, `${d.language ? LANGS[d.language]?.name : 'all languages'} · ${d.expires_at ? (d.expired ? 'expired ' : 'until ') + fmtDate(d.expires_at) : 'permanent'}${d.source_text ? ` · from: “${d.source_text.slice(0, 80)}${d.source_text.length > 80 ? '…' : ''}”` : ''}`)),
         h('label', { class: 'check small' }, h('input', { type: 'checkbox', checked: !!d.active, onchange: async (e) => { await api.patch(`/api/directives/${d.id}`, { active: e.target.checked ? 1 : 0 }); render(); } }), 'active'),
-        h('button', { class: 'btn ghost icon sm', onclick: async () => { await api.del(`/api/directives/${d.id}`); render(); } }, icon('trash', 15))))))
+        h('button', { class: 'btn ghost icon sm', title: 'Edit', onclick: async () => { if (await editDirective(d)) render(); } }, icon('edit', 15)),
+        h('button', { class: 'btn ghost icon sm', title: 'Delete', onclick: async () => { if (await confirmDialog(`Delete this instruction?\n\n“${d.content}”`, { title: 'Delete instruction', ok: 'Delete', danger: true })) { await api.del(`/api/directives/${d.id}`); render(); } } }, icon('trash', 15))))))
         : empty('mail', `No instructions yet. Use "Message your teacher" to tell ${L.tutor} what to focus on or change.`));
   }
 
@@ -97,4 +99,32 @@ export default async function memory(main) {
     h('div', { class: 'page-head' }, h('div', {}, h('h1', {}, 'Memory'), h('div', { class: 'sub' }, `What ${L.tutor} knows about you, and what you're working on.`))),
     tabs, body));
   await render();
+}
+
+const DURATIONS = [['keep', 'keep the current end date'], [7, 'for 7 days from now'], [14, 'for 2 weeks from now'], [30, 'for 30 days from now'], [90, 'for 3 months from now'], [0, 'permanently']];
+
+// Edit an instruction from "Message your teacher": text, duration, languages, active.
+export function editDirective(d) {
+  const lang = state.language;
+  const content = h('textarea', { rows: 3 }, d.content);
+  const kind = h('select', {}, [['behaviour', 'Behaviour (how the teacher acts)'], ['focus', 'Focus (what to practise)'], ['vocabulary', 'Vocabulary'], ['other', 'Other']]
+    .map(([v, l]) => h('option', { value: v, selected: d.kind === v }, l)));
+  const dur = h('select', {}, DURATIONS.map(([v, l]) => h('option', { value: v }, l)));
+  const all = h('input', { type: 'checkbox', checked: !d.language });
+  const active = h('input', { type: 'checkbox', checked: !!d.active });
+  const now = d.expires_at ? `Currently ${d.expired ? 'expired since' : 'active until'} ${fmtDate(d.expires_at)}.` : 'Currently permanent.';
+  return modal({
+    title: 'Edit instruction',
+    body: h('div', { class: 'col' },
+      h('label', { class: 'field' }, 'Instruction (exactly as the teacher reads it)', content),
+      h('div', { class: 'form-grid' }, h('label', { class: 'field' }, 'Type', kind), h('label', { class: 'field' }, 'Duration', dur, h('span', { class: 'hint' }, now))),
+      h('label', { class: 'check' }, all, `For all my languages (otherwise only ${LANGS[d.language || lang].name})`),
+      h('label', { class: 'check' }, active, 'Active')),
+    actions: [{ label: 'Cancel' }, { label: 'Save', class: 'primary', value: true, onClick: async () => {
+      const body = { content: content.value, kind: kind.value, all_languages: all.checked, language: d.language || lang, active: active.checked ? 1 : 0 };
+      if (dur.value !== 'keep') body.days = Number(dur.value);
+      await api.patch(`/api/directives/${d.id}`, body);
+      toast('Instruction saved', 'success');
+    } }],
+  }).done;
 }

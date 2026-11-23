@@ -30,7 +30,7 @@ the next session. All prompts, curricula and your data live in plain files you c
 **Conversation**
 - Situation presets in every session: *Talk & listen*, *Can't speak* (you type, the tutor talks), *Can't listen* (you talk, the tutor writes) and *Silent*.
 - **Chat break**: *Fika* (Swedish), *Pause café* (French) or *Tea time* (English) in the sidebar. A relaxed chat outside the curriculum, with light corrections and no review needed.
-- **Message your teacher** (sidebar): write a note any time, e.g. "job interview on Friday, practise for it" or "please speak slower". It's turned into instructions you confirm, for 7 days, 30 days or permanently. Manage them under *Memory → Teacher instructions*.
+- **Message your teacher** (sidebar): write a note any time, e.g. "job interview on Friday, practise for it" or "please speak slower". It's turned into instructions you confirm, for 7 days, 30 days or permanently. The dialog shows the instructions already in place; view, **edit** (text, duration, languages), pause or delete them under *Memory → Teacher instructions*. Changes apply right away, even in a session that's already open.
 - Voice conversations: *hands-free* (just talk; it answers when you pause), *push-to-talk* (hold the button or the space bar), or *text*.
 - A real voice, with the target language and English each spoken by the right voice in the same sentence.
 - Tells you which language you're speaking (Swedish/French, English or auto) for accurate transcripts.
