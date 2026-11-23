@@ -1,0 +1,257 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1340" width="1600" height="1340" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+<defs>
+<marker id="eb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1f5fbf"/></marker>
+<marker id="sb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1f5fbf"/></marker>
+<marker id="eo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#c2610c"/></marker>
+<marker id="so" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#c2610c"/></marker>
+<marker id="eg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#6b7280"/></marker>
+<marker id="sg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#6b7280"/></marker>
+</defs>
+<rect width="1600" height="1340" fill="#ffffff"/>
+<text x="30" y="44" font-size="26" font-weight="750" fill="#111827" text-anchor="start">Parlera — architecture &amp; data flow</text>
+<text x="30" y="70" font-size="14" font-weight="400" fill="#4b5563" text-anchor="start">Everything runs locally on your Mac. Blue = live conversation · Orange = after the session · Grey dashed = files on disk. Numbers show the order.</text>
+<rect x="30" y="112" width="220" height="610" rx="12" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="140" y="138" font-size="14" font-weight="750" fill="#334155" text-anchor="middle">YOU</text>
+<rect x="46" y="155" width="188" height="60" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="140" y="180" font-size="13.5" font-weight="650" fill="#111827" text-anchor="middle">Microphone</text>
+<text x="140" y="199" font-size="11.5" font-weight="400" fill="#64748b" text-anchor="middle">hands-free or push-to-talk</text>
+<rect x="46" y="245" width="188" height="56" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="140" y="270" font-size="13.5" font-weight="650" fill="#111827" text-anchor="middle">Keyboard</text>
+<text x="140" y="289" font-size="11.5" font-weight="400" fill="#64748b" text-anchor="middle">typing, “How do I say…?”</text>
+<rect x="46" y="370" width="188" height="96" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="140" y="395" font-size="13.5" font-weight="650" fill="#111827" text-anchor="middle">Browser window</text>
+<text x="140" y="414" font-size="11.5" font-weight="400" fill="#64748b" text-anchor="middle">http://127.0.0.1:8642</text>
+<rect x="46" y="628" width="188" height="60" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="140" y="653" font-size="13.5" font-weight="650" fill="#111827" text-anchor="middle">Headphones / speakers</text>
+<text x="140" y="672" font-size="11.5" font-weight="400" fill="#64748b" text-anchor="middle">the tutor’s voice</text>
+<text x="140" y="448" font-size="11" font-weight="400" fill="#64748b" text-anchor="middle">opened by run.sh / Parlera.app</text>
+<rect x="290" y="112" width="340" height="610" rx="12" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="460" y="138" font-size="14" font-weight="750" fill="#1e3a8a" text-anchor="middle">BROWSER — web interface</text>
+<text x="460" y="156" font-size="11.5" font-weight="400" fill="#3b5b9a" text-anchor="middle">parlera/static/  (plain JavaScript, no build)</text>
+<rect x="306" y="168" width="308" height="72" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="320" y="190" font-size="12" font-weight="650" fill="#374151" text-anchor="start">Recorder  (audio.js)</text>
+<text x="320" y="207" font-size="12" font-weight="400" fill="#374151" text-anchor="start">voice-activity detection → 16 kHz WAV</text>
+<text x="320" y="224" font-size="12" font-weight="400" fill="#374151" text-anchor="start">sends each utterance when you pause</text>
+<rect x="306" y="252" width="308" height="52" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="320" y="274" font-size="12" font-weight="650" fill="#374151" text-anchor="start">Text box &amp; buttons</text>
+<text x="320" y="291" font-size="12" font-weight="400" fill="#374151" text-anchor="start">replay · slow · translate · add card</text>
+<rect x="306" y="330" width="308" height="190" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="320" y="352" font-size="12" font-weight="650" fill="#374151" text-anchor="start">Pages  (views/*.js)</text>
+<text x="320" y="369" font-size="12" font-weight="400" fill="#374151" text-anchor="start">Home · Session · Review · Curriculum</text>
+<text x="320" y="386" font-size="12" font-weight="400" fill="#374151" text-anchor="start">Vocabulary · Sessions · Memory</text>
+<text x="320" y="403" font-size="12" font-weight="400" fill="#374151" text-anchor="start">Teacher prompts (editor + preview)</text>
+<text x="320" y="420" font-size="12" font-weight="400" fill="#374151" text-anchor="start">Settings (model, voices, Anki decks…)</text>
+<text x="320" y="437" font-size="12" font-weight="400" fill="#374151" text-anchor="start"></text>
+<text x="320" y="454" font-size="12" font-weight="400" fill="#374151" text-anchor="start">talks to the server via</text>
+<text x="320" y="471" font-size="12" font-weight="400" fill="#374151" text-anchor="start">REST /api/*  and  WebSocket</text>
+<rect x="306" y="612" width="308" height="92" rx="10" fill="#ffffff" stroke="#93c5fd" stroke-width="1.5"/>
+<text x="320" y="634" font-size="12" font-weight="650" fill="#374151" text-anchor="start">Player  (audio.js)</text>
+<text x="320" y="651" font-size="12" font-weight="400" fill="#374151" text-anchor="start">plays the sentence audio in order</text>
+<text x="320" y="668" font-size="12" font-weight="400" fill="#374151" text-anchor="start">(or browser voices as fallback)</text>
+<text x="320" y="685" font-size="12" font-weight="400" fill="#374151" text-anchor="start">Esc / speaking interrupts the tutor</text>
+<rect x="290" y="778" width="340" height="150" rx="12" fill="#fff7ed" stroke="#fdba74" stroke-width="1.5"/>
+<text x="306" y="802" font-size="12" font-weight="700" fill="#374151" text-anchor="start">Review page</text>
+<text x="306" y="819" font-size="12" font-weight="400" fill="#374151" text-anchor="start">feedback &amp; level estimate</text>
+<text x="306" y="836" font-size="12" font-weight="400" fill="#374151" text-anchor="start">mistakes to learn from</text>
+<text x="306" y="853" font-size="12" font-weight="400" fill="#374151" text-anchor="start">unit progress → “move on” button</text>
+<text x="306" y="870" font-size="12" font-weight="400" fill="#374151" text-anchor="start">new flashcards (remove any with ×)</text>
+<text x="306" y="887" font-size="12" font-weight="400" fill="#374151" text-anchor="start">what the tutor will remember</text>
+<rect x="670" y="84" width="480" height="968" rx="12" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5"/>
+<text x="910" y="106" font-size="13.5" font-weight="750" fill="#5b21b6" text-anchor="middle">PARLERA SERVER — Python · FastAPI  (parlera/, in your program folder)</text>
+<rect x="726" y="122" width="412" height="52" rx="10" fill="#ffffff" stroke="#a78bfa" stroke-width="1.5"/>
+<circle cx="746" cy="142" r="11" fill="#1f5fbf"/>
+<text x="746" y="146.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+<text x="766" y="146" font-size="13.5" font-weight="650" fill="#111827" text-anchor="start">Receive your turn</text>
+<text x="766" y="164" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">tutor.py — audio or text over the WebSocket</text>
+<rect x="726" y="186" width="412" height="52" rx="10" fill="#ffffff" stroke="#a78bfa" stroke-width="1.5"/>
+<circle cx="746" cy="206" r="11" fill="#1f5fbf"/>
+<text x="746" y="210.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+<text x="766" y="210" font-size="13.5" font-weight="650" fill="#111827" text-anchor="start">Transcribe speech</text>
+<text x="766" y="228" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">stt.py → Whisper: text + confidence for each word</text>
+<rect x="726" y="250" width="412" height="52" rx="10" fill="#ffffff" stroke="#a78bfa" stroke-width="1.5"/>
+<circle cx="746" cy="270" r="11" fill="#1f5fbf"/>
+<text x="746" y="274.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+<text x="766" y="274" font-size="13.5" font-weight="650" fill="#111827" text-anchor="start">Pronunciation hints</text>
+<text x="766" y="292" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">pronunciation.py — unclear / misheard words</text>
+<rect x="726" y="314" width="412" height="88" rx="10" fill="#ffffff" stroke="#a78bfa" stroke-width="1.5"/>
+<circle cx="746" cy="334" r="11" fill="#1f5fbf"/>
+<text x="746" y="338.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">5</text>
+<text x="766" y="338" font-size="13.5" font-weight="650" fill="#111827" text-anchor="start">Build the system prompt</text>
+<text x="766" y="356" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">core.py: tutor_base + persona + your context + session</text>
+<rect x="726" y="408" width="412" height="52" rx="10" fill="#ffffff" stroke="#a78bfa" stroke-width="1.5"/>
+<circle cx="746" cy="428" r="11" fill="#1f5fbf"/>
+<text x="746" y="432.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">6</text>
+<text x="766" y="432" font-size="13.5" font-weight="650" fill="#111827" text-anchor="start">Stream the tutor’s reply</text>
+<text x="766" y="450" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">Ollama sends the answer word by word</text>
+<rect x="726" y="472" width="412" height="52" rx="10" fill="#ffffff" stroke="#a78bfa" stroke-width="1.5"/>
+<circle cx="746" cy="492" r="11" fill="#1f5fbf"/>
+<text x="746" y="496.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">7</text>
+<text x="766" y="496" font-size="13.5" font-weight="650" fill="#111827" text-anchor="start">Split &amp; route languages</text>
+<text x="766" y="514" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">textproc.py — **bold** = target voice, rest = English</text>
+<rect x="726" y="536" width="412" height="52" rx="10" fill="#ffffff" stroke="#a78bfa" stroke-width="1.5"/>
+<circle cx="746" cy="556" r="11" fill="#1f5fbf"/>
+<text x="746" y="560.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">8</text>
+<text x="766" y="560" font-size="13.5" font-weight="650" fill="#111827" text-anchor="start">Speak each sentence</text>
+<text x="766" y="578" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">tts.py — French/Swedish + English voices (cached)</text>
+<rect x="726" y="600" width="412" height="52" rx="10" fill="#ffffff" stroke="#a78bfa" stroke-width="1.5"/>
+<circle cx="746" cy="620" r="11" fill="#1f5fbf"/>
+<text x="746" y="624.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">9</text>
+<text x="766" y="624" font-size="13.5" font-weight="650" fill="#111827" text-anchor="start">Send audio + text back</text>
+<text x="766" y="642" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">and save both messages in parlera.db</text>
+<text x="766" y="380" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">+ curriculum unit, memories, recent sessions,</text>
+<text x="766" y="395" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">  weak Anki words, recurring mistakes, history</text>
+<rect x="726" y="778" width="412" height="52" rx="10" fill="#ffffff" stroke="#fdba74" stroke-width="1.5"/>
+<circle cx="746" cy="798" r="11" fill="#c2610c"/>
+<text x="746" y="802.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">10</text>
+<text x="766" y="802" font-size="13.5" font-weight="650" fill="#111827" text-anchor="start">Analyse the session</text>
+<text x="766" y="820" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">core.py → Ollama returns JSON (schema-checked)</text>
+<rect x="726" y="842" width="412" height="52" rx="10" fill="#ffffff" stroke="#fdba74" stroke-width="1.5"/>
+<circle cx="746" cy="862" r="11" fill="#c2610c"/>
+<text x="746" y="866.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">11</text>
+<text x="766" y="866" font-size="13.5" font-weight="650" fill="#111827" text-anchor="start">Save what was learned</text>
+<text x="766" y="884" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">mistakes, memories, unit mastery, exam score</text>
+<rect x="726" y="906" width="412" height="52" rx="10" fill="#ffffff" stroke="#fdba74" stroke-width="1.5"/>
+<circle cx="746" cy="926" r="11" fill="#c2610c"/>
+<text x="746" y="930.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">12</text>
+<text x="766" y="930" font-size="13.5" font-weight="650" fill="#111827" text-anchor="start">Pick flashcards</text>
+<text x="766" y="948" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">model ranks words; app drops known &amp; rare ones</text>
+<rect x="726" y="970" width="412" height="52" rx="10" fill="#ffffff" stroke="#fdba74" stroke-width="1.5"/>
+<circle cx="746" cy="990" r="11" fill="#c2610c"/>
+<text x="746" y="994.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">13</text>
+<text x="766" y="994" font-size="13.5" font-weight="650" fill="#111827" text-anchor="start">Sync with Anki</text>
+<text x="766" y="1012" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">anki.py — add cards with audio; read reviews back</text>
+<rect x="1230" y="140" width="340" height="92" rx="12" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
+<text x="1246" y="166" font-size="14" font-weight="750" fill="#065f46" text-anchor="start">Whisper  (speech → text)</text>
+<text x="1246" y="188" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">mlx-whisper on Apple Silicon</text>
+<text x="1246" y="205" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">model: whisper-large-v3-turbo</text>
+<text x="1246" y="222" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">stored in ~/.cache/huggingface</text>
+<rect x="1230" y="268" width="340" height="200" rx="12" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
+<text x="1246" y="294" font-size="14" font-weight="750" fill="#065f46" text-anchor="start">Ollama  (the language model)</text>
+<text x="1246" y="316" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">local server on port 11434</text>
+<text x="1246" y="333" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">e.g. gemma4:26b-mlx, qwen3, mistral</text>
+<text x="1246" y="350" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">models live in ~/.ollama/models —</text>
+<text x="1246" y="367" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">shared with your other Ollama apps,</text>
+<text x="1246" y="384" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">never downloaded twice</text>
+<text x="1246" y="401" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">started/quit by run.sh if needed;</text>
+<text x="1246" y="418" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">model unloaded when Parlera quits</text>
+<rect x="1230" y="492" width="340" height="150" rx="12" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="1.5"/>
+<text x="1246" y="518" font-size="14" font-weight="750" fill="#065f46" text-anchor="start">Voices  (text → speech)</text>
+<text x="1246" y="540" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">macOS “say” with Premium voices</text>
+<text x="1246" y="557" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">  (System Settings → Spoken Content)</text>
+<text x="1246" y="574" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">or Piper neural voices</text>
+<text x="1246" y="591" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">  (data folder/voices/)</text>
+<text x="1246" y="608" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">or browser voices (fallback)</text>
+<rect x="1230" y="842" width="340" height="190" rx="12" fill="#ecfeff" stroke="#67e8f9" stroke-width="1.5"/>
+<text x="1246" y="868" font-size="14" font-weight="750" fill="#065f46" text-anchor="start">Anki  +  AnkiConnect add-on</text>
+<text x="1246" y="890" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">local API on port 8765</text>
+<text x="1246" y="907" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">deck per language, set in Settings</text>
+<text x="1246" y="924" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">  e.g. Parlera::Swedish (or your own)</text>
+<text x="1246" y="941" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">note type “Parlera Vocab”:</text>
+<text x="1246" y="958" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">  word, forms, example, audio</text>
+<text x="1246" y="975" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">AnkiWeb sync → your phone</text>
+<text x="1246" y="992" font-size="12" font-weight="400" fill="#1f2937" text-anchor="start">queued if Anki is closed</text>
+<rect x="290" y="1092" width="1280" height="220" rx="12" fill="#fffbeb" stroke="#fcd34d" stroke-width="1.5"/>
+<text x="306" y="1118" font-size="14" font-weight="750" fill="#92400e" text-anchor="start">YOUR DATA FOLDER</text>
+<text x="600" y="1118" font-size="12" font-weight="400" fill="#92400e" text-anchor="start">~/Parlera by default — chosen in setup.sh, remembered in parlera.env · backed up daily · one-click backup/restore</text>
+<rect x="306" y="1132" width="270" height="164" rx="10" fill="#ffffff" stroke="#fcd34d" stroke-width="1.5"/>
+<text x="320" y="1156" font-size="13.5" font-weight="700" fill="#78350f" text-anchor="start">parlera.db  (SQLite)</text>
+<text x="320" y="1178" font-size="12" font-weight="400" fill="#374151" text-anchor="start">sessions &amp; every message</text>
+<text x="320" y="1196" font-size="12" font-weight="400" fill="#374151" text-anchor="start">progress per unit (mastery)</text>
+<text x="320" y="1214" font-size="12" font-weight="400" fill="#374151" text-anchor="start">vocabulary + Anki links</text>
+<text x="320" y="1232" font-size="12" font-weight="400" fill="#374151" text-anchor="start">recurring mistakes · memories</text>
+<text x="320" y="1250" font-size="12" font-weight="400" fill="#374151" text-anchor="start">exam scores</text>
+<rect x="592" y="1132" width="250" height="164" rx="10" fill="#ffffff" stroke="#fcd34d" stroke-width="1.5"/>
+<text x="606" y="1156" font-size="13.5" font-weight="700" fill="#78350f" text-anchor="start">prompts/*.md</text>
+<text x="606" y="1178" font-size="12" font-weight="400" fill="#374151" text-anchor="start">teacher’s instructions (editable)</text>
+<text x="606" y="1196" font-size="12" font-weight="400" fill="#374151" text-anchor="start">tutor_base · persona_sv / _fr</text>
+<text x="606" y="1214" font-size="12" font-weight="400" fill="#374151" text-anchor="start">context · mode_lesson, _exam …</text>
+<text x="606" y="1232" font-size="12" font-weight="400" fill="#374151" text-anchor="start">analysis_session · analysis_vocab</text>
+<text x="606" y="1250" font-size="12" font-weight="400" fill="#374151" text-anchor="start">→ edit in “Teacher prompts”</text>
+<rect x="858" y="1132" width="230" height="164" rx="10" fill="#ffffff" stroke="#fcd34d" stroke-width="1.5"/>
+<text x="872" y="1156" font-size="13.5" font-weight="700" fill="#78350f" text-anchor="start">curricula/*.yaml</text>
+<text x="872" y="1178" font-size="12" font-weight="400" fill="#374151" text-anchor="start">sv.yaml · fr.yaml</text>
+<text x="872" y="1196" font-size="12" font-weight="400" fill="#374151" text-anchor="start">A1 → B2, 31 units each</text>
+<text x="872" y="1214" font-size="12" font-weight="400" fill="#374151" text-anchor="start">goals, grammar, words, phrases</text>
+<text x="872" y="1232" font-size="12" font-weight="400" fill="#374151" text-anchor="start">exam formats (DELF, Swedex)</text>
+<text x="872" y="1250" font-size="12" font-weight="400" fill="#374151" text-anchor="start">→ edit in “Curriculum”</text>
+<rect x="1104" y="1132" width="210" height="164" rx="10" fill="#ffffff" stroke="#fcd34d" stroke-width="1.5"/>
+<text x="1118" y="1156" font-size="13.5" font-weight="700" fill="#78350f" text-anchor="start">settings.json</text>
+<text x="1118" y="1178" font-size="12" font-weight="400" fill="#374151" text-anchor="start">model, voices, speed</text>
+<text x="1118" y="1196" font-size="12" font-weight="400" fill="#374151" text-anchor="start">Anki decks, auto-add</text>
+<text x="1118" y="1214" font-size="12" font-weight="400" fill="#374151" text-anchor="start">immersion %, input mode</text>
+<text x="1118" y="1232" font-size="12" font-weight="400" fill="#374151" text-anchor="start">pronunciation hints</text>
+<text x="1118" y="1250" font-size="12" font-weight="400" fill="#374151" text-anchor="start">→ edit in “Settings”</text>
+<rect x="1330" y="1132" width="224" height="164" rx="10" fill="#ffffff" stroke="#fcd34d" stroke-width="1.5"/>
+<text x="1344" y="1156" font-size="13.5" font-weight="700" fill="#78350f" text-anchor="start">backups/ · cache/ · voices/</text>
+<text x="1344" y="1178" font-size="12" font-weight="400" fill="#374151" text-anchor="start">daily copies of parlera.db</text>
+<text x="1344" y="1196" font-size="12" font-weight="400" fill="#374151" text-anchor="start">cached speech audio</text>
+<text x="1344" y="1214" font-size="12" font-weight="400" fill="#374151" text-anchor="start">Piper voice files</text>
+<text x="1344" y="1232" font-size="12" font-weight="400" fill="#374151" text-anchor="start"></text>
+<text x="1344" y="1250" font-size="12" font-weight="400" fill="#374151" text-anchor="start"></text>
+<rect x="30" y="1092" width="240" height="220" rx="12" fill="#f9fafb" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="46" y="1118" font-size="14" font-weight="750" fill="#374151" text-anchor="start">PROGRAM FOLDER</text>
+<text x="46" y="1140" font-size="11.5" font-weight="400" fill="#374151" text-anchor="start">e.g. ~/Library/Application</text>
+<text x="46" y="1157" font-size="11.5" font-weight="400" fill="#374151" text-anchor="start">Support/Parlera/app (git clone)</text>
+<text x="46" y="1174" font-size="11.5" font-weight="650" fill="#374151" text-anchor="start">setup.sh · run.sh</text>
+<text x="46" y="1191" font-size="11.5" font-weight="400" fill="#374151" text-anchor="start">Parlera.app in ~/Applications</text>
+<text x="46" y="1208" font-size="11.5" font-weight="400" fill="#374151" text-anchor="start">.venv/  Python packages</text>
+<text x="46" y="1225" font-size="11.5" font-weight="400" fill="#374151" text-anchor="start">parlera/  server code</text>
+<text x="46" y="1242" font-size="11.5" font-weight="400" fill="#374151" text-anchor="start">parlera/static/  web UI</text>
+<text x="46" y="1259" font-size="11.5" font-weight="400" fill="#374151" text-anchor="start">parlera/defaults/  prompts &amp;</text>
+<text x="46" y="1276" font-size="11.5" font-weight="400" fill="#374151" text-anchor="start">  curricula (copied once)</text>
+<text x="46" y="1293" font-size="11.5" font-weight="400" fill="#374151" text-anchor="start">README.md · CLAUDE.md</text>
+<rect x="30" y="778" width="240" height="274" rx="12" fill="#ffffff" stroke="#e5e7eb" stroke-width="1.5"/>
+<text x="46" y="802" font-size="12.5" font-weight="750" fill="#374151" text-anchor="start">HOW TO READ THIS</text>
+<path d="M46 826 H112" fill="none" stroke="#1f5fbf" stroke-width="2" marker-end="url(#eb)"/>
+<text x="122" y="830" font-size="12" font-weight="400" fill="#374151" text-anchor="start">live conversation</text>
+<path d="M46 852 H112" fill="none" stroke="#c2610c" stroke-width="2" marker-end="url(#eo)"/>
+<text x="122" y="856" font-size="12" font-weight="400" fill="#374151" text-anchor="start">after the session</text>
+<path d="M46 878 H112" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#eg)"/>
+<text x="122" y="882" font-size="12" font-weight="400" fill="#374151" text-anchor="start">reads / writes files</text>
+<circle cx="56" cy="908" r="11" fill="#1f5fbf"/>
+<text x="56" y="912.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+<text x="76" y="912" font-size="12" font-weight="400" fill="#374151" text-anchor="start">order of steps</text>
+<text x="46" y="942" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">Nothing leaves your computer:</text>
+<text x="46" y="959" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">all services listen only on</text>
+<text x="46" y="976" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">127.0.0.1 (localhost).</text>
+<text x="46" y="993" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start"></text>
+<text x="46" y="1010" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">The tutor learns about you from</text>
+<text x="46" y="1027" font-size="11.5" font-weight="400" fill="#4b5563" text-anchor="start">steps 11–13 and uses it in step 5.</text>
+<text x="686" y="690" font-size="11.5" font-weight="400" fill="#5b21b6" text-anchor="start">main.py serves the web pages, the REST /api/* used by all pages,</text>
+<text x="686" y="706" font-size="11.5" font-weight="400" fill="#5b21b6" text-anchor="start">and the WebSocket for the live conversation</text>
+<text x="686" y="756" font-size="12" font-weight="750" fill="#c2610c" text-anchor="start">AFTER THE SESSION — you press “End &amp; review”</text>
+<path d="M234 185 H304" fill="none" stroke="#1f5fbf" stroke-width="2" marker-end="url(#eb)"/>
+<circle cx="268" cy="172" r="11" fill="#1f5fbf"/>
+<text x="268" y="176.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+<path d="M234 273 H304" fill="none" stroke="#1f5fbf" stroke-width="2" marker-end="url(#eb)"/>
+<path d="M234 418 H304" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#eg)" marker-start="url(#sg)"/>
+<path d="M614 200 H650 V148 H724" fill="none" stroke="#1f5fbf" stroke-width="2" marker-end="url(#eb)"/>
+<text x="668" y="140" font-size="11.5" font-weight="600" fill="#1f5fbf" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">audio / text</text>
+<path d="M614 278 H650 V160" fill="none" stroke="#1f5fbf" stroke-width="2"/>
+<path d="M614 470 H668" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#eg)" marker-start="url(#sg)"/>
+<text x="641" y="462" font-size="11.5" font-weight="600" fill="#6b7280" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">REST</text>
+<path d="M1138 212 H1228" fill="none" stroke="#1f5fbf" stroke-width="2" marker-end="url(#eb)" marker-start="url(#sb)"/>
+<text x="1183" y="204" font-size="11.5" font-weight="600" fill="#1f5fbf" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">WAV → text</text>
+<path d="M1138 345 H1228" fill="none" stroke="#1f5fbf" stroke-width="2" marker-end="url(#eb)"/>
+<text x="1183" y="337" font-size="11.5" font-weight="600" fill="#1f5fbf" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">prompt + chat</text>
+<path d="M1228 434 H1140" fill="none" stroke="#1f5fbf" stroke-width="2" marker-end="url(#eb)"/>
+<text x="1183" y="426" font-size="11.5" font-weight="600" fill="#1f5fbf" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">reply tokens</text>
+<path d="M1138 562 H1228" fill="none" stroke="#1f5fbf" stroke-width="2" marker-end="url(#eb)" marker-start="url(#sb)"/>
+<text x="1183" y="554" font-size="11.5" font-weight="600" fill="#1f5fbf" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">text → audio</text>
+<path d="M724 626 H616" fill="none" stroke="#1f5fbf" stroke-width="2" marker-end="url(#eb)"/>
+<text x="670" y="618" font-size="11.5" font-weight="600" fill="#1f5fbf" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">audio + text</text>
+<path d="M306 658 H236" fill="none" stroke="#1f5fbf" stroke-width="2" marker-end="url(#eb)"/>
+<path d="M1196 1090 V392 H1140" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#eg)"/>
+<text x="1210" y="760" font-size="11.5" font-weight="600" fill="#6b7280" transform="rotate(-90 1210 760)" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">reads prompts, curriculum, memories, mistakes, weak words</text>
+<path d="M630 804 H724" fill="none" stroke="#c2610c" stroke-width="2" marker-end="url(#eo)"/>
+<text x="677" y="796" font-size="11.5" font-weight="600" fill="#c2610c" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">End &amp; review</text>
+<path d="M1138 804 H1588 V420 H1572" fill="none" stroke="#c2610c" stroke-width="2" marker-end="url(#eo)" marker-start="url(#so)"/>
+<text x="1400" y="796" font-size="11.5" font-weight="600" fill="#c2610c" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">transcript → JSON</text>
+<path d="M726 868 H656 V1078 H520 V1130" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#eg)"/>
+<text x="600" y="1072" font-size="11.5" font-weight="600" fill="#6b7280" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">writes</text>
+<path d="M726 932 H632" fill="none" stroke="#c2610c" stroke-width="2" marker-end="url(#eo)"/>
+<text x="679" y="924" font-size="11.5" font-weight="600" fill="#c2610c" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">results</text>
+<path d="M1138 990 H1228" fill="none" stroke="#c2610c" stroke-width="2" marker-end="url(#eo)" marker-start="url(#so)"/>
+<text x="1183" y="982" font-size="11.5" font-weight="600" fill="#c2610c" text-anchor="middle" stroke="#ffffff" stroke-width="4" paint-order="stroke">cards ⇄ reviews</text>
+<path d="M270 1260 H288" fill="none" stroke="#6b7280" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#eg)"/>
+</svg>

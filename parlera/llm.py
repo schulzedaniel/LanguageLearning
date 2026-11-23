@@ -184,6 +184,15 @@ class OllamaClient:
         except httpx.HTTPError:
             pass
 
+    async def unload(self, model: str | None = None) -> None:
+        """Free the model's memory right away (instead of waiting for keep_alive to expire)."""
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.post(self._url("/api/generate"),
+                                  json={"model": model or self.cfg["model"], "keep_alive": 0})
+        except httpx.HTTPError:
+            pass
+
     @staticmethod
     def _explain(status: int, text: str, model: str) -> str:
         if status == 404 and "not found" in text.lower():

@@ -47,6 +47,12 @@ def create_app(root: Path | None = None) -> FastAPI:
         except Exception:  # pragma: no cover
             log.exception("startup housekeeping failed")
 
+    @app.on_event("shutdown")
+    async def _shutdown() -> None:
+        # Free the RAM used by the model when Parlera quits.
+        for model in {core.settings.get("llm.model"), core.settings.get("llm.analysis_model")} - {"", None}:
+            await core.llm.unload(model)
+
     @app.exception_handler(ValueError)
     async def _value_error(_: Request, exc: ValueError):
         return JSONResponse({"detail": str(exc)}, status_code=400)

@@ -48,7 +48,7 @@ export default async function settings(main) {
   const llm = section('llm', 'Language model (Ollama)',
     status?.ollama?.ok ? null : h('div', { class: 'callout bad' }, icon('alert'), h('div', {}, 'Ollama is not reachable at ', h('code', {}, st.llm.base_url), '. Start the Ollama app.')),
     h('div', { class: 'form-grid' },
-      select('llm.model', 'Tutor model', modelOptions, 'Recommended on a 48 GB Mac: gemma3:27b (best quality), qwen3:30b-a3b (faster), mistral-small3.2 (strong French).'),
+      select('llm.model', 'Tutor model', modelOptions, 'Recommended on a 48 GB Mac: gemma4:26b (fast, strong multilingual; the -mlx variant is optimised for Apple Silicon), gemma4:31b (a bit stronger, slower).'),
       select('llm.analysis_model', 'Analysis model', [['', 'Same as tutor model'], ...models.map((m) => [m, m])], 'Used after sessions for feedback and flashcards.'),
       text('llm.base_url', 'Ollama URL'),
       text('llm.keep_alive', 'Keep model loaded for', 'e.g. 30m or 2h — avoids slow first replies.'),
