@@ -7,14 +7,15 @@ The user-facing documentation is `README.md`.
 
 ## 1. What this is
 
-**Parlera** is a local, private language tutor for **Swedish and French**, written for one user
+**Parlera** is a local, private language tutor for **Swedish, French and English**, written for one user
 (the repo owner). It's a speaking-first web app that runs on their Mac.
 
 **The user and their machine**
 - MacBook with an M5 Pro and 48 GB RAM.
 - Native/explanation language: English.
-- Swedish: total beginner. French: school French, mostly forgotten.
-- Long-term goals: DELF (French) and Swedex/TISUS (Swedish).
+- Swedish: total beginner. French: school French, mostly forgotten. English: B2/C1 (probably C1); wants polished grammar and sophisticated vocabulary.
+- Long-term goals: DELF (French), Swedex/TISUS (Swedish), and top scores in IELTS Academic, TOEFL iBT and the Duolingo English Test (English).
+- Has an existing English Anki deck made elsewhere; it can be linked via *Vocabulary → Import from Anki*.
 
 **The stack, all local**
 - Ollama runs the LLM. The default is `gemma4:26b`; the user runs `gemma4:26b-mlx`. Setup's Enter key picks an installed `gemma4*` model, and Gemma 4's thinking mode is turned off via `think:false`.
@@ -30,13 +31,16 @@ The user-facing documentation is `README.md`.
 - The tutor speaks **primarily the target language** and **also corrects the user's English**.
 - Pronunciation feedback, implemented heuristically (see §7).
 - Everything local. Models are never duplicated: we only use Ollama's own model store.
+- Recently learned words are reinforced subtly in sessions, depending on when they were added and their Anki status (§6, "Reinforcement").
+- Updates must never lose progress: data lives outside the program folder, and unedited default prompts/curricula upgrade themselves (§4).
 
 ## 2. Run, test, develop
 
 ```bash
 ./setup.sh            # macOS: venv, deps, choose/pull Ollama model, Whisper prefetch, ~/Applications/Parlera.app
 ./run.sh              # starts Ollama if needed, serves http://127.0.0.1:8642, opens browser
-.venv/bin/python -m pytest -q          # 18 tests, ~5 s, no GPU/Ollama/Anki needed
+.venv/bin/python -m pytest -q          # 23 tests, ~7 s, no GPU/Ollama/Anki needed
+python3 tools/update_default_hashes.py # run BEFORE committing changes to parlera/defaults/{prompts,curricula}
 .venv/bin/python tools/mock_services.py [ollama_port] [anki_port]   # fake Ollama (:11434) + AnkiConnect (:8765)
 ```
 
@@ -53,14 +57,14 @@ That mic plays a constant beep, so hands-free voice detection never sees a pause
 There's no macOS `say` and no Ollama. Test speech by stubbing `core.stt` / `core.tts`, as in
 `tests/test_parlera.py::test_voice_pipeline_with_fake_engines`.
 
-**Git:** develop on a branch (the original work is on `claude/parlera-language-tutor`).
+**Git:** `main` holds the merged app (PR #2). Make changes on a new branch from `origin/main`, push it, and give the user the compare link so they can merge. This clone only fetches `main` by default; when the push hook complains about a missing remote branch, add a fetch refspec for that branch.
 Pushing to `schulzedaniel/LanguageLearning` has worked from cloud sessions.
 
 ## 3. Repository map (≈ line counts)
 
 ```
 setup.sh (129)          interactive mac setup; writes parlera.env (PARLERA_DATA=…), sets llm.model in settings,
-                        lists already-installed Ollama models (no duplicate downloads), creates ~/Applications/Parlera.app (osacompile → Terminal → ./run.sh)
+                        lists already-installed Ollama models (no duplicate downloads), creates ~/Applications/Parlera.app (osacompile → Terminal → ./run.sh; Info.plist renamed to "Parlera" + ad-hoc re-signed so the Automation prompt doesn't say "applet")
 run.sh (45)             sources parlera.env; starts Ollama (open -g -a Ollama | ollama serve) if not running; on exit quits Ollama only if it started it
 Parlera.command (3)     Finder double-click launcher → run.sh
 pyproject.toml          deps; extras: mac (mlx-whisper), faster (faster-whisper), piper (piper-tts), dev (pytest)
@@ -81,7 +85,10 @@ parlera/
   audio.py (71)         WAV decode/resample/concat (numpy, no ffmpeg)
   anki.py (231)         note type "Parlera Vocab" (fields/templates/CSS), deck_name(), display_word() (adds en/ett, le/la/l'), AnkiConnect client, build_apkg (genanki)
   defaults/prompts/*.md copied to <data>/prompts on first run (never overwritten afterwards)
-  defaults/curricula/{sv,fr}.yaml   31 units each: A1 12, A2 8, B1 6, B2 5; copied to <data>/curricula on first run
+  defaults/curricula/{sv,fr}.yaml   31 units each: A1 12, A2 8, B1 6, B2 5
+  defaults/curricula/en.yaml        19 units: B2 5, C1 9, C2 5; `start_unit: en-c1-01`
+  defaults/known_hashes.json        hashes of every committed version of the defaults → auto-upgrade of unedited user copies
+  static/logo.svg, icon-1024.png    app logo (macOS-style tile); favicon.svg is the cropped tile; setup builds the .icns from the PNG
   static/index.html, css/app.css (350), favicon.svg
   static/js/  app.js (shell, router, sidebar status, auto push-pending to Anki) · nav.js (navigate, applyTheme, refreshStatusSoon)
               api.js (fetch wrapper, state, LANGS) · ui.js (h() DOM helper, icons, modal/toast/confirm, mount) · markdown.js (bold→.tl, ✏️ → .correction)
@@ -91,7 +98,9 @@ parlera/
 docs/architecture.svg   architecture/data-flow diagram embedded in README — regenerate with `python3 docs/make_architecture.py`
                         (hand-placed coordinates; update it when components/flows change, then render with Playwright to check)
 tests/test_parlera.py (372)  end-to-end against mock services (spins them up on free ports)
-tools/mock_services.py (137) fake Ollama (canned streaming Swedish replies; JSON by schema shape) + fake AnkiConnect (in-memory)
+tools/mock_services.py (160) fake Ollama (canned streaming Swedish replies; JSON by schema shape) + fake AnkiConnect
+                        (in-memory notes with fields/decks; a pre-existing "English Vocab" deck for import tests)
+tools/update_default_hashes.py  scans git history of the defaults and writes parlera/defaults/known_hashes.json
 ```
 
 ## 4. Data folder (`PARLERA_DATA`, default `~/Parlera`)
@@ -109,6 +118,15 @@ tools/mock_services.py (137) fake Ollama (canned streaming Swedish replies; JSON
 
 Backup zip: `parlera.db`, `settings.json`, `prompts/*`, `curricula/*`, `manifest.json`. On restore,
 a `before-restore-*.db` safety copy is written first.
+
+**Default upgrades** (`config.Paths.ensure`, runs at every start; returns the upgraded files, which are logged):
+- A missing file is copied from the defaults (new courses and prompts arrive this way).
+- A file equal to the current default is left alone.
+- A file equal to an **older** default (its hash is in `defaults/known_hashes.json`) is overwritten with the current default.
+- Anything else counts as user-edited and is never touched.
+
+**Whenever you change a default prompt or curriculum, run `tools/update_default_hashes.py` before committing**, so the
+version being replaced is recorded. `test_known_hashes_cover_git_history` fails if you forget.
 
 **Where models live (never duplicated):**
 - Ollama models: Ollama's own store, `~/.ollama/models`.
@@ -153,8 +171,27 @@ same context dict from `core.build_context()`:
 | `recurring_errors` | Unresolved, most frequent first |
 | `exam` | The level's `exam` from the YAML |
 | `exams`, `today` | Exam list and today's date |
+| `monolingual` | True when the studied language is the explanation language (English course): prompts switch to an English-only coach with "✏️ Upgrade:" suggestions |
+| `reinforce_vocab` | Recently learned words sampled for subtle reuse (see below) |
 
 `TutorSession` caches the system prompt per WebSocket connection, so it stays stable for Ollama's KV cache.
+
+**Reinforcement** (`core.reinforce_vocab`, settings `vocab.reinforce`, `vocab.reinforce_count`=6):
+- Considers `learning`/`known` words added within the last 90 days, excluding `anki_lapses ≥ 2` (those go to `weak_vocab`) and words already in `weak_vocab`.
+- Weight = age × Anki status:
+  - age: added today 0.4, 1–21 days 1.0, 22–45 days 0.6, 46–90 days 0.3
+  - Anki: not linked/not synced 0.7, never reviewed 0.5, interval ≤ 7 days 1.0, 8–20 days 0.6, ≥ 21 days 0.15
+- Weighted sampling without replacement, seeded with the session id: stable within a session (KV cache), different between sessions.
+- `context.md` tells the tutor to use two or three of them naturally and never quiz; `mode_review` may practise them openly.
+- `POST /api/sessions` first runs `sync_anki` (4 s timeout) when `anki.auto_sync` is on, so the statuses are fresh.
+
+**English course specifics:**
+- `is_monolingual` compares the language name with `learner.native_language`. When true, immersion is 100.
+- `textproc.segment_languages` sends all text to the English voice, and the session UI hides the "I speak…" toggle.
+- Translate becomes "Explain", and "How do I say…" becomes "Say it better".
+- `store_candidates` drops `reason=new` English words with zipf > 5.2 (too basic).
+- The review page shows IELTS (max 9), TOEFL (max 6) or DET (max 160) scores as bands.
+- Pronunciation hints also run when the target is English.
 
 **Immersion** (`core.immersion`): the setting `conversation.immersion` is `"auto"` or a number 0–100.
 In auto mode the base is A1 50, A2 70, B1 85, B2 95, plus a span that grows with the unit's position
@@ -212,6 +249,12 @@ in a thread executor.
 - **Audio:** generated only when the TTS engine is server-side (`macos`/`piper`). Files are named `parlera_<lang>_<id>_w.wav` and `parlera_<lang>_<id>_e.wav` and stored via `storeMediaFile`.
 - **Sync back:** `notesInfo` → `cardsInfo`. For each note we take the max interval and the summed lapses and reps. Interval ≥ 21 days marks the word `known`.
 - **Removing:** bulk action `unanki` deletes the notes from Anki and sets the words to `ignored`.
+- **Importing a deck** (`core.import_anki_deck`, `GET /api/anki/deck-preview?deck=`, `POST /api/anki/import`):
+  - Reads the notes of any deck (`findNotes` "deck:X" → `notesInfo`) and strips HTML and `[sound:]` tags (`anki.strip_html`).
+  - Maps the chosen word/meaning/example fields and inserts the words as `learning` with `source=anki`, `reason=imported` and the note id linked.
+  - `created_at` comes from the note id, which is the creation time in milliseconds.
+  - Existing words get linked rather than duplicated. Review stats are synced afterwards.
+  - Nothing in Anki is modified.
 
 ## 7. Pronunciation feedback (honest limits)
 
@@ -241,8 +284,8 @@ analysis prompt turns them into `pronunciation` errors.
 | `stt` | `backend` (auto\|mlx\|faster\|off), `model` (mlx-community/whisper-large-v3-turbo), `models.{fr,sv}` overrides, `default_input_language` (target\|en\|auto), `pronunciation_hints`, `confidence_threshold` |
 | `tts` | `engine` (auto\|macos\|piper\|browser\|off; auto = macos > piper > browser), `speed`, `beginner_slowdown`, `speak_corrections`, `voices.{macos,piper,browser}.{fr,sv,en}` ("" = auto-pick) |
 | `conversation` | `input_mode` (handsfree\|ptt\|text), `silence_ms` (1400), `barge_in`, `immersion`, `show_text` |
-| `anki` | `url`, `decks.{sv,fr}`, `auto_add`, `deck_per_unit`, `add_reverse`, `include_audio`, `auto_sync` (currently informational) |
-| `vocab` | `max_cards_per_session` (15), `min_zipf` (2.0) |
+| `anki` | `url`, `decks.{sv,fr,en}`, `auto_add`, `deck_per_unit`, `add_reverse`, `include_audio`, `auto_sync` (sync review data when a session is created) |
+| `vocab` | `max_cards_per_session` (15), `min_zipf` (2.0), `reinforce` (true), `reinforce_count` (6) |
 | `curriculum` | `advance_threshold` (0.75), `auto_advance` |
 
 **Adding a setting:**
@@ -279,6 +322,7 @@ analysis prompt turns them into `pronunciation` errors.
 - `POST /api/vocab/bulk` with `{ids, action: accept|anki|ignore|known|unanki|delete}`
 - `POST /api/vocab/export.apkg` with `{ids | language}`; `GET /api/vocab/export.csv`
 - `POST /api/anki/sync`, `POST /api/anki/push-pending`, `GET /api/anki/decks`, `GET /api/anki/test`
+- `GET /api/anki/deck-preview?deck=`, `POST /api/anki/import` with `{language, deck, word_field, meaning_field, example_field}`
 
 **Memories and errors:** `GET|POST /api/memories`, `PATCH|DELETE /api/memories/{id}`, `GET /api/errors?language=`, `PATCH|DELETE /api/errors/{id}`
 
@@ -297,7 +341,8 @@ analysis prompt turns them into `pronunciation` errors.
 
 **Teacher**
 - `tutor_base`: core rules. Short spoken turns, one question at a time, ~immersion% target language, **bold every target-language word** (the TTS router depends on this), ✏️ corrections, English corrections ("✏️ English: …"), how to handle pronunciation hints.
-- `persona_sv` (Astrid, Stockholm/Umeå, SFI teacher) and `persona_fr` (Élodie, Lyon, FLE/DELF).
+- `persona_sv` (Astrid, Stockholm/Umeå, SFI teacher), `persona_fr` (Élodie, Lyon, FLE/DELF) and `persona_en` (Oliver, Edinburgh/London, former IELTS examiner).
+- Language-specific branches use `{% if monolingual %}` (English course) or `language == "sv"/"fr"/"en"`. The English course gets no "Mixing languages" section, stricter corrections and "✏️ Upgrade:" lines; its analysis adds `upgrade` errors.
 - `context`: learner and unit block.
 
 **Session modes** (`mode_*`): `lesson`, `conversation`, `roleplay`, `review`, `exam`, `writing`, `placement`, `free`, `pronunciation`.
@@ -313,7 +358,7 @@ analysis prompt turns them into `pronunciation` errors.
 4. Add it to `MODE_ORDER` in `views/start.js`, and to the `MODE_ICON`/`MODE_LABEL` maps in `session.js`, `history.js` and `dashboard.js`.
 5. If unit mastery should count for it, add it to `UNIT_MODES` in `core.py`.
 
-**Shipping prompt changes:** users' data copies are **not** updated automatically. Changed defaults only reach them via "Reset" in the Prompts page, or a fresh data dir. Mention this to the user when you change defaults.
+**Shipping prompt changes:** unedited user copies upgrade automatically (§4), but **only if you run `tools/update_default_hashes.py` before committing**. Copies the user edited keep their version; tell the user to press "Reset" if they want the new one.
 
 ## 11. Curriculum YAML format
 
@@ -329,16 +374,20 @@ Each unit has:
 - `pronunciation`, `culture`, `scenarios[]`
 - `min_sessions` (default 2 at A1/A2, otherwise 1)
 
-**Unit ids:** `sv-a1-01` … `sv-b2-05` and `fr-a1-01` … `fr-b2-05`.
+Optional top level: `start_unit` (where a new learner starts; used by `Curricula.first_unit`). Exams may carry a
+`format` text; `mode_exam` lists all of a language's exam formats, so the learner can name IELTS/TOEFL/DET.
+
+**Unit ids:** `sv-a1-01` … `sv-b2-05`, `fr-a1-01` … `fr-b2-05` and `en-b2-01` … `en-c2-05`.
 
 The `exam.format` text is inserted into `mode_exam`. The same caveat about user copies applies (Reset in the Curriculum page).
 
 ## 12. Frontend conventions
 
-- **No framework, no build.** Use `h(tag, attrs, ...children)` from `ui.js`. **Always use `mount(el, ...children)` instead of `el.replaceChildren(...)`**: `replaceChildren` turns `null` into the text "null". `h`/`mount` skip null, false and undefined.
+- **Languages in the UI:** `LANGS` and `GENDERS` in `api.js` (`GENDERS.en = []` hides gender fields). Adding a language means updating `config.LANGUAGES`, `LANGS`, the CSS accent, the settings goal/deck/STT fields, `anki.LANG_NAMES`, `ARTICLES` in `core.py`, and adding a persona and curriculum.
+- **No framework, no build.** Use `h(tag, attrs, ...children)` from `ui.js`. Style objects support CSS variables (`{ '--steps': 3 }`). **Always use `mount(el, ...children)` instead of `el.replaceChildren(...)`**: `replaceChildren` turns `null` into the text "null". `h`/`mount` skip null, false and undefined.
 - **Views:** each view is `export default async function view(main, params)` and may return a cleanup function. Routes are defined in `app.js` `ROUTES` (hash router, `#/session/12`).
 - **Imports:** put shared helpers in `nav.js`, not `app.js`, to avoid import cycles.
-- **Theming:** CSS custom properties on `:root`. `data-lang` (sv|fr) sets the accent colour, and `data-theme` covers dark mode alongside `prefers-color-scheme`. Classes:
+- **Theming:** CSS custom properties on `:root`. `data-lang` (sv|fr|en) sets the accent colour (English uses a red accent), and `data-theme` covers dark mode alongside `prefers-color-scheme`. Classes:
   - `.tl`: a target-language word (clickable, opens a popover to listen or add a card)
   - `.correction`: a ✏️ line
   - `.unsure`: a pronunciation flag
@@ -373,7 +422,6 @@ The `exam.format` text is inserted into `mode_exam`. The same caveat about user 
 
 - Phoneme-level pronunciation scoring (see §7).
 - Listening and reading exercises for the other DELF/Swedex skills.
-- Use `anki.auto_sync` to sync review data automatically at session start (today it's manual or triggered after a push).
 - Unit sub-deck renaming, a field mapping to the user's own Anki note types.
 - Per-unit grammar cheat-sheets, spaced review of past units, streak reminders.
 - Updating users' prompt/curriculum copies on upgrade (e.g. offer a diff/merge when defaults change).

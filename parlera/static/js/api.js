@@ -50,4 +50,8 @@ export async function loadStatus() {
 export const LANGS = {
   sv: { name: 'Swedish', native: 'Svenska', flag: '🇸🇪', hello: 'Hej', tutor: 'Astrid' },
   fr: { name: 'French', native: 'Français', flag: '🇫🇷', hello: 'Bonjour', tutor: 'Élodie' },
+  en: { name: 'English', native: 'English', flag: '🇬🇧', hello: 'Hello', tutor: 'Oliver' },
 };
+
+// gender options per language (English nouns have none)
+export const GENDERS = { sv: ['en', 'ett'], fr: ['m', 'f'], en: [] };

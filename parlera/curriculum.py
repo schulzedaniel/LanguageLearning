@@ -125,7 +125,14 @@ class Curricula:
         return next((u for u in self.get(language)["units"] if u["id"] == unit_id), None)
 
     def first_unit(self, language: str) -> dict:
-        return self.get(language)["units"][0]
+        """Where a new learner starts: `start_unit` from the YAML if set, else the first unit."""
+        data = self.get(language)
+        start = data.get("start_unit")
+        if start:
+            unit = next((u for u in data["units"] if u["id"] == start), None)
+            if unit:
+                return unit
+        return data["units"][0]
 
     def next_unit(self, language: str, unit_id: str) -> dict | None:
         units = self.get(language)["units"]

@@ -52,11 +52,21 @@ TEMPLATES = [
     },
 ]
 
-LANG_NAMES = {"fr": "French", "sv": "Swedish"}
+LANG_NAMES = {"fr": "French", "sv": "Swedish", "en": "English"}
 
 
 class AnkiError(RuntimeError):
     pass
+
+
+def strip_html(value: str) -> str:
+    """Anki field HTML → plain text (drops [sound:…] tags, <br>, entities)."""
+    import re
+    v = re.sub(r"\[sound:[^\]]*\]", " ", value or "")
+    v = re.sub(r"<br\s*/?>|</div>|</p>", " ", v, flags=re.I)
+    v = re.sub(r"<[^>]+>", "", v)
+    v = html.unescape(v).replace("\xa0", " ")
+    return re.sub(r"\s+", " ", v).strip()
 
 
 def display_word(v: dict) -> str:
@@ -162,6 +172,22 @@ class AnkiConnect:
                 if ids:
                     return ids[0]
             raise
+
+    async def deck_notes(self, deck: str, limit: int | None = None) -> list[dict]:
+        """Notes in a deck (incl. sub-decks): [{noteId, modelName, fields: {name: plain text}, order: [names]}]."""
+        ids = await self.invoke("findNotes", query=f'"deck:{deck}"')
+        if limit:
+            ids = ids[:limit]
+        out = []
+        for i in range(0, len(ids), 200):
+            for n in await self.invoke("notesInfo", notes=ids[i:i + 200]):
+                if not n or not n.get("noteId"):
+                    continue
+                fields = n.get("fields") or {}
+                order = sorted(fields, key=lambda k: fields[k].get("order", 0))
+                out.append({"noteId": n["noteId"], "modelName": n.get("modelName", ""),
+                            "fields": {k: strip_html(fields[k].get("value", "")) for k in order}, "order": order})
+        return out
 
     async def delete_notes(self, note_ids: list[int]) -> None:
         if note_ids:

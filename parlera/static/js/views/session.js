@@ -66,7 +66,8 @@ export default async function session(main, { id }) {
   const ring = h('span', { class: 'ring' });
   const micBtn = h('button', { class: 'mic off', title: 'Microphone' }, ring, icon('mic', 26));
   const micStatus = h('div', { class: 'mic-status' });
-  const textInput = h('textarea', { rows: 1, placeholder: isWriting ? 'Write your text here… (Enter to send, Shift+Enter for a new line)' : `Type in ${L.name} or English… (Enter to send)` });
+  const mono = lang === 'en';
+  const textInput = h('textarea', { rows: 1, placeholder: isWriting ? 'Write your text here… (Enter to send, Shift+Enter for a new line)' : mono ? 'Type your answer… (Enter to send)' : `Type in ${L.name} or English… (Enter to send)` });
   const sendBtn = h('button', { class: 'btn primary icon', title: 'Send', onclick: () => sendText() }, icon('send', 18));
   const timerEl = h('span', { class: 'timer' });
 
@@ -78,12 +79,12 @@ export default async function session(main, { id }) {
   ], sttLang, (v) => { sttLang = v; });
   const audioBtn = h('button', { class: 'btn ghost sm', title: 'Tutor voice on/off', onclick: () => toggleAudio() });
   const textBtn = h('button', { class: 'btn ghost sm', title: 'Show/hide tutor text (listening practice)', onclick: () => toggleText() });
-  const helpBtn = h('button', { class: 'btn ghost sm', title: 'How do I say…?', onclick: () => helpSay() }, icon('translate', 16), 'How do I say…?');
+  const helpBtn = h('button', { class: 'btn ghost sm', title: mono ? 'Say it better' : 'How do I say…?', onclick: () => helpSay() }, icon('translate', 16), mono ? 'Say it better…' : 'How do I say…?');
 
   const micRow = h('div', { class: 'mic-wrap' }, micBtn, micStatus);
   const textRow = h('div', { class: 'composer-row' }, textInput, sendBtn);
   const composer = h('div', { class: 'composer' }, h('div', { class: 'composer-inner' },
-    h('div', { class: 'composer-controls' }, h('div', { class: 'row wrap' }, isWriting ? null : modeSeg, isWriting ? null : langSeg),
+    h('div', { class: 'composer-controls' }, h('div', { class: 'row wrap' }, isWriting ? null : modeSeg, isWriting || mono ? null : langSeg),
       h('div', { class: 'row' }, helpBtn, audioBtn, textBtn)),
     micRow, textRow));
 
@@ -363,7 +364,7 @@ export default async function session(main, { id }) {
       mount(actions, 
         h('button', { class: 'btn ghost icon sm', title: 'Play again', onclick: () => replay(text, false, el) }, icon('volume', 15)),
         h('button', { class: 'btn ghost icon sm', title: 'Play slowly', onclick: () => replay(text, true, el) }, icon('turtle', 15)),
-        h('button', { class: 'btn ghost icon sm', title: 'Translate', onclick: () => translate(bubble, text) }, icon('translate', 15)));
+        h('button', { class: 'btn ghost icon sm', title: mono ? 'Explain (paraphrase + difficult words)' : 'Translate', onclick: () => translate(bubble, text) }, icon('translate', 15)));
     }
     if (final) addActions(id);
     return api_;
@@ -424,8 +425,8 @@ export default async function session(main, { id }) {
     const input = h('input', { type: 'text', placeholder: 'e.g. "I would like a coffee with milk"' });
     const result = h('div', { class: 'mt' });
     const m = modal({
-      title: `How do I say it in ${L.name}?`,
-      body: h('div', {}, h('label', { class: 'field' }, 'What do you want to say (in English)?', input), result),
+      title: mono ? 'Say it better' : `How do I say it in ${L.name}?`,
+      body: h('div', {}, h('label', { class: 'field' }, mono ? 'Write what you want to say (in any language, or plain English) and get a polished C1 version:' : 'What do you want to say (in English)?', input), result),
       actions: [{ label: 'Close' }, { label: 'Translate', class: 'primary', onClick: async () => { await go(); return false; } }],
     });
     async function go() {
@@ -476,7 +477,7 @@ export default async function session(main, { id }) {
       u.culture ? h('div', { class: 'card' }, h('h4', {}, 'Culture'), h('div', { class: 'small muted' }, u.culture)) : null,
       h('div', { class: 'card' }, h('h4', {}, 'Tips'),
         h('div', { class: 'small muted col', style: { gap: '4px' } },
-          h('div', {}, 'Click a ', h('b', { style: { color: 'var(--tl)' } }, 'blue word'), ' to hear it or make a flashcard.'),
+          h('div', {}, 'Click a ', h('b', { style: { color: 'var(--tl)' } }, 'highlighted word'), ' to hear it or make a flashcard.'),
           h('div', {}, h('kbd', {}, 'Esc'), ' stops the tutor speaking.'),
           h('div', {}, 'Hide the text (', icon('eye', 12), ') for listening practice.'),
           h('div', {}, 'Say "slower please" or switch to English anytime.'))));

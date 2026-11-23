@@ -165,7 +165,7 @@ class TutorSession:
             return
         meta = {"input": "voice", "stt_lang": res.get("language"), "words": res.get("words") or []}
         pron = None
-        if self.app.settings.get("stt.pronunciation_hints", True) and lang != "en":
+        if self.app.settings.get("stt.pronunciation_hints", True) and (lang != "en" or self.target == "en"):
             from .pronunciation import analyse
             last = next((m["content"] for m in reversed(self.app.db.messages(self.sid, include_hidden=False))
                          if m["role"] == "assistant"), "")

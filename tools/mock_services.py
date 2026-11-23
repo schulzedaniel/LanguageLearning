@@ -87,6 +87,19 @@ async def chat(req: Request):
 
 anki = FastAPI()
 astate = {"models": [], "notes": {}, "next": 1000, "media": {}}
+# a pre-existing user deck (e.g. English cards made elsewhere); ids are creation times in ms
+_PRE = [("ubiquitous", "present everywhere", "Smartphones are ubiquitous."),
+        ("to mitigate", "to make less severe", "Measures to mitigate climate change."),
+        ("<b>nuance</b>", "a subtle difference", "She grasped every nuance.")]
+for i, (front, back, ex) in enumerate(_PRE):
+    astate["notes"][1_760_000_000_000 + i] = {"deck": "English Vocab", "model": "Basic",
+                                              "fields": {"Front": front, "Back": back, "Example": ex}}
+
+
+def _deck_of(query: str) -> str | None:
+    import re
+    m = re.search(r'"?deck:([^"]+)"?', query)
+    return m.group(1).strip() if m else None
 
 
 @anki.post("/")
@@ -105,22 +118,27 @@ async def ankiconnect(req: Request):
     elif a in ("createDeck",):
         res = 1
     elif a == "deckNames":
-        res = ["Default", "Parlera::Swedish"]
+        res = sorted({"Default", *(n["deck"] for n in astate["notes"].values())})
     elif a == "storeMediaFile":
         astate["media"][p["filename"]] = len(p["data"]); res = p["filename"]
     elif a == "addNote":
-        word = p["note"]["fields"]["Word"]
-        if any(n["Word"] == word for n in astate["notes"].values()):
+        note = p["note"]
+        word = note["fields"]["Word"]
+        if any(n["fields"].get("Word") == word and n["deck"] == note["deckName"] for n in astate["notes"].values()):
             return JSONResponse({"result": None, "error": "cannot create note because it is a duplicate"})
         nid = astate["next"]; astate["next"] += 1
-        astate["notes"][nid] = p["note"]["fields"]; res = nid
+        astate["notes"][nid] = {"deck": note["deckName"], "model": note["modelName"], "fields": note["fields"]}
+        res = nid
     elif a == "deleteNotes":
         for n in p["notes"]:
             astate["notes"].pop(n, None)
     elif a == "findNotes":
-        res = list(astate["notes"])[:1]
+        deck = _deck_of(p.get("query", ""))
+        res = [nid for nid, n in astate["notes"].items() if deck is None or n["deck"] == deck or n["deck"].startswith(deck + "::")]
     elif a == "notesInfo":
-        res = [{"noteId": n, "cards": [n * 10, n * 10 + 1]} for n in p["notes"] if n in astate["notes"]]
+        res = [{"noteId": n, "modelName": astate["notes"][n]["model"],
+                "fields": {k: {"value": v, "order": i} for i, (k, v) in enumerate(astate["notes"][n]["fields"].items())},
+                "cards": [n * 10, n * 10 + 1]} for n in p["notes"] if n in astate["notes"]]
     elif a == "cardsInfo":
         res = [{"cardId": c, "interval": 25 if c % 20 == 0 else 2, "lapses": 0 if c % 20 == 0 else 3, "reps": 5} for c in p["cards"]]
     return {"result": res, "error": None}

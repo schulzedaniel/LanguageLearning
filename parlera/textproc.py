@@ -180,6 +180,9 @@ def detect_language(text: str, target: str, prefer: str) -> str:
 
 def segment_languages(text: str, target: str) -> list[dict]:
     """Split one sentence of tutor output into [{lang, text}] chunks for TTS."""
+    if target == "en":  # studying English: everything is spoken by the English voice
+        clean = strip_for_speech(text)
+        return [{"lang": "en", "text": clean}] if re.search(r"\w", clean) else []
     parts = re.split(r"(\*\*.+?\*\*)", text, flags=re.S)
     segs: list[dict] = []
     for part in parts:

@@ -30,6 +30,7 @@ STATIC_DIR = APP_DIR / "static"
 LANGUAGES = {
     "fr": {"name": "French", "native_name": "Français", "flag": "🇫🇷"},
     "sv": {"name": "Swedish", "native_name": "Svenska", "flag": "🇸🇪"},
+    "en": {"name": "English", "native_name": "English", "flag": "🇬🇧"},
 }
 
 
@@ -49,17 +50,52 @@ class Paths:
         self.tts_cache = self.root / "cache" / "tts"
         self.backups = self.root / "backups"
 
-    def ensure(self) -> None:
+    def ensure(self) -> list[str]:
+        """Create the folder layout and install/upgrade the editable defaults.
+
+        - Missing prompt/curriculum files are copied from the defaults.
+        - A file that still equals an *older* built-in default (the user never edited it) is
+          upgraded to the current default automatically.
+        - Files the user edited are never touched (they can use "Reset" in the app).
+        Returns the list of upgraded files (relative paths).
+        """
         for p in (self.root, self.prompts, self.curricula, self.voices, self.media,
                   self.tts_cache, self.backups):
             p.mkdir(parents=True, exist_ok=True)
-        # Copy editable defaults on first run (never overwrite user edits).
+        known = _known_default_hashes()
+        upgraded: list[str] = []
         for sub in ("prompts", "curricula"):
             src = DEFAULTS_DIR / sub
             dst = getattr(self, sub)
             for f in src.iterdir():
-                if f.is_file() and not (dst / f.name).exists():
-                    shutil.copy2(f, dst / f.name)
+                if not f.is_file() or f.name.startswith("."):
+                    continue
+                target = dst / f.name
+                if not target.exists():
+                    shutil.copy2(f, target)
+                    continue
+                current = file_hash(target.read_bytes())
+                if current == file_hash(f.read_bytes()):
+                    continue
+                if current in known.get(f"{sub}/{f.name}", ()):
+                    shutil.copy2(f, target)
+                    upgraded.append(f"{sub}/{f.name}")
+        return upgraded
+
+
+def file_hash(data: bytes) -> str:
+    import hashlib
+    return hashlib.sha256(data.replace(b"\r\n", b"\n").strip()).hexdigest()
+
+
+def _known_default_hashes() -> dict[str, set[str]]:
+    p = DEFAULTS_DIR / "known_hashes.json"
+    if not p.exists():
+        return {}
+    try:
+        return {k: set(v) for k, v in json.loads(p.read_text(encoding="utf-8")).items()}
+    except (OSError, json.JSONDecodeError):
+        return {}
 
 
 DEFAULT_SETTINGS: dict[str, Any] = {
@@ -70,6 +106,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "goals": {
             "fr": "Rebuild my school French from the basics, then prepare for the DELF exams (B1, later B2).",
             "sv": "Learn Swedish from zero. Long-term: pass Swedex B1/B2 and eventually TISUS.",
+            "en": "Move from B2/C1 to a confident C1–C2: precise grammar and sophisticated vocabulary. Target: top scores in IELTS Academic (8+), TOEFL iBT and the Duolingo English Test.",
         },
     },
     "llm": {
@@ -85,7 +122,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "stt": {
         "backend": "auto",             # auto | mlx | faster | off
         "model": "mlx-community/whisper-large-v3-turbo",
-        "models": {"fr": "", "sv": ""},  # optional per-language override
+        "models": {"fr": "", "sv": "", "en": ""},  # optional per-language override
         "default_input_language": "target",  # target | en | auto
         "pronunciation_hints": True,   # use Whisper word confidence + repeat comparison as pronunciation hints
         "confidence_threshold": 0.55,  # words recognised below this probability are flagged
@@ -110,14 +147,19 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     },
     "anki": {
         "url": "http://127.0.0.1:8765",
-        "decks": {"sv": "Parlera::Swedish", "fr": "Parlera::French"},  # any existing or new deck
+        "decks": {"sv": "Parlera::Swedish", "fr": "Parlera::French", "en": "Parlera::English"},  # any existing or new deck
         "auto_add": True,              # push new words to Anki automatically after each session
         "deck_per_unit": False,
         "add_reverse": True,
         "include_audio": True,
         "auto_sync": True,
     },
-    "vocab": {"max_cards_per_session": 15, "min_zipf": 2.0},
+    "vocab": {
+        "max_cards_per_session": 15,
+        "min_zipf": 2.0,
+        "reinforce": True,             # weave recently learned words into sessions
+        "reinforce_count": 6,          # candidates offered to the tutor per session (it uses a few)
+    },
     "curriculum": {"advance_threshold": 0.75, "auto_advance": False},
 }
 

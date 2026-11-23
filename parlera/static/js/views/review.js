@@ -1,5 +1,5 @@
 // Post-session review: feedback, mistakes, unit progress, flashcard candidates → Anki.
-import { api, state, LANGS } from '../api.js';
+import { api, state, LANGS, GENDERS } from '../api.js';
 import { h, icon, mount, loading, toast, fmtDate, fmtDuration, progressBar, download, empty, spinner } from '../ui.js';
 import { renderMarkdown } from '../markdown.js';
 import { navigate, refreshStatusSoon } from '../nav.js';
@@ -66,7 +66,10 @@ export default async function review(main, { id }) {
     const pct = a.exam_score / a.exam_max;
     progressCards.push(h('div', { class: 'card' }, h('h3', {}, 'Exam simulation score'),
       h('div', { class: 'row gap-lg' }, ring(pct), h('div', {}, h('div', { style: { fontSize: '28px', fontWeight: 750 } }, `${a.exam_score} / ${a.exam_max}`),
-        h('div', { class: `badge ${pct >= 0.5 ? 'good' : 'warn'}` }, pct >= 0.5 ? 'Pass level' : 'Below pass level (50%)'))),
+        a.exam_max === 9 ? h('div', { class: 'badge accent' }, `IELTS band ${a.exam_score}`)
+          : a.exam_max === 6 ? h('div', { class: 'badge accent' }, `TOEFL band ${a.exam_score}`)
+          : a.exam_max === 160 ? h('div', { class: 'badge accent' }, `DET score ${a.exam_score}`)
+          : h('div', { class: `badge ${pct >= 0.5 ? 'good' : 'warn'}` }, pct >= 0.5 ? 'Pass level' : 'Below pass level (50%)'))),
       a.exam_breakdown ? h('div', { class: 'small muted mt', html: renderMarkdown(a.exam_breakdown) }) : null));
   }
 
@@ -126,12 +129,12 @@ function renderVocab(card, s) {
     const field = (key, ph, w) => h('input', { type: 'text', value: v[key] || '', placeholder: ph, style: w ? { width: w } : null,
       onchange: async (e) => { v[key] = e.target.value; await api.patch(`/api/vocab/${v.id}`, { [key]: e.target.value }); } });
     const genderSel = h('select', { style: { width: '70px', padding: '5px' }, onchange: async (e) => { await api.patch(`/api/vocab/${v.id}`, { gender: e.target.value }); } },
-      ['', ...(lang === 'sv' ? ['en', 'ett'] : ['m', 'f'])].map((g) => h('option', { value: g, selected: v.gender === g }, g || '—')));
+      ['', ...(GENDERS[lang] || [])].map((g) => h('option', { value: g, selected: v.gender === g }, g || '—')));
     const [cls, label] = reasons[v.reason] || reasons.new;
     return h('tr', { class: 'vocab-row' },
       h('td', {}, cb),
       h('td', {}, field('lemma', 'word'), h('div', { class: 'tiny faint mt' }, v.pos, ' ', h('span', { class: `badge ${cls}` }, label))),
-      h('td', {}, genderSel),
+      (GENDERS[lang] || []).length ? h('td', {}, genderSel) : null,
       h('td', {}, field('translation', 'translation')),
       h('td', {}, field('example', 'example sentence'), h('div', { style: { marginTop: '4px' } }, field('example_translation', 'translation of the example'))),
       h('td', { class: 'small faint' }, v.forms));
@@ -163,7 +166,7 @@ function renderVocab(card, s) {
     vErr ? h('div', { class: 'callout warn mb' }, icon('alert'), `Vocabulary extraction failed: ${vErr}`) : null,
     candidates.length ? h('div', {},
       h('div', { style: { overflowX: 'auto' } }, h('table', { class: 'table' },
-        h('thead', {}, h('tr', {}, h('th', {}, ''), h('th', {}, 'Word'), h('th', {}, lang === 'sv' ? 'en/ett' : 'Gender'), h('th', {}, 'Meaning'), h('th', {}, 'Example'), h('th', {}, 'Forms'))),
+        h('thead', {}, h('tr', {}, h('th', {}, ''), h('th', {}, 'Word'), (GENDERS[lang] || []).length ? h('th', {}, lang === 'sv' ? 'en/ett' : 'Gender') : null, h('th', {}, lang === 'en' ? 'Definition' : 'Meaning'), h('th', {}, 'Example'), h('th', {}, 'Forms'))),
         h('tbody', {}, rows))),
       h('div', { class: 'row wrap mt' },
         h('button', { class: 'btn primary', disabled: !ankiOk, title: ankiOk ? '' : 'Open Anki (with AnkiConnect) to enable', onclick: () => act('anki') }, icon('cards', 16), 'Add selected to Anki'),
