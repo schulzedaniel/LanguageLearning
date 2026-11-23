@@ -629,3 +629,103 @@ def test_chat_break_mode(client):
         assert f"relaxed {name}" in pv
     s = client.post("/api/sessions", json={"language": "sv", "mode": "break"}).json()
     assert s["mode"] == "break"
+
+
+# ---------------------------------------------------------------------------
+# settings safety, model swapping, offline mode, cache, window
+# ---------------------------------------------------------------------------
+def test_settings_survive_damage_and_roundtrip(client, tmp_path):
+    from parlera.config import Settings
+    core = client.core
+    core.settings.update({"llm": {"model": "my-model:7b"}})
+    core.settings.update({"tts": {"speed": 1.1}})               # creates settings.json.bak with my-model
+    core.paths.settings.write_text("{ broken json")              # e.g. disk full / crash mid-write
+    s = Settings(core.paths.settings).all()
+    assert s["llm"]["model"] == "my-model:7b"                     # restored, not reset to defaults
+    exported = client.get("/api/settings/export")
+    assert exported.json()["llm"]["model"] == "my-model:7b"
+    core.settings.update({"llm": {"model": "other"}})
+    r = client.post("/api/settings/import", files={"file": ("s.json", exported.content, "application/json")})
+    assert r.status_code == 200 and core.settings.get("llm.model") == "my-model:7b"
+    bad = client.post("/api/settings/import", files={"file": ("s.json", b'{"foo": 1}', "application/json")})
+    assert bad.status_code == 400
+    core.daily_backup()
+    assert (core.paths.backups / "settings-latest.json").exists()
+
+
+def test_only_one_big_model_in_memory(client):
+    import asyncio
+    core = client.core
+    mock_services.state["running"].clear()
+    mock_services.state["unloads"].clear()
+    core.settings.update({"llm": {"model": "gemma4:26b", "analysis_model": "muse-glimmer:30b-mlx"}})
+    mock_services.state["running"].update({"gemma4:26b": 17e9, "tiny:1b": 1e9})
+    asyncio.run(core.llm.chat([{"role": "user", "content": "hi"}], model="muse-glimmer:30b-mlx"))
+    assert "gemma4:26b" in mock_services.state["unloads"]          # big conversation model unloaded first
+    assert "tiny:1b" in mock_services.state["running"]             # small models stay
+    # after a session analysis the analysis model is freed again
+    s = client.post("/api/sessions", json={"language": "sv", "mode": "lesson"}).json()
+    core.db.add_message(s["id"], "assistant", "Hej!")
+    core.db.add_message(s["id"], "user", "Hej")
+    mock_services.state["unloads"].clear()
+    client.post(f"/api/sessions/{s['id']}/end")
+    assert "muse-glimmer:30b-mlx" in mock_services.state["unloads"]
+    # switching it off keeps both
+    core.settings.update({"llm": {"exclusive_models": False}})
+    mock_services.state["unloads"].clear()
+    mock_services.state["running"]["gemma4:26b"] = 17e9
+    asyncio.run(core.llm.chat([{"role": "user", "content": "hi"}], model="muse-glimmer:30b-mlx"))
+    assert mock_services.state["unloads"] == []
+
+
+def test_offline_mode_detection(tmp_path, monkeypatch):
+    import os
+    from parlera.config import DEFAULT_SETTINGS, deep_merge
+    from parlera.system import configure_offline, needed_hf_models
+    monkeypatch.setenv("HF_HUB_CACHE", str(tmp_path / "hub"))
+    monkeypatch.delenv("HF_HUB_OFFLINE", raising=False)
+    st = deep_merge(DEFAULT_SETTINGS, {"tts": {"engines": {"en": "kokoro"}}})
+    assert needed_hf_models(st) == ["hexgrad/Kokoro-82M", "mlx-community/whisper-large-v3-turbo"]
+    r = configure_offline(st)
+    assert not r["offline"] and len(r["missing"]) == 2 and "HF_HUB_OFFLINE" not in os.environ
+    for repo in r["needed"]:
+        (tmp_path / "hub" / ("models--" + repo.replace("/", "--")) / "snapshots" / "abc").mkdir(parents=True)
+    r = configure_offline(st)
+    assert r["offline"] and os.environ.get("HF_HUB_OFFLINE") == "1"
+
+
+def test_cache_info_and_clear(client):
+    core = client.core
+    (core.paths.tts_cache / "a.wav").write_bytes(b"x" * 5000)
+    (core.paths.media / "b.wav").write_bytes(b"y" * 3000)
+    for d in ("2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04", "2026-01-05"):
+        (core.paths.backups / f"parlera-{d}.db").write_bytes(b"z" * 100)
+    info = client.get("/api/system").json()
+    assert info["cache"]["tts"]["bytes"] == 5000 and info["cache"]["media"]["bytes"] == 3000
+    assert info["cache"]["models"]["readonly"]
+    r = client.post("/api/cache/clear", json={"targets": ["tts", "media", "old_backups", "models"]}).json()
+    assert r["freed"] >= 8000
+    assert not any(core.paths.tts_cache.iterdir()) and not any(core.paths.media.iterdir())
+    kept = sorted(p.name for p in core.paths.backups.glob("parlera-20*.db"))
+    assert len(kept) == 3                                            # newest daily backups kept
+    assert core.db.scalar("SELECT COUNT(*) FROM learner") is not None   # data untouched
+
+
+def test_app_window_launcher(tmp_path, monkeypatch):
+    import parlera.system as system
+    calls = []
+    monkeypatch.setattr(system, "find_app_browser", lambda: "/usr/bin/google-chrome")
+    monkeypatch.setattr(system.subprocess, "Popen", lambda args, **kw: calls.append(args))
+    monkeypatch.setattr(system.webbrowser, "open", lambda url: calls.append(["tab", url]))
+    assert system.open_ui("http://127.0.0.1:8642", "auto", tmp_path / "prof") == "app:google-chrome"
+    assert "--app=http://127.0.0.1:8642" in calls[0] and any(a.startswith("--user-data-dir=") for a in calls[0])
+    assert system.open_ui("http://127.0.0.1:8642", "browser", tmp_path / "prof") == "browser"
+    monkeypatch.setattr(system, "find_app_browser", lambda: None)
+    assert system.open_ui("http://127.0.0.1:8642", "auto", tmp_path / "prof") == "browser"
+
+
+def test_manifest_for_add_to_dock(client):
+    assert '/static/manifest.json' in client.get("/").text
+    m = client.get("/static/manifest.json").json()
+    assert m["display"] == "standalone" and m["name"] == "Parlera"
+    assert client.get("/static/icon-512.png").status_code == 200

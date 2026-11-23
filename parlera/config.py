@@ -49,6 +49,7 @@ class Paths:
         self.media = self.root / "media"
         self.tts_cache = self.root / "cache" / "tts"
         self.backups = self.root / "backups"
+        self.browser_profile = self.root / "browser"   # profile of the dedicated app window
 
     def ensure(self) -> list[str]:
         """Create the folder layout and install/upgrade the editable defaults.
@@ -104,6 +105,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "auto_quit": True,             # stop Parlera when the last browser tab is closed (~45 s grace for reloads)
         "idle_quit_minutes": 30,       # fallback: stop if no tab was seen for this long (browsers pause hidden tabs)
         "quit_ollama": "if_started",   # on quit: if_started (only if Parlera started it) | always | never
+        "window": "auto",              # auto | app (own window via Chrome/Edge/Brave) | browser (normal tab)
+        "offline": "auto",             # auto: don't contact Hugging Face when all models are already downloaded
     },
     "learner": {
         "name": "",
@@ -123,6 +126,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "keep_alive": "30m",
         "disable_thinking": True,      # sends think:false for reasoning models (qwen3, ...)
         "context_messages": 40,        # how many recent messages are sent each turn
+        "exclusive_models": True,      # keep only one big model in memory (unload the other before loading)
+        "big_model_gb": 6,             # models at least this large count as "big"
     },
     "stt": {
         "backend": "auto",             # auto | mlx | faster | off
@@ -194,13 +199,24 @@ class Settings:
         self._lock = threading.Lock()
         self._data = self._load()
 
+    @property
+    def backup_path(self) -> Path:
+        return self.path.with_name(self.path.name + ".bak")
+
     def _load(self) -> dict:
-        user = {}
-        if self.path.exists():
+        """Load settings; if the file is damaged, fall back to the last good copy (never silently to defaults)."""
+        user: dict = {}
+        for candidate in (self.path, self.backup_path, self.path.parent / "backups" / "settings-latest.json"):
+            if not candidate.exists():
+                continue
             try:
-                user = json.loads(self.path.read_text(encoding="utf-8"))
+                user = json.loads(candidate.read_text(encoding="utf-8"))
+                if candidate != self.path:
+                    import logging
+                    logging.getLogger("parlera").warning("settings.json unreadable — restored from %s", candidate)
+                break
             except (OSError, json.JSONDecodeError):
-                user = {}
+                continue
         return deep_merge(DEFAULT_SETTINGS, user)
 
     def all(self) -> dict:
@@ -218,6 +234,12 @@ class Settings:
     def update(self, patch: dict) -> dict:
         with self._lock:
             self._data = deep_merge(self._data, patch)
+            if self.path.exists():  # keep the previous good version next to it
+                try:
+                    json.loads(self.path.read_text(encoding="utf-8"))
+                    shutil.copy2(self.path, self.backup_path)
+                except (OSError, json.JSONDecodeError):
+                    pass
             tmp = self.path.with_suffix(".tmp")
             tmp.write_text(json.dumps(self._data, indent=2, ensure_ascii=False), encoding="utf-8")
             tmp.replace(self.path)

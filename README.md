@@ -137,8 +137,32 @@ separate from the program:
 
 - **Start:** the Parlera app, `./run.sh` or `Parlera.command`. Ollama is started automatically if needed.
 - **Stop:** click **Quit Parlera** at the bottom of the sidebar. Or just close the browser tab: Parlera stops by itself about 45 seconds later (reloading the page is fine).
+- **Settings are kept across updates:** they live in `settings.json` in your data folder. A previous copy is kept next to it and daily copies go to `backups/`; a damaged file is restored from the last good copy automatically. Re-running `./setup.sh` keeps your chosen model (press Enter). You can also export and import settings under *Settings → Your data*.
+- **Clear cache:** *Settings → Your data → Storage & cache* shows what each cache uses and clears it. Your progress, words and settings are never affected.
 - **Saving:** everything is saved continuously, so there's nothing to "save" before quitting. Unfinished sessions stay *in progress* and can be resumed, or reviewed with *End & review*. A safety copy of the database is written on every quit.
 - **Ollama on quit:** the model is always unloaded, which frees its memory. Ollama itself is quit if Parlera started it. Under *Settings → Starting & quitting* you can choose **always** (also quits an Ollama that was already running, e.g. the menu-bar app) or **never**.
+
+### Its own window
+
+Under *Settings → Starting & quitting → Open Parlera in*, the default opens Parlera in **its own app
+window** (no tabs, no address bar) when Chrome, Edge or Brave is installed. Parlera uses a private
+profile there, so it doesn't mix with your normal browsing, and closing the window stops Parlera.
+Without those browsers, Parlera opens in a normal tab. In Safari you can make your own app window:
+open Parlera and choose **File → Add to Dock**.
+
+### Fully offline
+
+After setup, Parlera needs no internet. Ollama, Whisper, the voices and Anki all run on your Mac,
+and the page loads nothing from the web. Setup downloads the models up front, including the
+Kokoro voices and their English dictionary if you chose them. Once everything is downloaded,
+Parlera stops all online checks; the Terminal says "Offline mode" and so does *Settings → Starting & quitting*.
+
+### Memory: one big model at a time
+
+If you use a separate analysis model (e.g. Muse Glimmer for feedback and Gemma 4 for talking), Parlera
+**unloads the other big model before loading one**, and frees the analysis model right after the
+review. The two never sit in RAM together. Switch this off under *Settings → Language model* if
+you have plenty of memory.
 
 ### Where models are stored
 

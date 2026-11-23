@@ -36,6 +36,7 @@ The user-facing documentation is `README.md`.
 - Proper quitting: a "Quit Parlera" button, auto-quit after the last tab closes, the model unloaded, Ollama quit per setting (§6, "Quitting").
 - Natural voices: Kokoro, selectable per language (English, French), alongside macOS/Piper.
 - A weekly mistake workshop (§6), situation presets (can't speak / can't listen), "Message your teacher" instructions, and a chat break (Fika / Pause café / Tea time).
+- Settings must survive updates; cache clearing; a dedicated app window; fully offline after setup; never two big models in RAM.
 - The user asked about `muse-glimmer:30b-mlx` (Meta, 30B, reasoning, agent-focused, ~21 GB). Recommended: keep Gemma 4 for conversation, and optionally try Muse Glimmer as the *analysis* model.
 
 ## 2. Run, test, develop
@@ -43,7 +44,7 @@ The user-facing documentation is `README.md`.
 ```bash
 ./setup.sh            # macOS: venv, deps, choose/pull Ollama model, Whisper prefetch, ~/Applications/Parlera.app
 ./run.sh              # starts Ollama if needed, serves http://127.0.0.1:8642, opens browser
-.venv/bin/python -m pytest -q          # 30 tests, ~9 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
+.venv/bin/python -m pytest -q          # 36 tests, ~10 s, no GPU/Ollama/Anki needed (also verified on Python 3.12)
 python3 tools/update_default_hashes.py # run BEFORE committing changes to parlera/defaults/{prompts,curricula}
 .venv/bin/python tools/mock_services.py [ollama_port] [anki_port]   # fake Ollama (:11434) + AnkiConnect (:8765)
 ```
@@ -87,6 +88,8 @@ parlera/
   stt.py (119)          STTManager: backend auto-select (mlx on Apple Silicon > faster), transcribe() returns {text, language, words:[{word,p}]}, hallucination filter
   tts.py (226)          TTSManager: engines macos/piper/browser/off, voice listing & auto-pick (Premium > Enhanced > preferred names, locale fr_FR/sv_SE/en_US), disk cache, PIPER_CATALOG
   audio.py (71)         WAV decode/resample/concat (numpy, no ffmpeg)
+  system.py (170)       app window (open_ui: Chrome/Edge/Brave --app with private profile <data>/browser), offline mode
+                        (configure_offline → HF_HUB_OFFLINE=1 when all needed HF repos are cached), cache_info/clear_cache
   anki.py (231)         note type "Parlera Vocab" (fields/templates/CSS), deck_name(), display_word() (adds en/ett, le/la/l'), AnkiConnect client, build_apkg (genanki)
   defaults/prompts/*.md copied to <data>/prompts on first run (never overwritten afterwards)
   defaults/curricula/{sv,fr}.yaml   31 units each: A1 12, A2 8, B1 6, B2 5
@@ -226,6 +229,23 @@ same context dict from `core.build_context()`:
 - On shutdown: unload the model(s), write `backups/parlera-last-quit.db`, and if `quit_ollama == always`, `osascript quit app "Ollama"` + `pkill -x ollama`. `run.sh` quits an Ollama it started unless the setting is `never`.
 - The launcher's Terminal command ends with `; exit`, so the window closes.
 
+**Settings safety:**
+- `Settings.update` copies the previous valid file to `settings.json.bak` before writing.
+- `_load` falls back to `.bak`, then `backups/settings-latest.json`, if the file is damaged.
+- `daily_backup` also writes `settings-latest.json` and `settings-YYYY-MM-DD.json`.
+- `setup.sh` reads the current `llm.model` and offers it as the Enter default; it writes the model only if it changed.
+- `GET /api/settings/export`, `POST /api/settings/import` (multipart, deep-merged).
+
+**Model memory** (`llm.exclusive_models` true, `llm.big_model_gb` 6):
+- `OllamaClient.ensure_exclusive(model)` runs before every chat/stream/warm. It reads `/api/ps` and unloads (`keep_alive: 0`) every other running model ≥ big_model_gb.
+- `core.release_analysis_model()` runs after the session analysis and the workshop digest. When `analysis_model` differs from `model`, it unloads the analysis model and warms the conversation model in the background.
+
+**Window & offline** (`app.window` auto|app|browser, `app.offline` auto|always):
+- `__main__` builds `Paths`/`Settings` first, then calls `system.configure_offline()` (before any model library is imported) and opens the UI via `system.open_ui`.
+- `GET /api/system` returns offline status, needed models (downloaded?), the app browser found, and cache sizes. `POST /api/cache/clear` with `{targets: tts|media|old_backups|browser}`.
+- Setup prefetches Whisper, and with Kokoro also `hexgrad/Kokoro-82M` + spaCy `en_core_web_sm` (misaki needs it). The venv is created with `uv venv --seed` so pip exists for spaCy.
+- `static/manifest.json` + `icon-512.png` support Safari "Add to Dock" / Chrome "Install".
+
 **Situation presets** (`session.js` `SITUATIONS`, stored in localStorage `parlera.situation`): full / nospeak (text input, audio on) / nolisten (voice input, audio off, text shown) / silent. They map onto the existing `inputMode` + `audioOn`.
 
 **Immersion** (`core.immersion`): the setting `conversation.immersion` is `"auto"` or a number 0–100.
@@ -314,10 +334,10 @@ analysis prompt turns them into `pronunciation` errors.
 | Section | Keys |
 |---|---|
 | `ui` | `language` (sv\|fr\|en, the currently studied language), `theme` (auto\|light\|dark) |
-| `app` | `auto_quit` (true), `idle_quit_minutes` (30), `quit_ollama` (if_started\|always\|never) |
+| `app` | `auto_quit` (true), `idle_quit_minutes` (30), `quit_ollama` (if_started\|always\|never), `window` (auto\|app\|browser), `offline` (auto\|always) |
 | `workshop` | `interval_days` (7), `min_mistakes` (3), `thinking` (true) |
 | `learner` | `name`, `native_language` ("English"), `goals.{sv,fr}` |
-| `llm` | `base_url`, `model`, `analysis_model` ("" = same), `temperature`, `num_ctx` (16384), `keep_alive` ("30m"), `disable_thinking` (sends `think:false`, retried without it on a 400), `context_messages` (40) |
+| `llm` | `base_url`, `model`, `analysis_model` ("" = same), `temperature`, `num_ctx` (16384), `keep_alive` ("30m"), `disable_thinking` (sends `think:false`, retried without it on a 400), `context_messages` (40), `exclusive_models` (true), `big_model_gb` (6) |
 | `stt` | `backend` (auto\|mlx\|faster\|off), `model` (mlx-community/whisper-large-v3-turbo), `models.{fr,sv}` overrides, `default_input_language` (target\|en\|auto), `pronunciation_hints`, `confidence_threshold` |
 | `tts` | `engine` (auto\|macos\|piper\|kokoro\|browser\|off; auto = macos > piper > browser), `engines.{fr,sv,en}` per-language override, `speed`, `beginner_slowdown`, `speak_corrections`, `voices.{macos,piper,kokoro,browser}.{fr,sv,en}` ("" = auto-pick; kokoro defaults en `bm_george`, fr `ff_siwis`) |
 | `conversation` | `input_mode` (handsfree\|ptt\|text), `silence_ms` (1400), `barge_in`, `immersion`, `show_text` |
@@ -373,6 +393,8 @@ analysis prompt turns them into `pronunciation` errors.
 **Backup:** `GET /api/backup`, `POST /api/restore`
 
 **App lifecycle:** `POST /api/heartbeat`, `POST /api/bye`, `POST /api/shutdown`
+
+**System:** `GET /api/system`, `POST /api/cache/clear`, `GET /api/settings/export`, `POST /api/settings/import`
 
 **Workshop & teacher notes:**
 - `GET /api/workshops/status/{lang}`, `POST /api/workshops` with `{language}` (returns the new session)

@@ -55,7 +55,9 @@ export default async function settings(main) {
       range('llm.temperature', 'Creativity (temperature)', 0, 1.2, 0.05, (v) => v.toFixed(2)),
       text('llm.num_ctx', 'Context window (tokens)', '16384 is plenty for long sessions.', { type: 'number' }),
       text('llm.context_messages', 'Messages sent per turn', 'Older messages are dropped from the prompt (still saved).', { type: 'number' }),
-      h('div', {}, check('llm.disable_thinking', 'Disable "thinking" for reasoning models', 'Faster replies with Qwen3/DeepSeek-style models.'))),
+      h('div', {}, check('llm.disable_thinking', 'Disable "thinking" for reasoning models', 'Faster replies with Qwen3/DeepSeek-style models.')),
+      h('div', {}, check('llm.exclusive_models', 'Keep only one big model in memory', 'Before a big model loads (e.g. the analysis model), other big models are unloaded, and the analysis model is freed again right after use. Prevents running out of RAM; switching costs a few seconds.')),
+      text('llm.big_model_gb', 'Count models from … GB as "big"', 'Smaller models may stay loaded side by side.', { type: 'number' })),
     h('div', { class: 'callout' }, icon('info'), h('div', {}, 'Install a model in Terminal: ', h('code', {}, `ollama pull ${st.llm.model}`))));
 
   // --- STT ---
@@ -147,12 +149,30 @@ export default async function settings(main) {
     } }, 'Test connection')));
 
   // --- general / quitting ---
+  // window / offline status (filled asynchronously)
+  const sysBox = h('div', { class: 'col' });
+  api.get('/api/system').then((sys) => {
+    const fmtModels = sys.models.map((m) => `${m.repo} ${m.downloaded ? '✓ downloaded' : '— downloads on first use (needs internet once)'}`);
+    mount(sysBox,
+      h('div', { class: `callout ${sys.app_browser ? 'good' : ''}` }, icon(sys.app_browser ? 'checkCircle' : 'info'),
+        h('div', {}, sys.app_browser ? `App window available via ${sys.app_browser.split('/').pop().replace('.app', '')}.`
+          : ['No Chrome, Edge or Brave found, so Parlera opens in a normal tab. In Safari you can make your own app window: open Parlera, then ', h('b', {}, 'File → Add to Dock'), '.'])),
+      h('div', { class: `callout ${sys.offline?.offline ? 'good' : 'warn'}` }, icon(sys.offline?.offline ? 'checkCircle' : 'info'),
+        h('div', {}, h('b', {}, sys.offline?.offline ? 'Running fully offline. ' : 'Online check active. '),
+          fmtModels.length ? fmtModels.join(' · ') : 'No downloadable models needed.')));
+  }).catch(() => {});
+
   const general = section('general', 'Starting & quitting',
     h('div', { class: 'form-grid' },
       h('div', {}, check('app.auto_quit', 'Stop Parlera automatically when I close the browser tab', 'About 45 seconds after the last Parlera tab is closed, the server stops and the model is unloaded. Reloading the page is fine.')),
       text('app.idle_quit_minutes', 'Also stop if no tab was seen for … minutes', 'Safety net for tabs that were never closed properly. Browsers pause hidden tabs, so keep this generous.', { type: 'number' }),
       select('app.quit_ollama', 'Quit Ollama when Parlera stops', [['if_started', 'Only if Parlera started it (recommended)'], ['always', 'Always (also if it was already running)'], ['never', 'Never']],
-        'The model itself is always unloaded, freeing its memory. The idle Ollama app uses almost nothing.')),
+        'The model itself is always unloaded, freeing its memory. The idle Ollama app uses almost nothing.'),
+      select('app.window', 'Open Parlera in', [['auto', 'Its own app window if possible (recommended)'], ['app', 'Its own app window (Chrome / Edge / Brave)'], ['browser', 'A normal browser tab']],
+        'App window: no tabs or address bar, and closing it stops Parlera. Needs Chrome, Edge or Brave installed (Parlera uses its own private profile there). Takes effect at the next start.'),
+      select('app.offline', 'Internet use', [['auto', 'Offline once all models are downloaded (recommended)'], ['always', 'Always offline (never download)']],
+        'Ollama, Whisper, voices and Anki all run locally. Internet is only needed to download models the first time.')),
+    sysBox,
     h('div', { class: 'small faint' }, 'You can also stop Parlera any time with "Quit Parlera" at the bottom of the sidebar.'));
 
   // --- data ---
@@ -162,13 +182,50 @@ export default async function settings(main) {
     const fd = new FormData(); fd.append('file', f);
     try { await api.post('/api/restore', fd); toast('Backup restored', 'success'); setTimeout(() => location.reload(), 800); } catch (err) { toast(err.message, 'error'); }
   } });
+  const settingsInput = h('input', { type: 'file', accept: '.json', class: 'hidden', onchange: async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const fd = new FormData(); fd.append('file', f);
+    try { await api.post('/api/settings/import', fd); toast('Settings imported', 'success'); setTimeout(() => location.reload(), 600); } catch (err) { toast(err.message, 'error'); }
+  } });
+  const cacheBox = h('div', { class: 'col' });
+  const fmtBytes = (b) => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : b >= 1e3 ? `${Math.round(b / 1e3)} KB` : `${b} B`);
+  async function renderCache() {
+    let sys;
+    try { sys = await api.get('/api/system'); } catch { return; }
+    const rows = Object.entries(sys.cache).map(([key, c]) => h('div', { class: 'list-item' },
+      h('div', { class: 'grow' }, h('div', {}, c.label), h('div', { class: 'tiny faint' }, c.hint)),
+      h('b', { class: 'small' }, fmtBytes(c.bytes)),
+      c.readonly ? h('span', { class: 'tiny faint', style: { width: '64px' } }, 'kept') : h('button', { class: 'btn sm', disabled: !c.bytes, onclick: async () => {
+        const r = await api.post('/api/cache/clear', { targets: [key] }); toast(`Freed ${fmtBytes(r.freed)}`, 'success'); renderCache();
+      } }, 'Clear')));
+    mount(cacheBox, h('div', { class: 'card flat', style: { padding: '4px 14px' } }, h('div', { class: 'list' }, rows)),
+      h('div', { class: 'row wrap' },
+        h('button', { class: 'btn', onclick: async () => {
+          const r = await api.post('/api/cache/clear', { targets: ['tts', 'media', 'old_backups', 'browser'] });
+          toast(`Freed ${fmtBytes(r.freed)}`, 'success'); renderCache();
+        } }, icon('trash', 15), 'Clear all caches'),
+        h('button', { class: 'btn ghost', title: 'Forgets this browser\'s small UI preferences (panel, situation preset) and reloads the page', onclick: () => {
+          try { localStorage.clear(); sessionStorage.clear(); } catch { /* ignore */ }
+          if ('caches' in window) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k)));
+          location.reload();
+        } }, icon('refresh', 15), 'Reset page & reload')),
+      h('div', { class: 'tiny faint' }, 'Clearing caches never deletes your progress, words, sessions or settings.'));
+  }
   const data = section('data', 'Your data',
     h('div', { class: 'kv' }, h('dt', {}, 'Data folder'), h('dd', {}, h('code', {}, status?.data_dir || '?')),
       h('dt', {}, 'Contains'), h('dd', { class: 'small muted' }, 'parlera.db (sessions, progress, words, memories), settings.json, prompts/, curricula/, backups/ (daily automatic copies)')),
     h('div', { class: 'row wrap' },
       h('button', { class: 'btn', onclick: () => download('/api/backup', null, `parlera-backup-${new Date().toISOString().slice(0, 10)}.zip`) }, icon('download', 16), 'Download backup'),
       h('button', { class: 'btn', onclick: () => fileInput.click() }, icon('upload', 16), 'Restore backup…'), fileInput),
+    h('div', { class: 'section-label' }, 'Settings'),
+    h('div', { class: 'small muted' }, 'Your settings (models, voices, Anki decks, …) live in settings.json in your data folder. Updates never touch it, a previous copy is kept next to it, and daily copies go to backups/. If the file ever gets damaged, the last good copy is used automatically.'),
+    h('div', { class: 'row wrap' },
+      h('button', { class: 'btn', onclick: () => download('/api/settings/export', null, `parlera-settings-${new Date().toISOString().slice(0, 10)}.json`) }, icon('download', 16), 'Export settings'),
+      h('button', { class: 'btn', onclick: () => settingsInput.click() }, icon('upload', 16), 'Import settings…'), settingsInput),
+    h('div', { class: 'section-label' }, 'Storage & cache'),
+    cacheBox,
     h('div', { class: 'small faint' }, `Parlera v${status?.version || ''} · everything stays on this computer.`));
+  renderCache();
 
   const navItems = [['learner', 'About you'], ['general', 'Starting & quitting'], ['llm', 'Language model'], ['stt', 'Speech recognition'], ['tts', 'Tutor voice'], ['conv', 'Conversation'], ['progress', 'Progress & cards'], ['anki', 'Anki'], ['data', 'Your data']];
   mount(main, h('div', { class: 'page' },

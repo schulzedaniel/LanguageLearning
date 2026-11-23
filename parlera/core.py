@@ -136,10 +136,24 @@ class Parlera:
         dest = self.paths.backups / f"parlera-{date.today().isoformat()}.db"
         if not dest.exists():
             self.db.backup_to(dest)
+        if self.paths.settings.exists():  # settings snapshots, too
+            shutil.copy2(self.paths.settings, self.paths.backups / "settings-latest.json")
+            daily = self.paths.backups / f"settings-{date.today().isoformat()}.json"
+            if not daily.exists():
+                shutil.copy2(self.paths.settings, daily)
+            for old in sorted(self.paths.backups.glob("settings-20*.json"))[:-keep]:
+                old.unlink(missing_ok=True)
         backups = sorted(self.paths.backups.glob("parlera-*.db"))
         for old in backups[:-keep]:
             old.unlink(missing_ok=True)
         return dest
+
+    async def release_analysis_model(self) -> None:
+        """After analysis with a separate (big) model: free it and preload the conversation model again."""
+        analysis = self.settings.get("llm.analysis_model") or ""
+        if analysis and analysis != self.settings.get("llm.model") and self.settings.get("llm.exclusive_models", True):
+            await self.llm.unload(analysis)
+            asyncio.create_task(self.llm.warm())
 
     def anki(self) -> AnkiConnect:
         return AnkiConnect(self.settings.get("anki.url"))
@@ -341,6 +355,7 @@ class Parlera:
             "categories": [c for c in (digest.get("categories") or []) if isinstance(c, dict) and c.get("name")][:6],
             "mistake_count": len(rows),
         }
+        await self.release_analysis_model()
         session = self.create_session(language, "workshop")
         title = f"Mistake workshop · {digest['title']}"[:120]
         self.db.update("sessions", session["id"], {"title": title})
@@ -579,6 +594,7 @@ class Parlera:
 
         result = self._apply_analysis(s, analysis)
         result["vocab_candidates"] = vocab_items
+        await self.release_analysis_model()
         # Optionally send the new words straight to Anki (if it's open).
         result["anki_auto"] = None
         if vocab_items and self.settings.get("anki.auto_add", True):

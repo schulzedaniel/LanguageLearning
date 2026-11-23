@@ -116,8 +116,35 @@ class OllamaClient:
             r = await client.post(self._url("/api/chat"), json=body)
         return r
 
+    async def ensure_exclusive(self, model: str | None = None) -> list[str]:
+        """Unload other *big* models before using `model`, so two large models never fill the RAM.
+
+        Uses Ollama's /api/ps (models currently in memory). Small models are left alone.
+        """
+        cfg = self.cfg
+        if not cfg.get("exclusive_models", True):
+            return []
+        target = model or cfg["model"]
+        limit = float(cfg.get("big_model_gb", 6)) * 1e9
+        try:
+            async with httpx.AsyncClient(timeout=3) as client:
+                r = await client.get(self._url("/api/ps"))
+                running = r.json().get("models", []) if r.status_code == 200 else []
+        except (httpx.HTTPError, ValueError):
+            return []
+        unloaded = []
+        for m in running:
+            name = m.get("name") or m.get("model") or ""
+            if name in (target, f"{target}:latest") or target in (name, name.split(":latest")[0]):
+                continue
+            if float(m.get("size") or 0) >= limit:
+                await self.unload(name)
+                unloaded.append(name)
+        return unloaded
+
     async def chat_stream(self, messages: list[dict], model: str | None = None,
                           options: dict | None = None) -> AsyncIterator[str]:
+        await self.ensure_exclusive(model)
         body = self._body(messages, model, True, options=options)
         filt = ThinkFilter()
         timeout = httpx.Timeout(connect=10, read=300, write=30, pool=10)
@@ -153,6 +180,7 @@ class OllamaClient:
 
     async def chat(self, messages: list[dict], model: str | None = None, fmt: Any = None,
                    options: dict | None = None, timeout: float = 600, think: bool | None = None) -> str:
+        await self.ensure_exclusive(model)
         body = self._body(messages, model, False, fmt=fmt, options=options, think=think)
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
@@ -178,6 +206,7 @@ class OllamaClient:
 
     async def warm(self, model: str | None = None) -> None:
         """Load the model into memory so the first reply is fast."""
+        await self.ensure_exclusive(model)
         try:
             async with httpx.AsyncClient(timeout=120) as client:
                 await client.post(self._url("/api/generate"),
