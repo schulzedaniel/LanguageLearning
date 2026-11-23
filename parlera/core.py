@@ -50,10 +50,11 @@ ANALYSIS_SCHEMA = {
         "exam_score": {"type": "number"},
         "exam_max": {"type": "number"},
         "exam_breakdown": {"type": "string"},
+        "mastered_patterns": {"type": "array", "items": {"type": "string"}},
     },
     "required": ["title", "summary", "feedback", "strengths", "focus_next", "errors", "memories",
                  "can_do", "unit_mastery", "ready_to_advance", "cefr_estimate",
-                 "recommended_unit_id", "exam_score", "exam_max", "exam_breakdown"],
+                 "recommended_unit_id", "exam_score", "exam_max", "exam_breakdown", "mastered_patterns"],
 }
 
 VOCAB_SCHEMA = {
@@ -67,6 +68,30 @@ VOCAB_SCHEMA = {
     "required": ["items"],
 }
 
+WORKSHOP_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string"},
+        "overview": {"type": "string"},
+        "categories": {"type": "array", "items": {"type": "object", "properties": {
+            "name": {"type": "string"}, "rule": {"type": "string"}, "why": {"type": "string"},
+            "examples": {"type": "array", "items": {"type": "object", "properties": {
+                "wrong": {"type": "string"}, "right": {"type": "string"}}, "required": ["wrong", "right"]}},
+            "tip": {"type": "string"}, "patterns": {"type": "array", "items": {"type": "string"}}},
+            "required": ["name", "rule", "why", "examples", "tip", "patterns"]}},
+        "plan": {"type": "string"},
+    },
+    "required": ["title", "overview", "categories", "plan"],
+}
+
+NOTE_SCHEMA = {
+    "type": "object",
+    "properties": {"items": {"type": "array", "items": {"type": "object", "properties": {
+        "content": {"type": "string"}, "kind": {"type": "string"}, "days": {"type": "integer"},
+        "all_languages": {"type": "boolean"}}, "required": ["content", "kind", "days", "all_languages"]}}},
+    "required": ["items"],
+}
+
 AUTOFILL_SCHEMA = {
     "type": "object",
     "properties": {k: {"type": "string"} for k in
@@ -75,6 +100,7 @@ AUTOFILL_SCHEMA = {
 }
 
 REASON_PRIORITY = {"mistake": 0, "asked": 1, "unit": 2, "new": 3}
+BREAK_NAMES = {"sv": "fika", "fr": "pause café", "en": "tea time"}
 UNIT_MODES = {"lesson", "conversation", "roleplay", "review", "writing", "pronunciation"}
 
 
@@ -253,6 +279,122 @@ class Parlera:
                     break
         return picked
 
+    # ------------------------------------------------------------------
+    # mistake workshop
+    # ------------------------------------------------------------------
+    def workshop_for_session(self, session_id: int | None) -> dict | None:
+        if not session_id:
+            return None
+        row = self.db.one("SELECT * FROM workshops WHERE session_id=?", [session_id])
+        return json.loads(row["digest"]) if row else None
+
+    def workshop_status(self, language: str) -> dict:
+        last = self.db.one("SELECT * FROM workshops WHERE language=? ORDER BY created_at DESC LIMIT 1", [language])
+        since = last["created_at"] if last else "0000"
+        events = self.db.scalar("SELECT COUNT(*) FROM error_events WHERE language=? AND created_at > ?", [language, since])
+        patterns = self.db.scalar("SELECT COUNT(DISTINCT error_id) FROM error_events WHERE language=? AND created_at > ?",
+                                  [language, since])
+        interval = int(self.settings.get("workshop.interval_days", 7))
+        days = (datetime.now() - _parse_ts(last["created_at"])).days if last else None
+        enough = events >= int(self.settings.get("workshop.min_mistakes", 3))
+        return {"last": last["created_at"] if last else None, "days_since": days, "new_mistakes": events,
+                "new_patterns": patterns, "due": enough and (days is None or days >= interval),
+                "available": events > 0 or bool(self.recurring_errors(language, 1))}
+
+    async def create_workshop(self, language: str) -> dict:
+        """Summarise and categorise recent mistakes with the LLM, then open a workshop session."""
+        last = self.db.one("SELECT created_at FROM workshops WHERE language=? ORDER BY created_at DESC LIMIT 1", [language])
+        start = last["created_at"] if last else (datetime.now() - timedelta(days=30)).isoformat(timespec="seconds")
+        rows = self.db.all(
+            "SELECT e.pattern, e.category, e.explanation, e.count, e.resolved, ev.wrong, ev.right, ev.created_at "
+            "FROM error_events ev JOIN errors e ON e.id = ev.error_id "
+            "WHERE ev.language=? AND ev.created_at > ? ORDER BY ev.created_at", [language, start])
+        if not rows:  # nothing new: train the unresolved recurring mistakes instead
+            rows = [{"pattern": e["pattern"], "category": e["category"], "explanation": e["explanation"],
+                     "count": e["count"], "resolved": 0, "wrong": e["example_wrong"], "right": e["example_right"],
+                     "created_at": e["last_seen"]} for e in self.recurring_errors(language, 15)]
+        if not rows:
+            raise ValueError("No mistakes collected yet — have a few sessions (and press End & review) first.")
+        grouped: dict[str, dict] = {}
+        for r in rows:
+            g = grouped.setdefault(r["pattern"], {"pattern": r["pattern"], "category": r["category"],
+                                                  "explanation": r["explanation"], "total": r["count"], "examples": []})
+            if r["wrong"] and len(g["examples"]) < 4:
+                g["examples"].append({"wrong": r["wrong"], "right": r["right"]})
+        ctx = self.build_context(language, "workshop")
+        ctx["mistakes"] = sorted(grouped.values(), key=lambda g: -len(g["examples"]) - g["total"])
+        ctx["period_start"] = start[:10]
+        model = self.settings.get("llm.analysis_model") or None
+        messages = [{"role": "system", "content": self.prompts.render("analysis_workshop", **ctx)},
+                    {"role": "user", "content": "Create the workshop JSON now."}]
+        think = bool(self.settings.get("workshop.thinking", True))
+        try:
+            digest = await self.llm.chat_json(messages, schema=WORKSHOP_SCHEMA, model=model, think=think or None)
+        except Exception:
+            if not think:
+                raise
+            digest = await self.llm.chat_json(messages, schema=WORKSHOP_SCHEMA, model=model, think=False)
+        digest = {
+            "title": str(digest.get("title") or "Mistake workshop"),
+            "overview": str(digest.get("overview") or ""),
+            "plan": str(digest.get("plan") or ""),
+            "categories": [c for c in (digest.get("categories") or []) if isinstance(c, dict) and c.get("name")][:6],
+            "mistake_count": len(rows),
+        }
+        session = self.create_session(language, "workshop")
+        title = f"Mistake workshop · {digest['title']}"[:120]
+        self.db.update("sessions", session["id"], {"title": title})
+        self.db.insert("workshops", {"language": language, "created_at": now(), "period_start": start,
+                                     "period_end": now(), "digest": json.dumps(digest, ensure_ascii=False),
+                                     "session_id": session["id"]})
+        return self.db.session(session["id"])
+
+    # ------------------------------------------------------------------
+    # "Message your teacher": instructions outside sessions
+    # ------------------------------------------------------------------
+    def active_directives(self, language: str) -> list[dict]:
+        return self.db.all(
+            "SELECT * FROM directives WHERE active=1 AND (language IS NULL OR language=?) "
+            "AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at", [language, now()])
+
+    async def parse_teacher_note(self, language: str, text: str) -> list[dict]:
+        """Turn a free-text note into concrete instructions with a suggested duration (the learner confirms)."""
+        text = (text or "").strip()
+        if not text:
+            raise ValueError("The note is empty.")
+        ctx = self.build_context(language, "free")
+        ctx["note"] = text
+        data = await self.llm.chat_json(
+            [{"role": "system", "content": self.prompts.render("teacher_note", **ctx)},
+             {"role": "user", "content": text}], schema=NOTE_SCHEMA)
+        out = []
+        for it in (data.get("items") or [])[:8]:
+            if not isinstance(it, dict) or not str(it.get("content", "")).strip():
+                continue
+            days = it.get("days")
+            try:
+                days = int(days) if days not in (None, "", 0) else None
+            except (TypeError, ValueError):
+                days = None
+            kind = it.get("kind") if it.get("kind") in ("behaviour", "focus", "vocabulary", "other") else "other"
+            out.append({"content": str(it["content"]).strip(), "kind": kind,
+                        "days": days if days is None else max(1, min(365, days)),
+                        "all_languages": bool(it.get("all_languages"))})
+        if not out:
+            out = [{"content": text, "kind": "other", "days": 7, "all_languages": False}]
+        return out
+
+    def save_directives(self, language: str, items: list[dict], source_text: str = "") -> list[dict]:
+        ts = datetime.now()
+        for it in items:
+            days = it.get("days")
+            self.db.insert("directives", {
+                "language": None if it.get("all_languages") else language, "kind": it.get("kind") or "other",
+                "content": str(it.get("content", "")).strip()[:500], "source_text": source_text[:1000],
+                "expires_at": (ts + timedelta(days=int(days))).isoformat(timespec="seconds") if days else None,
+                "active": 1, "created_at": ts.isoformat(timespec="seconds")})
+        return self.active_directives(language)
+
     def recurring_errors(self, language: str, limit: int = 8) -> list[dict]:
         return self.db.all("SELECT * FROM errors WHERE language=? AND resolved=0 "
                            "ORDER BY count DESC, last_seen DESC LIMIT ?", [language, limit])
@@ -308,6 +450,9 @@ class Parlera:
                                                               exclude={w["id"] for w in weak})],
             "recurring_errors": self.recurring_errors(language),
             "exam": self.exam_for_level(language, level),
+            "workshop": self.workshop_for_session(session_id) if mode == "workshop" else None,
+            "directives": [d["content"] for d in self.active_directives(language)],
+            "break_name": BREAK_NAMES.get(language, "coffee break"),
             "exams": cur.get("exams", []),
             "today": date.today().isoformat(),
         }
@@ -382,6 +527,7 @@ class Parlera:
         s["unit"] = self.curricula.unit(s["language"], s["unit_id"]) if s.get("unit_id") else None
         s["duration"] = self.session_duration(sid)
         s["mode_info"] = MODES.get(s["mode"], {})
+        s["workshop"] = self.workshop_for_session(sid) if s["mode"] == "workshop" else None
         s["vocab"] = self.db.all("SELECT * FROM vocab WHERE session_id=? ORDER BY id", [sid])
         for v in s["vocab"]:
             v["display"] = display_word(v)
@@ -454,6 +600,7 @@ class Parlera:
         for k in ("strengths", "focus_next"):
             a[k] = [str(x) for x in (a.get(k) or []) if str(x).strip()][:6]
         a["errors"] = [e for e in (a.get("errors") or []) if isinstance(e, dict) and e.get("pattern")][:12]
+        a["mastered_patterns"] = [str(p) for p in (a.get("mastered_patterns") or []) if str(p).strip()][:20]
         a["memories"] = [m for m in (a.get("memories") or []) if isinstance(m, dict) and m.get("content")][:8]
         a["can_do"] = [{"goal": str(c.get("goal", "")), "score": _clamp01(c.get("score"))}
                        for c in (a.get("can_do") or []) if isinstance(c, dict)]
@@ -475,6 +622,7 @@ class Parlera:
         for e in a["errors"]:
             pn = norm(e["pattern"])
             existing = self.db.one("SELECT * FROM errors WHERE language=? AND pattern_norm=?", [lang, pn])
+            error_id = existing["id"] if existing else None
             if existing:
                 self.db.update("errors", existing["id"], {
                     "count": existing["count"] + 1, "last_seen": ts, "last_session": sid, "resolved": 0,
@@ -487,6 +635,14 @@ class Parlera:
                     "pattern_norm": pn, "example_wrong": e.get("wrong", ""), "example_right": e.get("right", ""),
                     "explanation": e.get("explanation", ""), "count": 1, "first_seen": ts, "last_seen": ts,
                     "last_session": sid})
+                error_id = self.db.scalar("SELECT id FROM errors WHERE language=? AND pattern_norm=?", [lang, pn])
+            if s["mode"] != "workshop":
+                self.db.insert("error_events", {"error_id": error_id, "language": lang, "session_id": sid,
+                                                "wrong": e.get("wrong", ""), "right": e.get("right", ""), "created_at": ts})
+        # mistakes the learner has now mastered (workshop sessions)
+        for p in a.get("mastered_patterns", []):
+            self.db.execute("UPDATE errors SET resolved=1 WHERE language=? AND pattern_norm=?", [lang, norm(p)])
+
         # memories (skip near-duplicates)
         existing_mem = {norm(m["content"]) for m in self.db.all("SELECT content FROM memories")}
         new_memory_ids = []
@@ -629,7 +785,7 @@ class Parlera:
 
     def _card_audio(self, v: dict) -> dict[str, bytes]:
         media: dict[str, bytes] = {}
-        if not self.settings.get("anki.include_audio", True) or not self.tts.server_side():
+        if not self.settings.get("anki.include_audio", True) or not self.tts.server_side((v["language"],)):
             return media
         try:
             media[f"parlera_{v['language']}_{v['id']}_w.wav"] = self.tts.synth(display_word(v), v["language"], 0.9)

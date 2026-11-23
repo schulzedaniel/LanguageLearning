@@ -73,6 +73,7 @@ function renderLangSwitch() {
       await saveSettings({ ui: { language: code } });
       applyTheme();
       renderLangSwitch();
+      updateBreakLabel();
       const { route } = match(location.hash);
       if (route.path.startsWith('session') || route.path.startsWith('review')) navigate('');
       else render();
@@ -96,8 +97,33 @@ export async function refreshStatus() {
     api.post('/api/anki/push-pending', {}).then((r) => { if (r.added?.length) toast(`${r.added.length} queued word(s) sent to Anki`, 'success'); }).catch(() => {});
   }
   mount(el, lines.map((l) => h('div', { class: 'status-line', title: 'Open settings', onclick: () => navigate('settings') },
-    h('span', { class: `dot ${l.ok ? 'ok' : l.warn ? 'warn' : 'bad'}` }), l.label)));
+    h('span', { class: `dot ${l.ok ? 'ok' : l.warn ? 'warn' : 'bad'}` }), l.label)),
+    h('button', { class: 'btn sm quit-btn', title: 'Stop Parlera and free the model\'s memory', onclick: quitApp }, icon('x', 14), 'Quit Parlera'));
   return s;
+}
+
+// Heartbeat: the server quits by itself a few minutes after the last tab is gone.
+function startHeartbeat() {
+  const beat = () => fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
+  beat();
+  setInterval(beat, 20000);
+  window.addEventListener('pagehide', () => { try { navigator.sendBeacon('/api/bye'); } catch { /* ignore */ } });
+}
+
+async function quitApp() {
+  const { confirmDialog } = await import('./ui.js');
+  if (!(await confirmDialog('Stop Parlera? Everything is already saved, and unfinished sessions can be resumed next time. The language model is unloaded from memory.', { title: 'Quit Parlera', ok: 'Quit' }))) return;
+  let r = { ok: false };
+  try { r = await api.post('/api/shutdown'); } catch { r = { ok: true }; }
+  if (!r.ok) { toast(r.detail || 'Could not stop the server.', 'error', 6000); return; }
+  document.body.innerHTML = `<div style="height:100vh;display:grid;place-items:center;font-family:-apple-system,sans-serif;background:var(--bg);color:var(--ink)">
+    <div style="text-align:center"><img src="/static/favicon.svg" width="64" height="64" alt=""><h2>Parlera has stopped</h2>
+    <p style="color:var(--ink-2)">Your progress is saved. You can close this tab.</p></div></div>`;
+}
+
+function updateBreakLabel() {
+  const el = document.getElementById('break-label');
+  if (el) el.textContent = { sv: 'Fika ☕', fr: 'Pause café ☕', en: 'Tea time ☕' }[state.language] || 'Chat break';
 }
 
 async function boot() {
@@ -110,6 +136,12 @@ async function boot() {
   applyTheme();
   renderLangSwitch();
   refreshStatus();
+  startHeartbeat();
+  const { openTeacherNote } = await import('./views/teachernote.js');
+  mount(document.getElementById('sidebar-actions'),
+    h('button', { class: 'btn sidebar-action', title: 'Send your teacher a note: focus, behaviour, new words…', onclick: () => openTeacherNote() }, icon('mail', 16), 'Message your teacher'),
+    h('button', { class: 'btn sidebar-action', title: 'A relaxed chat without the curriculum', onclick: async () => { const { startSession } = await import('./views/start.js'); startSession({ mode: 'break' }); } }, icon('coffee', 16), h('span', { id: 'break-label' }, 'Chat break')));
+  updateBreakLabel();
   setInterval(refreshStatus, 30000);
   window.addEventListener('hashchange', render);
   window.addEventListener('parlera:status', refreshStatus);

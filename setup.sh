@@ -21,14 +21,41 @@ ask() {
 DEFAULT_MODEL="gemma4:26b"
 
 bold "1/6  Python"
+# Natural Kokoro voices need Python 3.12 or older (its dependencies don't support 3.13 yet).
+WANT_KOKORO=0
+if .venv/bin/python -c 'import kokoro' >/dev/null 2>&1; then
+  WANT_KOKORO=1
+else
+  k="$(ask "Install natural neural voices (Kokoro: much more natural English, plus French; ~1.5 GB incl. PyTorch)? [y/N]" "N")"
+  [[ "$k" =~ ^[Yy] ]] && WANT_KOKORO=1
+fi
 PY=""
-for c in python3.13 python3.12 python3.11 python3; do
+for c in python3.12 python3.11 python3.13 python3; do
   if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys; sys.exit(0 if sys.version_info >= (3,10) else 1)'; then PY="$c"; break; fi
 done
-if [[ -z "$PY" ]]; then
+if [[ -z "$PY" ]] && ! command -v uv >/dev/null 2>&1; then
   echo "Python 3.10+ not found. Install it with Homebrew:  brew install python@3.12"; exit 1
 fi
-echo "Using $($PY --version)"
+PYVER="$([[ -n "$PY" ]] && "$PY" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")' || echo none)"
+if [[ $WANT_KOKORO == 1 && ( "$PYVER" == "3.13" || "$PYVER" == "none" ) ]]; then
+  if command -v uv >/dev/null 2>&1; then
+    PY="3.12"   # uv downloads a private Python 3.12 if needed
+    echo "Using Python 3.12 (provided by uv) for the Kokoro voices."
+  else
+    echo "Kokoro needs Python 3.12. Install it with:  brew install python@3.12   (then run ./setup.sh again)."
+    echo "Continuing without Kokoro for now."
+    WANT_KOKORO=0
+  fi
+else
+  echo "Using Python $PYVER"
+fi
+# Recreate the program's virtual environment if it was built with another Python version
+# (this only contains installed packages — your data is elsewhere and is not touched).
+if [[ -x .venv/bin/python ]]; then
+  CUR="$(.venv/bin/python -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
+  TARGET="$([[ "$PY" == "3.12" ]] && echo 3.12 || "$PY" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
+  if [[ "$CUR" != "$TARGET" ]]; then echo "Rebuilding .venv for Python $TARGET (was $CUR)…"; rm -rf .venv; fi
+fi
 
 bold "2/6  Where to keep your data"
 # Your progress, sessions, words, memories, prompts and curricula. The program code stays in this folder.
@@ -43,6 +70,7 @@ echo "Data folder: $DATA_DIR   (saved in parlera.env)"
 bold "3/6  Python packages (web app, Whisper for Apple Silicon, Piper voices…)"
 EXTRAS="mac,piper"
 [[ "$(uname -m)" != "arm64" ]] && EXTRAS="faster,piper"
+[[ $WANT_KOKORO == 1 ]] && EXTRAS="$EXTRAS,kokoro"
 if command -v uv >/dev/null 2>&1; then
   uv venv --allow-existing --python "$PY" .venv </dev/null
   uv pip install --python .venv/bin/python -e ".[$EXTRAS]" </dev/null
@@ -50,6 +78,11 @@ else
   [[ -x .venv/bin/python ]] || "$PY" -m venv .venv
   .venv/bin/pip install --upgrade pip >/dev/null </dev/null
   .venv/bin/pip install -e ".[$EXTRAS]" </dev/null
+fi
+
+if [[ $WANT_KOKORO == 1 ]] && command -v brew >/dev/null 2>&1 && ! command -v espeak-ng >/dev/null 2>&1; then
+  echo "Installing espeak-ng (pronunciation backend Kokoro uses for French and rare English words)…"
+  brew install espeak-ng </dev/null || echo "Could not install espeak-ng; English will still work."
 fi
 
 bold "4/6  Language model (Ollama)"
@@ -113,7 +146,7 @@ if command -v osacompile >/dev/null 2>&1; then
     osacompile -o "$HOME/Applications/Parlera.app" \
       -e 'tell application "Terminal"' \
       -e 'activate' \
-      -e "do script \"cd \" & quoted form of \"$ESCAPED\" & \" && ./run.sh\"" \
+      -e "do script \"cd \" & quoted form of \"$ESCAPED\" & \" && ./run.sh; exit\"" \
       -e 'end tell'
     # Give the launcher a proper name/identifier so macOS prompts say "Parlera" (not "applet").
     # Editing Info.plist invalidates the ad-hoc signature, so re-sign it; if that fails, keep the

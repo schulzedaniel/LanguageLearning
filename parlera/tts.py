@@ -5,7 +5,11 @@
                Spoken Content → System voice → Manage Voices) sound very good,
                including Swedish (Alva, Klara, Oskar) and French (Thomas, Amélie, Audrey…).
 * ``piper``  – neural offline voices (pip install piper-tts), works on any OS.
+* ``kokoro`` – Kokoro-82M neural voices (pip install kokoro). Very natural English
+               (American and British) and one French voice; no Swedish. Runs locally, ~330 MB model.
 * ``browser``– the browser's speechSynthesis (no server audio; not usable for Anki audio).
+
+Engines can be chosen per language (``tts.engines``), e.g. Kokoro for English and macOS for Swedish.
 """
 from __future__ import annotations
 
@@ -46,6 +50,21 @@ PIPER_CATALOG = [
 ]
 PIPER_BASE = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
 
+# Kokoro voices: the first letter is the language (a = American English, b = British English, f = French)
+KOKORO_VOICES = [
+    {"name": "bm_george", "lang": "en", "desc": "British English, male"},
+    {"name": "bm_fable", "lang": "en", "desc": "British English, male"},
+    {"name": "bm_lewis", "lang": "en", "desc": "British English, male"},
+    {"name": "bf_emma", "lang": "en", "desc": "British English, female"},
+    {"name": "bf_isabella", "lang": "en", "desc": "British English, female"},
+    {"name": "af_heart", "lang": "en", "desc": "American English, female (highest rated)"},
+    {"name": "af_bella", "lang": "en", "desc": "American English, female"},
+    {"name": "am_michael", "lang": "en", "desc": "American English, male"},
+    {"name": "am_fenrir", "lang": "en", "desc": "American English, male"},
+    {"name": "ff_siwis", "lang": "fr", "desc": "French, female"},
+]
+SERVER_ENGINES = ("macos", "piper", "kokoro")
+
 
 class TTSError(RuntimeError):
     pass
@@ -59,6 +78,7 @@ class TTSManager:
         self._piper: dict[str, object] = {}
         self._lock = threading.Lock()
         self._macos_voices: list[dict] | None = None
+        self._kokoro: dict[str, object] = {}
 
     @property
     def cfg(self) -> dict:
@@ -69,8 +89,17 @@ class TTSManager:
         return {
             "macos": shutil.which("say") is not None,
             "piper": importlib.util.find_spec("piper") is not None and any(self.voices_dir.glob("*.onnx")),
+            "kokoro": importlib.util.find_spec("kokoro") is not None,
             "browser": True,
         }
+
+    def engine_for(self, lang: str) -> str:
+        """Engine used for one language: the per-language override if set and usable, else the main engine."""
+        override = (self.cfg.get("engines") or {}).get(lang) or ""
+        if override and override != "auto":
+            if override in ("off", "browser") or self.available_engines().get(override):
+                return override
+        return self.engine()
 
     def engine(self) -> str:
         want = self.cfg.get("engine", "auto")
@@ -85,8 +114,11 @@ class TTSManager:
             return "piper"
         return "browser"
 
-    def server_side(self) -> bool:
-        return self.engine() in ("macos", "piper")
+    def server_side(self, langs: tuple[str, ...] | None = None) -> bool:
+        """True if the server produces the audio (for all of the given languages)."""
+        if langs is None:
+            return self.engine() in SERVER_ENGINES
+        return all(self.engine_for(lang) in SERVER_ENGINES for lang in langs)
 
     def status(self) -> dict:
         return {"engine": self.engine(), "engines": self.available_engines()}
@@ -126,6 +158,8 @@ class TTSManager:
             return sorted(vs, key=lambda v: (-v["quality"], v["locale"] != PREFERRED_LOCALE[lang], v["name"]))
         if engine == "piper":
             return [v for v in self.piper_voices() if v["lang"] == lang]
+        if engine == "kokoro":
+            return [v for v in KOKORO_VOICES if v["lang"] == lang]
         return []
 
     def _macos_voice(self, lang: str) -> str | None:
@@ -148,7 +182,7 @@ class TTSManager:
         text = (text or "").strip()
         if not text:
             return b""
-        engine = self.engine()
+        engine = self.engine_for(lang)
         speed = float(self.cfg.get("speed", 1.0)) * rate
         if engine == "macos":
             voice = self._macos_voice(lang)
@@ -158,6 +192,10 @@ class TTSManager:
             voice = (self.cfg["voices"].get("piper") or {}).get(lang) or ""
             key = f"piper|{voice}|{speed:.2f}|{text}"
             return self._cached(key, lambda: self._piper_synth(text, voice, speed))
+        if engine == "kokoro":
+            voice = (self.cfg["voices"].get("kokoro") or {}).get(lang) or ""
+            key = f"kokoro|{voice}|{speed:.2f}|{text}"
+            return self._cached(key, lambda: self._kokoro_synth(text, voice, speed))
         raise TTSError(f"TTS engine '{engine}' does not produce audio on the server.")
 
     def synth_segments(self, segments: list[dict], rates: dict[str, float] | None = None) -> bytes:
@@ -202,6 +240,33 @@ class TTSManager:
             except ImportError:
                 voice.synthesize(text, wf, length_scale=length_scale)  # piper-tts 1.2
         return buf.getvalue()
+
+    def _kokoro_synth(self, text: str, voice: str, speed: float) -> bytes:
+        if not voice:
+            raise TTSError("No Kokoro voice for this language (Kokoro has English and French voices, not Swedish).")
+        try:
+            from kokoro import KPipeline
+        except ImportError as e:
+            raise TTSError("Kokoro is not installed. Run ./setup.sh and answer yes to natural voices, "
+                           "or: .venv/bin/pip install kokoro soundfile") from e
+        import numpy as np
+        from .audio import float32_to_wav
+        lang_code = voice[0]  # a/b = American/British English, f = French
+        with self._lock:
+            pipe = self._kokoro.get(lang_code)
+            if pipe is None:
+                pipe = KPipeline(lang_code=lang_code)   # downloads hexgrad/Kokoro-82M on first use
+                self._kokoro[lang_code] = pipe
+            chunks = []
+            for result in pipe(text, voice=voice, speed=max(0.5, min(2.0, speed))):
+                audio = result[2] if isinstance(result, tuple) else getattr(result, "audio", None)
+                if audio is not None:
+                    if hasattr(audio, "detach"):  # torch tensor (possibly on the GPU)
+                        audio = audio.detach().cpu().numpy()
+                    chunks.append(np.asarray(audio, dtype=np.float32).reshape(-1))
+        if not chunks:
+            return b""
+        return float32_to_wav(np.concatenate(chunks), 24000)
 
     def _load_piper(self, voice_name: str):
         if not voice_name:

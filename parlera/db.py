@@ -125,7 +125,48 @@ CREATE TABLE IF NOT EXISTS exam_scores (
 );
 """
 
-MIGRATIONS = [SCHEMA_V1]
+SCHEMA_V2 = """
+-- every single occurrence of a mistake (errors holds one row per pattern)
+CREATE TABLE IF NOT EXISTS error_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    error_id    INTEGER NOT NULL REFERENCES errors(id) ON DELETE CASCADE,
+    language    TEXT NOT NULL,
+    session_id  INTEGER,
+    wrong       TEXT DEFAULT '',
+    right       TEXT DEFAULT '',
+    created_at  TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_error_events ON error_events(language, created_at);
+
+-- weekly mistake workshops: an LLM digest of recent mistakes + the training session
+CREATE TABLE IF NOT EXISTS workshops (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    language     TEXT NOT NULL,
+    created_at   TEXT NOT NULL,
+    period_start TEXT NOT NULL,
+    period_end   TEXT NOT NULL,
+    digest       TEXT NOT NULL,             -- JSON
+    session_id   INTEGER
+);
+
+-- instructions the learner sent to the teacher outside sessions ("Message your teacher")
+CREATE TABLE IF NOT EXISTS directives (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    language    TEXT,                       -- NULL = all languages
+    kind        TEXT DEFAULT 'behaviour',   -- behaviour | focus | vocabulary | other
+    content     TEXT NOT NULL,              -- the instruction, as it goes into the system prompt
+    source_text TEXT DEFAULT '',            -- what the learner wrote
+    expires_at  TEXT,                       -- NULL = permanent
+    active      INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT NOT NULL
+);
+
+-- backfill: one event per existing error, so the first workshop has material
+INSERT INTO error_events (error_id, language, session_id, wrong, right, created_at)
+SELECT id, language, last_session, example_wrong, example_right, last_seen FROM errors;
+"""
+
+MIGRATIONS = [SCHEMA_V1, SCHEMA_V2]
 
 
 def now() -> str:

@@ -31,7 +31,10 @@ def main() -> None:
     print(f"\n  Parlera is running at {url}\n  Data folder: {app.state.core.paths.root}\n  Press Ctrl+C to stop.\n")
     if not args.no_browser:
         threading.Thread(target=lambda: (time.sleep(1.2), webbrowser.open(url)), daemon=True).start()
-    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    server = uvicorn.Server(uvicorn.Config(app, host=args.host, port=args.port, log_level="warning"))
+    app.state.server = server  # lets the Quit button and the auto-quit watchdog stop the server
+    server.run()
+    print("\n  Parlera stopped. Your progress is saved.\n")
 
 
 if __name__ == "__main__":

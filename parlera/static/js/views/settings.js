@@ -79,7 +79,7 @@ export default async function settings(main) {
   const voicesBox = h('div', { class: 'col' });
   const tts = section('tts', 'Tutor voice',
     h('div', { class: 'form-grid' },
-      select('tts.engine', 'Voice engine', [['auto', `Automatic (now: ${status?.tts?.engine || '?'})`], ['macos', `macOS voices${engines.macos ? '' : ' – not available'}`], ['piper', `Piper neural voices${engines.piper ? '' : ' – no voices downloaded'}`], ['browser', 'Browser voices'], ['off', 'Off']]),
+      select('tts.engine', 'Voice engine', [['auto', `Automatic (now: ${status?.tts?.engine || '?'})`], ['macos', `macOS voices${engines.macos ? '' : ' – not available'}`], ['piper', `Piper neural voices${engines.piper ? '' : ' – no voices downloaded'}`], ['kokoro', `Kokoro natural voices${engines.kokoro ? '' : ' – not installed'}`], ['browser', 'Browser voices'], ['off', 'Off']], 'Default for all languages; override per language below.'),
       range('tts.speed', 'Speaking speed', 0.6, 1.4, 0.05, (v) => `${Math.round(v * 100)}%`),
       check('tts.beginner_slowdown', 'Speak the target language slower at A1/A2'),
       check('tts.speak_corrections', 'Read corrections (✏️) aloud')),
@@ -114,6 +114,9 @@ export default async function settings(main) {
       text('vocab.max_cards_per_session', 'Max. flashcards suggested per session', '', { type: 'number' }),
       h('div', {}, check('vocab.reinforce', 'Reinforce recently learned words', 'The tutor subtly reuses words you added in the last weeks — more often for young cards, rarely for mature ones.')),
       text('vocab.reinforce_count', 'Words offered to the tutor per session', 'It uses two or three of them naturally.', { type: 'number' }),
+      text('workshop.interval_days', 'Mistake workshop every … days', 'The dashboard suggests a workshop when it is due.', { type: 'number' }),
+      text('workshop.min_mistakes', 'Only if at least … new mistakes', '', { type: 'number' }),
+      h('div', { class: 'full' }, check('workshop.thinking', 'Let the model think while preparing the workshop', 'Better grouping and explanations with reasoning models (Gemma 4, Muse Glimmer, Qwen 3); takes longer. Live conversation never uses thinking.')),
       range('vocab.min_zipf', 'Skip rare words below frequency', 0, 4, 0.5, (v) => (v === 0 ? 'off' : `Zipf ${v}`))));
 
   // --- anki ---
@@ -143,6 +146,15 @@ export default async function settings(main) {
       try { const r = await api.get('/api/anki/test'); toast(`AnkiConnect v${r.version} · ${r.decks.length} decks`, 'success'); } catch (e) { toast(e.message, 'error', 7000); }
     } }, 'Test connection')));
 
+  // --- general / quitting ---
+  const general = section('general', 'Starting & quitting',
+    h('div', { class: 'form-grid' },
+      h('div', {}, check('app.auto_quit', 'Stop Parlera automatically when I close the browser tab', 'After the delay below, the server stops and the model is unloaded. Reloading the page in the meantime is fine.')),
+      text('app.auto_quit_minutes', 'Delay (minutes)', '', { type: 'number' }),
+      select('app.quit_ollama', 'Quit Ollama when Parlera stops', [['if_started', 'Only if Parlera started it (recommended)'], ['always', 'Always (also if it was already running)'], ['never', 'Never']],
+        'The model itself is always unloaded, freeing its memory. The idle Ollama app uses almost nothing.')),
+    h('div', { class: 'small faint' }, 'You can also stop Parlera any time with "Quit Parlera" at the bottom of the sidebar.'));
+
   // --- data ---
   const fileInput = h('input', { type: 'file', accept: '.zip', class: 'hidden', onchange: async (e) => {
     const f = e.target.files[0]; if (!f) return;
@@ -158,64 +170,81 @@ export default async function settings(main) {
       h('button', { class: 'btn', onclick: () => fileInput.click() }, icon('upload', 16), 'Restore backup…'), fileInput),
     h('div', { class: 'small faint' }, `Parlera v${status?.version || ''} · everything stays on this computer.`));
 
-  const navItems = [['learner', 'About you'], ['llm', 'Language model'], ['stt', 'Speech recognition'], ['tts', 'Tutor voice'], ['conv', 'Conversation'], ['progress', 'Progress & cards'], ['anki', 'Anki'], ['data', 'Your data']];
+  const navItems = [['learner', 'About you'], ['general', 'Starting & quitting'], ['llm', 'Language model'], ['stt', 'Speech recognition'], ['tts', 'Tutor voice'], ['conv', 'Conversation'], ['progress', 'Progress & cards'], ['anki', 'Anki'], ['data', 'Your data']];
   mount(main, h('div', { class: 'page' },
     h('div', { class: 'page-head' }, h('div', {}, h('h1', {}, 'Settings'), h('div', { class: 'sub' }, 'Changes save automatically.')), saved),
     h('div', { class: 'settings-grid' },
       h('nav', { class: 'settings-nav' }, navItems.map(([id, label]) => h('a', { href: '#', onclick: (e) => { e.preventDefault(); document.getElementById(`set-${id}`).scrollIntoView({ behavior: 'smooth', block: 'start' }); } }, label))),
-      h('div', {}, learner, llm, stt, tts, conv, prog, anki, data))));
+      h('div', {}, learner, general, llm, stt, tts, conv, prog, anki, data))));
   return () => clearTimeout(timer);
 }
 
+const ENGINE_LABEL = { macos: 'macOS', piper: 'Piper', kokoro: 'Kokoro (natural)', browser: 'Browser', off: 'Off' };
+const KOKORO_LANGS = new Set(['en', 'fr']);
+
+// Per-language voice setup: engine override + voice for that engine + test button.
 async function renderVoices(box, st, set, status) {
-  const engine = st.tts.engine === 'auto' ? status?.tts?.engine : st.tts.engine;
+  mount(box, spinner());
+  const engines = status?.tts?.engines || {};
+  const [macVoices, piperCat, kokoroVoices] = await Promise.all([
+    engines.macos ? api.get('/api/tts/voices?engine=macos').catch(() => ({})) : {},
+    api.get('/api/tts/piper/catalog').catch(() => ({ voices: [] })),
+    api.get('/api/tts/voices?engine=kokoro').catch(() => ({})),
+  ]);
+  const defaultEngine = st.tts.engine === 'auto' ? status?.tts?.engine : st.tts.engine;
+  const effective = (l) => (st.tts.engines?.[l] || defaultEngine);
+  const browserVoices = 'speechSynthesis' in window ? speechSynthesis.getVoices() : [];
+
   const test = async (lang) => {
     try {
-      if (engine === 'browser') {
-        const samples = { sv: 'Hej! Välkommen till din svensklektion.', fr: 'Bonjour ! Bienvenue à ton cours de français.', en: 'Hi! Let\'s practise together.' };
-        const u = new SpeechSynthesisUtterance(samples[lang]); u.lang = { sv: 'sv-SE', fr: 'fr-FR', en: 'en-US' }[lang];
-        const v = speechSynthesis.getVoices().find((x) => x.name === st.tts.voices.browser?.[lang]); if (v) u.voice = v;
+      if (effective(lang) === 'browser') {
+        const samples = { sv: 'Hej! Välkommen till din svensklektion.', fr: 'Bonjour ! Bienvenue à ton cours de français.', en: 'Hello! Shall we practise together?' };
+        const u = new SpeechSynthesisUtterance(samples[lang]); u.lang = { sv: 'sv-SE', fr: 'fr-FR', en: 'en-GB' }[lang];
+        const v = browserVoices.find((x) => x.name === st.tts.voices.browser?.[lang]); if (v) u.voice = v;
         speechSynthesis.speak(u); return;
       }
+      toast('Generating sample… (the first Kokoro sample downloads the model, ~330 MB)', 'info', 2500);
       const buf = await api.post('/api/tts/test', { lang });
       const ctx = new AudioContext(); const src = ctx.createBufferSource(); src.buffer = await ctx.decodeAudioData(buf); src.connect(ctx.destination); src.start();
-    } catch (e) { toast(e.message, 'error'); }
+    } catch (e) { toast(e.message, 'error', 7000); }
   };
-  const langs = [['sv', '🇸🇪 Swedish'], ['fr', '🇫🇷 French'], ['en', '🇬🇧 English (explanations + English course)']];
-  if (engine === 'macos') {
-    mount(box, spinner());
-    const voices = await api.get('/api/tts/voices?engine=macos');
-    mount(box, 
-      h('div', { class: 'callout' }, icon('lightbulb'), h('div', {}, h('b', {}, 'Get much better voices for free: '),
-        'System Settings → Accessibility → Spoken Content → System voice → Manage Voices… → download e.g. ', h('i', {}, 'Alva (Premium)'), ' / ', h('i', {}, 'Klara'), ' for Swedish and ', h('i', {}, 'Thomas'), ' / ', h('i', {}, 'Audrey (Premium)'), ' for French. Then reload this page.')),
-      h('div', { class: 'form-grid' }, langs.map(([l, label]) => h('div', { class: 'row', style: { alignItems: 'flex-end' } },
-        h('label', { class: 'field grow' }, label, h('select', { onchange: (e) => set(`tts.voices.macos.${l}`, e.target.value) },
-          h('option', { value: '' }, 'Best available (automatic)'),
-          (voices[l] || []).map((v) => h('option', { value: v.name, selected: st.tts.voices.macos?.[l] === v.name }, `${v.name} · ${v.locale}`)))),
-        h('button', { class: 'btn icon', title: 'Test', onclick: () => test(l) }, icon('play', 15))))));
-  } else if (engine === 'piper' || st.tts.engine === 'piper') {
-    const cat = await api.get('/api/tts/piper/catalog');
-    mount(box, 
-      cat.installed_package ? null : h('div', { class: 'callout warn' }, icon('alert'), h('div', {}, 'Install Piper first: ', h('code', {}, 'pip install piper-tts'))),
-      h('div', { class: 'form-grid' }, langs.map(([l, label]) => h('div', { class: 'row', style: { alignItems: 'flex-end' } },
-        h('label', { class: 'field grow' }, label, h('select', { onchange: (e) => set(`tts.voices.piper.${l}`, e.target.value) },
-          cat.voices.filter((v) => v.lang === l).map((v) => h('option', { value: v.name, selected: st.tts.voices.piper?.[l] === v.name }, `${v.name} – ${v.desc}${v.installed ? '' : ' (not downloaded)'}`)))),
-        h('button', { class: 'btn icon', title: 'Test', onclick: () => test(l) }, icon('play', 15))))),
-      h('div', { class: 'section-label' }, 'Download voices'),
-      h('div', { class: 'row wrap' }, cat.voices.map((v) => h('button', { class: 'btn sm', disabled: v.installed, onclick: async (e) => {
+
+  const row = (lang, label) => {
+    const eng = effective(lang);
+    const engineOpts = [['', `Default (${ENGINE_LABEL[defaultEngine] || defaultEngine})`],
+      ...['macos', 'kokoro', 'piper', 'browser'].filter((e) => e !== 'kokoro' || KOKORO_LANGS.has(lang))
+        .map((e) => [e, `${ENGINE_LABEL[e]}${e === 'browser' || engines[e] ? '' : ' – not installed'}`])];
+    let voiceSel;
+    if (eng === 'macos') {
+      voiceSel = h('select', { onchange: (e) => set(`tts.voices.macos.${lang}`, e.target.value) }, h('option', { value: '' }, 'Best available (automatic)'),
+        (macVoices[lang] || []).map((v) => h('option', { value: v.name, selected: st.tts.voices.macos?.[lang] === v.name }, `${v.name} · ${v.locale}`)));
+    } else if (eng === 'kokoro') {
+      voiceSel = h('select', { onchange: (e) => set(`tts.voices.kokoro.${lang}`, e.target.value) },
+        (kokoroVoices[lang] || []).map((v) => h('option', { value: v.name, selected: (st.tts.voices.kokoro?.[lang] || '') === v.name }, `${v.name} – ${v.desc}`)));
+    } else if (eng === 'piper') {
+      voiceSel = h('select', { onchange: (e) => set(`tts.voices.piper.${lang}`, e.target.value) },
+        piperCat.voices.filter((v) => v.lang === lang).map((v) => h('option', { value: v.name, selected: st.tts.voices.piper?.[lang] === v.name }, `${v.name} – ${v.desc}${v.installed ? '' : ' (not downloaded)'}`)));
+    } else if (eng === 'browser') {
+      voiceSel = h('select', { onchange: (e) => set(`tts.voices.browser.${lang}`, e.target.value) }, h('option', { value: '' }, 'Automatic'),
+        browserVoices.filter((v) => v.lang.toLowerCase().startsWith(lang)).map((v) => h('option', { value: v.name, selected: st.tts.voices.browser?.[lang] === v.name }, `${v.name} (${v.lang})`)));
+    } else voiceSel = h('select', { disabled: true }, h('option', {}, '—'));
+    return h('div', { class: 'card flat', style: { padding: '12px 14px' } },
+      h('div', { class: 'row between' }, h('b', {}, label), h('button', { class: 'btn sm', onclick: () => test(lang) }, icon('play', 14), 'Test')),
+      h('div', { class: 'form-grid mt' },
+        h('label', { class: 'field' }, 'Engine', h('select', { onchange: async (e) => { set(`tts.engines.${lang}`, e.target.value); st.tts.engines = { ...(st.tts.engines || {}), [lang]: e.target.value }; setTimeout(() => renderVoices(box, st, set, status), 500); } },
+          engineOpts.map(([v, l]) => h('option', { value: v, selected: (st.tts.engines?.[lang] || '') === v }, l)))),
+        h('label', { class: 'field' }, 'Voice', voiceSel)));
+  };
+
+  mount(box,
+    h('div', { class: 'callout' }, icon('lightbulb'), h('div', {},
+      h('b', {}, 'Most natural: '), 'Kokoro for English and French (re-run ./setup.sh and answer "y" to natural voices). Swedish: macOS ',
+      h('i', {}, 'Alva (Premium)'), ' (System Settings → Accessibility → Spoken Content → Manage Voices).')),
+    row('en', '🇬🇧 English (English course + explanations)'), row('fr', '🇫🇷 French'), row('sv', '🇸🇪 Swedish'),
+    piperCat.installed_package ? h('details', {}, h('summary', { class: 'small', style: { cursor: 'pointer' } }, 'Download Piper voices'),
+      h('div', { class: 'row wrap mt' }, piperCat.voices.map((v) => h('button', { class: 'btn sm', disabled: v.installed, onclick: async (e) => {
         const b = e.currentTarget; b.disabled = true; mount(b, spinner(), ` ${v.name}`);
         try { await api.post('/api/tts/piper/download', { name: v.name }); toast(`${v.name} downloaded`, 'success'); renderVoices(box, st, set, await loadStatus()); }
         catch (err) { toast(err.message, 'error'); b.disabled = false; mount(b, v.name); }
-      } }, v.installed ? icon('check', 13) : icon('download', 13), v.name))));
-  } else if (engine === 'browser') {
-    const all = speechSynthesis.getVoices();
-    mount(box, 
-      h('div', { class: 'callout warn' }, icon('info'), 'Browser voices work for conversation, but flashcard audio needs the macOS or Piper engine.'),
-      h('div', { class: 'form-grid' }, langs.map(([l, label]) => h('div', { class: 'row', style: { alignItems: 'flex-end' } },
-        h('label', { class: 'field grow' }, label, h('select', { onchange: (e) => set(`tts.voices.browser.${l}`, e.target.value) },
-          h('option', { value: '' }, 'Automatic'), all.filter((v) => v.lang.toLowerCase().startsWith(l)).map((v) => h('option', { value: v.name, selected: st.tts.voices.browser?.[l] === v.name }, `${v.name} (${v.lang})`)))),
-        h('button', { class: 'btn icon', onclick: () => test(l) }, icon('play', 15))))));
-  } else {
-    mount(box);
-  }
+      } }, v.installed ? icon('check', 13) : icon('download', 13), v.name)))) : null);
 }

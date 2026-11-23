@@ -29,4 +29,5 @@ Return ONLY a JSON object with these fields:
 - "ready_to_advance": true only if the learner clearly handled the unit's goals without much help.
 - "cefr_estimate": your estimate of the learner's speaking level, e.g. "A1", "A1+", "A2".
 - "recommended_unit_id": {% if mode == "placement" %}the id of the unit the learner should start with (choose from: {% for u in all_units %}{{ u.id }}{% if not loop.last %}, {% endif %}{% endfor %}){% else %}"" (empty string){% endif %}.
+- "mastered_patterns": {% if mode == "workshop" %}the exact pattern labels (from the "Mistake patterns already on record" list) that the learner now clearly handles correctly, i.e. got several drills right without help. Be strict; empty list if unsure{% else %}[] (empty list){% endif %}.
 - "exam_score", "exam_max", "exam_breakdown": {% if mode == "exam" %}the estimated score, the maximum{% if language == "en" %} (IELTS: overall band 0–9 in steps of 0.5, exam_max 9; for TOEFL use the 1–6 band scale, exam_max 6; for the Duolingo English Test use 10–160, exam_max 160){% else %} (e.g. 25){% endif %} and a one-paragraph breakdown per criterion{% else %}0, 0 and "" (not an exam){% endif %}.

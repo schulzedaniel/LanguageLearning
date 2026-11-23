@@ -26,6 +26,9 @@ the next session. All prompts, curricula and your data live in plain files you c
 ## Features
 
 **Conversation**
+- Situation presets in every session: *Talk & listen*, *Can't speak* (you type, the tutor talks), *Can't listen* (you talk, the tutor writes) and *Silent*.
+- **Chat break**: *Fika* (Swedish), *Pause café* (French) or *Tea time* (English) in the sidebar. A relaxed chat outside the curriculum, with light corrections and no review needed.
+- **Message your teacher** (sidebar): write a note any time, e.g. "job interview on Friday, practise for it" or "please speak slower". It's turned into instructions you confirm, for 7 days, 30 days or permanently. Manage them under *Memory → Teacher instructions*.
 - Voice conversations: *hands-free* (just talk; it answers when you pause), *push-to-talk* (hold the button or the space bar), or *text*.
 - A real voice, with the target language and English each spoken by the right voice in the same sentence.
 - Tells you which language you're speaking (Swedish/French, English or auto) for accurate transcripts.
@@ -36,6 +39,12 @@ the next session. All prompts, curricula and your data live in plain files you c
 - Click any **blue word** to hear it or turn it into a flashcard.
 
 **Pronunciation feedback.** Whisper's per-word confidence, plus a comparison when you repeat a modelled phrase, flags words that didn't sound right. They're underlined in your message and the tutor gives you a targeted tip. There's a dedicated *Pronunciation* session type too. See [How pronunciation feedback works](#how-pronunciation-feedback-works).
+
+**Mistake workshop**
+- Every mistake from your session reviews is stored with its real examples.
+- Once a week (adjustable), the dashboard offers a workshop. The model can *think* while it groups your recent mistakes by underlying principle and works out why you make them, explaining each rule with your own examples.
+- The session then trains each group: the principle, correcting your own sentences, drills of increasing difficulty, and a mixed review. Patterns you master are marked as resolved.
+- You can also start a workshop any time from *Focus areas* or *Memory → Recurring mistakes*.
 
 **Curriculum and progress**
 - Swedish and French: 31 units each, A1 to B2. English: 19 units, B2 to C2. Every unit has can-do goals, grammar, vocabulary, phrases, pronunciation and culture notes. Aimed at **DELF** (French), **Swedex / TISUS** (Swedish) and **IELTS / TOEFL / Duolingo English Test** (English).
@@ -124,16 +133,12 @@ separate from the program:
   page gets the newest built-in version.
 - **New courses or prompts** (like the English course) are added automatically.
 
-### Do I need to start or stop Ollama myself?
+### Starting and stopping
 
-No.
-- **Starting:** `run.sh` checks whether Ollama is running and starts it in the background if it isn't.
-- **Stopping:** when you quit Parlera, it unloads the model from memory, which frees ~17 GB of RAM straight away. If Parlera started Ollama, it quits Ollama too. If Ollama was already running before (e.g. you use it for other things), it's left running.
-- To never quit Ollama, start Parlera with:
-
-  ```bash
-  PARLERA_QUIT_OLLAMA=0 ./run.sh
-  ```
+- **Start:** the Parlera app, `./run.sh` or `Parlera.command`. Ollama is started automatically if needed.
+- **Stop:** click **Quit Parlera** at the bottom of the sidebar. Or just close the browser tab: Parlera stops by itself after 3 minutes (adjustable; reloading the page is fine).
+- **Saving:** everything is saved continuously, so there's nothing to "save" before quitting. Unfinished sessions stay *in progress* and can be resumed, or reviewed with *End & review*. A safety copy of the database is written on every quit.
+- **Ollama on quit:** the model is always unloaded, which frees its memory. Ollama itself is quit if Parlera started it. Under *Settings → Starting & quitting* you can choose **always** (also quits an Ollama that was already running, e.g. the menu-bar app) or **never**.
 
 ### Where models are stored
 
@@ -143,6 +148,7 @@ Models are never downloaded twice:
 - **macOS voices** are managed by macOS.
 
 **Strongly recommended (5 minutes):**
+- **Most natural voices: Kokoro.** When `./setup.sh` asks about natural neural voices, answer **y**. It installs Kokoro (~1.5 GB including PyTorch), a small local voice model with very natural English (British and American) and French. Then choose *Kokoro* per language in *Settings → Tutor voice*. Kokoro has no Swedish voice, so keep Swedish on macOS or Piper. It needs Python 3.12, which setup arranges automatically.
 - **Better voices, free.** Go to *System Settings → Accessibility → Spoken Content → System voice → Manage Voices…*
   and download a Premium or Enhanced voice for Swedish (e.g. *Alva*), French and English. The names
   differ between macOS versions; any of them works. Parlera picks the best installed voice

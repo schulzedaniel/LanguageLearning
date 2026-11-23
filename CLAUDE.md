@@ -33,13 +33,17 @@ The user-facing documentation is `README.md`.
 - Everything local. Models are never duplicated: we only use Ollama's own model store.
 - Recently learned words are reinforced subtly in sessions, depending on when they were added and their Anki status (§6, "Reinforcement").
 - Updates must never lose progress: data lives outside the program folder, and unedited default prompts/curricula upgrade themselves (§4).
+- Proper quitting: a "Quit Parlera" button, auto-quit after the last tab closes, the model unloaded, Ollama quit per setting (§6, "Quitting").
+- Natural voices: Kokoro, selectable per language (English, French), alongside macOS/Piper.
+- A weekly mistake workshop (§6), situation presets (can't speak / can't listen), "Message your teacher" instructions, and a chat break (Fika / Pause café / Tea time).
+- The user asked about `muse-glimmer:30b-mlx` (Meta, 30B, reasoning, agent-focused, ~21 GB). Recommended: keep Gemma 4 for conversation, and optionally try Muse Glimmer as the *analysis* model.
 
 ## 2. Run, test, develop
 
 ```bash
 ./setup.sh            # macOS: venv, deps, choose/pull Ollama model, Whisper prefetch, ~/Applications/Parlera.app
 ./run.sh              # starts Ollama if needed, serves http://127.0.0.1:8642, opens browser
-.venv/bin/python -m pytest -q          # 23 tests, ~7 s, no GPU/Ollama/Anki needed
+.venv/bin/python -m pytest -q          # 29 tests, ~8 s, no GPU/Ollama/Anki needed
 python3 tools/update_default_hashes.py # run BEFORE committing changes to parlera/defaults/{prompts,curricula}
 .venv/bin/python tools/mock_services.py [ollama_port] [anki_port]   # fake Ollama (:11434) + AnkiConnect (:8765)
 ```
@@ -133,7 +137,7 @@ version being replaced is recorded. `test_known_hashes_cover_git_history` fails 
 - Whisper: the Hugging Face cache, `~/.cache/huggingface/hub`.
 - macOS voices: managed by the system.
 
-## 5. Database schema (db.py, `user_version` = 1)
+## 5. Database schema (db.py, `user_version` = 2)
 
 - `learner(language PK, current_unit_id, started_at, notes)`: `notes` holds the user's "notes for the tutor".
 - `unit_progress(language, unit_id, status active|completed, mastery 0–1, sessions, last_session_at)`
@@ -145,8 +149,12 @@ version being replaced is recorded. `test_known_hashes_cover_git_history` fails 
 - `errors(id, language, category, pattern, pattern_norm UNIQUE per language, example_wrong, example_right, explanation, count, first_seen, last_seen, last_session, resolved)`
 - `memories(id, language NULL=all, category personal|preference|goal|other, content, source_session_id, pinned, active, created_at, updated_at)`
 - `exam_scores(id, language, level, session_id, score, max_score, breakdown, created_at)`
+- V2 adds:
+  - `error_events(id, error_id→errors, language, session_id, wrong, right, created_at)`: one row per occurrence (not written for workshop sessions). The migration backfills one event per existing error.
+  - `workshops(id, language, created_at, period_start, period_end, digest JSON, session_id)`
+  - `directives(id, language NULL=all, kind behaviour|focus|vocabulary|other, content, source_text, expires_at NULL=permanent, active, created_at)`
 
-**Schema changes:** append a new SQL script to `MIGRATIONS` in `db.py`. Never edit `SCHEMA_V1`, because existing users' databases are already at version 1.
+**Schema changes:** append a new SQL script to `MIGRATIONS` in `db.py`. Never edit a shipped schema (V1, and V2 once merged), because users' databases are already at that version.
 
 Timestamps are local, naive ISO strings (`db.now()`); streaks use local dates.
 
@@ -173,6 +181,9 @@ same context dict from `core.build_context()`:
 | `exams`, `today` | Exam list and today's date |
 | `monolingual` | True when the studied language is the explanation language (English course): prompts switch to an English-only coach with "✏️ Upgrade:" suggestions |
 | `reinforce_vocab` | Recently learned words sampled for subtle reuse (see below) |
+| `directives` | Active, unexpired instructions from "Message your teacher" (rendered in `context.md`) |
+| `workshop` | The workshop digest (only in `workshop` sessions) |
+| `break_name` | fika / pause café / tea time |
 
 `TutorSession` caches the system prompt per WebSocket connection, so it stays stable for Ollama's KV cache.
 
@@ -192,6 +203,27 @@ same context dict from `core.build_context()`:
 - `store_candidates` drops `reason=new` English words with zipf > 5.2 (too basic).
 - The review page shows IELTS (max 9), TOEFL (max 6) or DET (max 160) scores as bands.
 - Pronunciation hints also run when the target is English.
+
+**Mistake workshop** (`core.workshop_status`, `core.create_workshop`; settings `workshop.interval_days` 7, `min_mistakes` 3, `thinking` true):
+- **Status:** counts `error_events` since the last workshop. It's `due` when there are ≥ min_mistakes and ≥ interval_days since the last one (or there was never one). The dashboard shows a banner when due, and a "Mistake workshop" button whenever material exists.
+- **Create:** groups the events by pattern (up to 4 examples each) and falls back to unresolved recurring errors when there are none. `analysis_workshop.md` then produces `WORKSHOP_SCHEMA` (title, overview, 2–5 categories with rule/why/examples/tip/patterns, plan) using `chat_json(think=True)`, retried with `think=False` on failure. This creates a `workshop` session and stores the digest.
+- **Training:** `mode_workshop.md` runs explain → their own mistake → drills → mixed review → recap. The session panel shows the categories.
+- **Analysis:** returns `mastered_patterns` (strict, workshop only); `_apply_analysis` sets those errors to `resolved=1`.
+
+**Message your teacher** (`core.parse_teacher_note`, `save_directives`, `active_directives`):
+- `teacher_note.md` turns a free-text note into `NOTE_SCHEMA` items (`days` 0 = permanent, `all_languages`). The UI (`views/teachernote.js`) lets the user edit each item, set its duration (7/14/30 days or permanent) and save.
+- Active, unexpired items are listed in every system prompt under "The learner's own requests".
+
+**Chat break** (mode `break`): `mode_break.md` makes it relaxed, with recast corrections and no curriculum. The session view hides the unit panel and titles it "Fika with Astrid" etc. The sidebar has a button labelled per language.
+
+**Quitting** (`main.py`, `__main__.py`, `run.sh`; settings `app.auto_quit`, `app.auto_quit_minutes` 3, `app.quit_ollama` if_started|always|never):
+- `__main__` runs `uvicorn.Server` and stores it in `app.state.server`; `request_quit()` sets `should_exit`.
+- The frontend sends `POST /api/heartbeat` every 20 s and `sendBeacon('/api/bye')` on pagehide (bye shortens the remaining time to about 20 s, so a reload still survives). A watchdog quits after the timeout.
+- `POST /api/shutdown` is the sidebar's Quit button; the page then shows "Parlera has stopped".
+- On shutdown: unload the model(s), write `backups/parlera-last-quit.db`, and if `quit_ollama == always`, `osascript quit app "Ollama"` + `pkill -x ollama`. `run.sh` quits an Ollama it started unless the setting is `never`.
+- The launcher's Terminal command ends with `; exit`, so the window closes.
+
+**Situation presets** (`session.js` `SITUATIONS`, stored in localStorage `parlera.situation`): full / nospeak (text input, audio on) / nolisten (voice input, audio off, text shown) / silent. They map onto the existing `inputMode` + `audioOn`.
 
 **Immersion** (`core.immersion`): the setting `conversation.immersion` is `"auto"` or a number 0–100.
 In auto mode the base is A1 50, A2 70, B1 85, B2 95, plus a span that grows with the unit's position
@@ -278,11 +310,13 @@ analysis prompt turns them into `pronunciation` errors.
 
 | Section | Keys |
 |---|---|
-| `ui` | `language` (sv\|fr, the currently studied language), `theme` (auto\|light\|dark) |
+| `ui` | `language` (sv\|fr\|en, the currently studied language), `theme` (auto\|light\|dark) |
+| `app` | `auto_quit` (true), `auto_quit_minutes` (3), `quit_ollama` (if_started\|always\|never) |
+| `workshop` | `interval_days` (7), `min_mistakes` (3), `thinking` (true) |
 | `learner` | `name`, `native_language` ("English"), `goals.{sv,fr}` |
 | `llm` | `base_url`, `model`, `analysis_model` ("" = same), `temperature`, `num_ctx` (16384), `keep_alive` ("30m"), `disable_thinking` (sends `think:false`, retried without it on a 400), `context_messages` (40) |
 | `stt` | `backend` (auto\|mlx\|faster\|off), `model` (mlx-community/whisper-large-v3-turbo), `models.{fr,sv}` overrides, `default_input_language` (target\|en\|auto), `pronunciation_hints`, `confidence_threshold` |
-| `tts` | `engine` (auto\|macos\|piper\|browser\|off; auto = macos > piper > browser), `speed`, `beginner_slowdown`, `speak_corrections`, `voices.{macos,piper,browser}.{fr,sv,en}` ("" = auto-pick) |
+| `tts` | `engine` (auto\|macos\|piper\|kokoro\|browser\|off; auto = macos > piper > browser), `engines.{fr,sv,en}` per-language override, `speed`, `beginner_slowdown`, `speak_corrections`, `voices.{macos,piper,kokoro,browser}.{fr,sv,en}` ("" = auto-pick; kokoro defaults en `bm_george`, fr `ff_siwis`) |
 | `conversation` | `input_mode` (handsfree\|ptt\|text), `silence_ms` (1400), `barge_in`, `immersion`, `show_text` |
 | `anki` | `url`, `decks.{sv,fr,en}`, `auto_add`, `deck_per_unit`, `add_reverse`, `include_audio`, `auto_sync` (sync review data when a session is created) |
 | `vocab` | `max_cards_per_session` (15), `min_zipf` (2.0), `reinforce` (true), `reinforce_count` (6) |
@@ -335,6 +369,14 @@ analysis prompt turns them into `pronunciation` errors.
 
 **Backup:** `GET /api/backup`, `POST /api/restore`
 
+**App lifecycle:** `POST /api/heartbeat`, `POST /api/bye`, `POST /api/shutdown`
+
+**Workshop & teacher notes:**
+- `GET /api/workshops/status/{lang}`, `POST /api/workshops` with `{language}` (returns the new session)
+- `POST /api/teacher-note/parse` with `{language, text}`
+- `POST|GET /api/directives`, `PATCH|DELETE /api/directives/{id}`
+- `GET /api/tts/engines`
+
 **Errors:** `ValueError` and `CurriculumError` map to 400, `LLMError` and `AnkiError` to 502, `TTSError` to 500. The body is `{detail}`.
 
 ## 10. Prompts (`defaults/prompts`, Jinja2 with ChainableUndefined, trim_blocks)
@@ -345,7 +387,8 @@ analysis prompt turns them into `pronunciation` errors.
 - Language-specific branches use `{% if monolingual %}` (English course) or `language == "sv"/"fr"/"en"`. The English course gets no "Mixing languages" section, stricter corrections and "✏️ Upgrade:" lines; its analysis adds `upgrade` errors.
 - `context`: learner and unit block.
 
-**Session modes** (`mode_*`): `lesson`, `conversation`, `roleplay`, `review`, `exam`, `writing`, `placement`, `free`, `pronunciation`.
+**Session modes** (`mode_*`): `lesson`, `conversation`, `roleplay`, `review`, `exam`, `writing`, `placement`, `free`, `pronunciation`, `workshop` (created via `POST /api/workshops`, not the start dialog), `break`.
+**Other prompts:** `analysis_workshop` (digest JSON, thinking), `teacher_note` (note → instructions JSON).
 
 **Flow:** `opening` and `resume` are hidden user messages.
 
@@ -416,6 +459,7 @@ The `exam.format` text is inserted into `mode_exam`. The same caveat about user 
 - **Reasoning models:** `<think>` blocks are stripped from both streamed and JSON output.
 - **Memory on quit:** on server shutdown the model is unloaded (`keep_alive: 0`), and `run.sh` quits Ollama only if it started it.
 - **Settings** is a single JSON file; the frontend patches nested keys.
+- **Kokoro** (`tts._kokoro_synth`): `KPipeline(lang_code=voice[0])` (a/b English, f French via espeak-ng), output 24 kHz, and torch tensors are moved to the CPU. **Kokoro/misaki require Python < 3.13**, so `setup.sh` prefers 3.12, uses `uv` to fetch 3.12 when Kokoro is chosen, rebuilds `.venv` if its Python version differs, and installs `espeak-ng` via brew. The extra is `kokoro`. The model downloads from HF on first use (blocked in cloud sessions, so it's untested here). The tutor uses server audio only if both the target language and English are on server engines (`tts.server_side((target, "en"))`).
 - **Licensing:** piper-tts ≥ 1.3 is GPL (fine for personal use). Everything else is MIT/BSD/Apache.
 
 ## 14. Ideas / backlog (not done)

@@ -4,7 +4,7 @@ import { h, icon, mount, loading, toast, confirmDialog, fmtDate, fmtDuration, em
 import { navigate } from '../nav.js';
 import { openStartDialog } from './start.js';
 
-const MODE_ICON = { lesson: 'school', conversation: 'chat', roleplay: 'theater', review: 'refresh', exam: 'award', writing: 'pen', placement: 'compass', free: 'sparkle', pronunciation: 'wave' };
+const MODE_ICON = { lesson: 'school', conversation: 'chat', roleplay: 'theater', review: 'refresh', exam: 'award', writing: 'pen', placement: 'compass', free: 'sparkle', pronunciation: 'wave', workshop: 'target', break: 'coffee' };
 
 export default async function history(main) {
   const lang = state.language;

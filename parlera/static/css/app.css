@@ -101,6 +101,9 @@ code, .mono { font-family: var(--mono); font-size: .92em; }
 .nav a.active svg { color: var(--accent); }
 .nav-sep { height: 1px; background: var(--line); margin: 8px 6px; }
 .sidebar-foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; padding: 8px; font-size: 12.5px; }
+.sidebar-action { width: 100%; justify-content: flex-start; margin-bottom: 6px; font-size: 13.5px; background: var(--bg-elev); }
+#sidebar-actions { padding: 4px 2px 0; }
+.quit-btn { margin-top: 10px; justify-content: flex-start; color: var(--ink-2); }
 .status-line { display: flex; align-items: center; gap: 8px; color: var(--ink-2); cursor: pointer; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex: none; }
 .dot.ok { background: var(--good); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
@@ -351,5 +354,7 @@ kbd { font-family: var(--mono); font-size: 11.5px; padding: 1px 6px; border-radi
 .popover { position: fixed; z-index: 95; background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 10px; min-width: 200px; animation: pop .12s; }
 .popover .w { font-weight: 650; color: var(--tl); margin-bottom: 6px; }
 
+.wrong-inline { text-decoration: line-through; color: var(--bad); }
 .unsure { text-decoration: underline dotted 2px; text-decoration-color: var(--accent-2); text-underline-offset: 3px; cursor: help; }
-.msg.user .unsure { text-decoration-color: #ffd36b; }
+.msg.user .wrong-inline { text-decoration: line-through; color: var(--bad); }
+.unsure { text-decoration-color: #ffd36b; }

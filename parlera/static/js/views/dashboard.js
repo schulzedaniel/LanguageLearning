@@ -1,9 +1,9 @@
 import { api, state, LANGS } from '../api.js';
 import { h, icon, mount, loading, progressBar, fmtDate, fmtDuration, empty } from '../ui.js';
 import { navigate } from '../nav.js';
-import { openStartDialog, startSession } from './start.js';
+import { openStartDialog, startSession, startWorkshop } from './start.js';
 
-const MODE_LABEL = { lesson: 'Lesson', conversation: 'Conversation', roleplay: 'Role-play', review: 'Review', exam: 'Exam', writing: 'Writing', placement: 'Placement', free: 'Free talk', pronunciation: 'Pronunciation' };
+const MODE_LABEL = { lesson: 'Lesson', conversation: 'Conversation', roleplay: 'Role-play', review: 'Review', exam: 'Exam', writing: 'Writing', placement: 'Placement', free: 'Free talk', pronunciation: 'Pronunciation', workshop: 'Workshop', break: 'Chat break' };
 
 export default async function dashboard(main) {
   mount(main, loading());
@@ -77,7 +77,9 @@ export default async function dashboard(main) {
         d.errors.map((e) => h('div', { class: 'row small', style: { margin: '5px 0' } }, h('span', { class: 'badge warn' }, `${e.count}×`), h('span', {}, e.pattern)))) : null,
       d.weak_vocab.length ? h('div', {}, h('div', { class: 'section-label' }, 'Words to review'),
         h('div', { class: 'chips' }, d.weak_vocab.map((v) => h('span', { class: 'chip' }, v.display, h('span', { class: 'm' }, v.translation))))) : null,
-      h('button', { class: 'btn sm', style: { alignSelf: 'flex-start' }, onclick: () => startSession({ mode: 'review' }) }, icon('refresh', 14), 'Practise these'))
+      h('div', { class: 'row wrap' },
+        h('button', { class: 'btn sm', onclick: () => startSession({ mode: 'review' }) }, icon('refresh', 14), 'Practise these'),
+        d.workshop?.available ? h('button', { class: 'btn sm', onclick: () => startWorkshop() }, icon('target', 14), 'Mistake workshop') : null))
       : empty('target', 'Your mistakes and tricky words will show up here after your first sessions.'));
 
   mount(main, h('div', { class: 'page' },
@@ -86,6 +88,10 @@ export default async function dashboard(main) {
         h('div', { class: 'sub' }, firstTime ? `Welcome to ${L.name}. ${L.tutor} is ready for your first lesson.` : `${L.name} · level ${unit.level} · ${d.immersion}% immersion`)),
       h('button', { class: 'btn', onclick: () => openStartDialog() }, icon('plus', 16), 'New session')),
     setup,
+    d.workshop?.due ? h('div', { class: 'callout mb', style: { alignItems: 'center' } }, icon('target', 20),
+      h('div', { class: 'grow' }, h('b', {}, 'Your weekly mistake workshop is ready. '),
+        `${d.workshop.new_mistakes} mistakes in ${d.workshop.new_patterns} patterns ${d.workshop.last ? `since your last workshop ${d.workshop.days_since} days ago` : 'collected so far'}: grouped, explained and trained step by step.`),
+      h('button', { class: 'btn primary', onclick: () => startWorkshop() }, 'Start workshop')) : null,
     hero,
     h('div', { class: 'mt-lg' }, stats),
     h('div', { class: 'grid c2 mt-lg' }, path, h('div', { class: 'col gap-lg' }, recent, focus))));
